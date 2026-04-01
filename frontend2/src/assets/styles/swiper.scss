@@ -1,0 +1,59 @@
+// Import CSS thư viện Swiper
+@import 'swiper/css';
+@import 'swiper/css/effect-coverflow';
+@import 'swiper/css/pagination';
+
+.mySwiperbanchay {
+  width: 100% !important;
+  height: auto !important;
+}
+
+.swiper-slide {
+  text-align: center;
+  font-size: 18px;
+  background: transparent;
+  @include flex-center;
+
+  img {
+    display: block;
+    @include size(100%);
+    object-fit: cover;
+    cursor: pointer;
+  }
+}
+
+// Custom Buttons
+.swiper-btn {
+  @include size(44px);
+  @include flex-center;
+  border-radius: 50%;
+  border: 1px solid rgb(195, 195, 195);
+  background: $color-white;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+
+  &.custom-prev { left: 10px; }
+  &.custom-next { right: 10px; }
+
+  &.swiper-button-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+// Chi tiết sản phẩm
+.mySwiperDetail {
+  @include size(100%, 50%);
+  &1 {
+    @include size(600px, 120px);
+    padding: 30px 0;
+    .slideDetail {
+      @include size(100px);
+      opacity: 0.4;
+      &-thumb-active { opacity: 1; }
+    }
+  }
+}

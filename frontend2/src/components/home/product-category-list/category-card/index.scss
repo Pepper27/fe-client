@@ -1,0 +1,22 @@
+.category-card-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.category-card-image {
+    width: auto;
+    height: 180px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+.category-card-image:hover {
+    transform: scale(1.08);
+}
+
+.category-card-text {
+    text-transform: uppercase;
+    font-size: 12px;
+}

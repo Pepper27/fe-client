@@ -1,0 +1,24 @@
+// Màu sắc
+$color-main: #017EBD;
+$color-hot: #ff0000;
+$color-white: #ffffff;
+$color-black: #000000;
+$color-gray-border: #e5e7eb;
+$color-gray-light: #f3f4f6;
+
+// Mixins
+@mixin flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@mixin transition-standard {
+  transition: all 0.3s ease;
+}

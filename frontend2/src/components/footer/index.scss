@@ -1,0 +1,142 @@
+/* Footer.scss */
+.footer-main {
+  padding-top: 50px;
+  padding-bottom: 20px;
+  background-color: #93c5fd; // blue-300
+  margin-top: 50px;
+
+  @media (max-width: 768px) {
+    padding-top: 20px;
+    padding-bottom: 0;
+  }
+}
+
+.newsletter-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--pri);
+  padding: 30px 70px;
+  border-radius: 20px;
+  gap: 30px;
+
+  @media (max-width: 1024px) { padding: 20px 30px; flex-direction: column; }
+
+  .newsletter-text {
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .newsletter-form {
+    flex: 1;
+    display: flex;
+    background: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    gap: 10px;
+    width: 100%;
+
+    input {
+      flex: 1;
+      border: 1px solid #9ca3af;
+      padding: 0 22px;
+      border-radius: 10px;
+      outline: none;
+    }
+
+    button {
+      background: var(--pri);
+      color: white;
+      padding: 10px 25px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+    }
+  }
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 45px;
+  position: relative;
+  padding-bottom: 15px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -15px;
+    width: 100%;
+    height: 1px;
+    background: var(--pri);
+  }
+
+  @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+}
+
+.footer-column {
+  h4 {
+    text-transform: uppercase;
+    color: var(--pri);
+    font-weight: 700;
+    font-size: 16px;
+    position: relative;
+    margin-bottom: 25px;
+
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 40px;
+      height: 3px;
+      background: var(--pri);
+    }
+  }
+
+  .content-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--pri);
+
+    a {
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.5s ease;
+      &:hover {
+        transform: translateX(15px);
+        color: white;
+      }
+    }
+  }
+}
+
+.social-icons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+
+  .icon-circle {
+    width: 33px;
+    height: 33px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    &.youtube { background: red; }
+    &.fb { background: blue; }
+    &.zalo { background: #0068ff; }
+  }
+}
+
+.footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 27px;
+  color: gray;
+  font-size: 14px;
+}

@@ -1,0 +1,714 @@
+@font-face {
+  font-family: 'OptimaLTProRoman';
+  src: url(https://file.hstatic.net/200000103143/file/optimaltpro-roman.ttf); }
+
+@font-face {
+  font-family: 'Casual_JennaSuePro';
+  src: url(https://file.hstatic.net/200000103143/file/casual_jenna_sue_pro.ttf); }
+
+@font-face {
+  font-family: 'TypewriterEliteMTStd';
+  src: url(https://file.hstatic.net/200000103143/file/typewriterelitemtstd.ttf__tieng_viet_font_nay_.ttf); }
+
+@font-face {
+  font-family: 'Gothic_FRAKTUR';
+  src: url(https://file.hstatic.net/200000103143/file/gothic_fraktur_4l2.ttf); }
+
+@font-face {
+  font-family: 'Magazine_ROMAN';
+  src: url(https://file.hstatic.net/200000103143/file/magazine_roman_3l.ttf); }
+
+@font-face {
+  font-family: 'Script_VANESSA';
+  src: url(https://file.hstatic.net/200000103143/file/script_vanessa_56_2l.ttf); }
+
+body.open-engraving {
+  overflow: hidden; }
+
+.wrap-box-engraving {
+  padding: 5px 0 5px 70px;
+  color: #585858; }
+  @media (max-width: 767px) {
+    .wrap-box-engraving {
+      padding: 5px 0; } }
+  .wrap-box-engraving label {
+    margin: 0; }
+  .wrap-box-engraving ul {
+    list-style-type: inherit;
+    padding: 0 0 0 15px; }
+
+.edit-capture {
+  display: inline-block;
+  text-decoration: underline;
+  margin: 5px 0 0 0;
+  cursor: pointer; }
+
+.wrap-detail-engraving {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0;
+  flex-direction: column; }
+  .wrap-detail-engraving .item-properties-engraving {
+    display: flex;
+    flex-direction: column;
+    gap: 1px; }
+    .wrap-detail-engraving .item-properties-engraving .head-item-engraving {
+      margin: 0 0 4px 0;
+      font-weight: bold; }
+    .wrap-detail-engraving .item-properties-engraving .wrap-text-detail-engraving {
+      display: flex;
+      gap: 10px; }
+      .wrap-detail-engraving .item-properties-engraving .wrap-text-detail-engraving .wrap-detail-info-engraving {
+        display: flex;
+        flex-direction: column; }
+    .wrap-detail-engraving .item-properties-engraving .img-item-engraving img {
+      width: 60px;
+      height: 60px; }
+
+#btn-Engraving:hover {
+  background: black;
+  color: #fff; }
+
+.wrap-capture {
+  display: flex;
+  width: 200px;
+  gap: 10px; }
+  .wrap-capture img {
+    cursor: pointer;
+    width: 30px; }
+
+#sidebar-engraving-review {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 375px;
+  background-color: #fff;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+  display: block;
+  z-index: 500;
+  right: 0;
+  left: auto;
+  -webkit-transform: translate3d(104%, 0, 0);
+  transform: translate3d(104%, 0, 0);
+  transition: transform .35s;
+  display: flex;
+  flex-direction: column;
+  /*-webkit-transform: none;*/
+  /*transform: none;*/ }
+  .open-engraving-review #sidebar-engraving-review {
+    -webkit-transform: none;
+    transform: none; }
+  #sidebar-engraving-review .wrap-engraving .head-sidebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 30px 15px 20px 15px;
+    border-bottom: 1px solid #d0d1d2; }
+    #sidebar-engraving-review .wrap-engraving .head-sidebar .title-sidebar {
+      font-size: 20px;
+      line-height: 32px;
+      font-weight: bold;
+      text-transform: uppercase; }
+    #sidebar-engraving-review .wrap-engraving .head-sidebar .close-sidebar {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer; }
+      #sidebar-engraving-review .wrap-engraving .head-sidebar .close-sidebar svg {
+        width: 18px;
+        height: 18px; }
+  #sidebar-engraving-review .wrap-engraving .content-sidebar {
+    display: flex;
+    gap: 20px;
+    padding: 40px 20px; }
+    #sidebar-engraving-review .wrap-engraving .content-sidebar .item-review-engraving {
+      display: none; }
+      #sidebar-engraving-review .wrap-engraving .content-sidebar .item-review-engraving.active {
+        display: flex;
+        flex-direction: column; }
+      #sidebar-engraving-review .wrap-engraving .content-sidebar .item-review-engraving .head-review {
+        text-align: center;
+        margin: 0 0 10px 0;
+        font-weight: bold;
+        font-size: 18px; }
+  #sidebar-engraving-review .wrap-engraving .action-print {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; }
+    #sidebar-engraving-review .wrap-engraving .action-print button#addtocart-engraving {
+      height: 45px;
+      background: #27251f;
+      border: 1px solid #27251f;
+      color: #fff;
+      text-transform: uppercase;
+      outline: none;
+      box-shadow: none;
+      width: 100%; }
+    #sidebar-engraving-review .wrap-engraving .action-print button.back-engraving {
+      border: 0;
+      letter-spacing: .0375rem;
+      text-decoration: underline;
+      text-transform: capitalize;
+      background: transparent;
+      outline: none;
+      box-shadow: none;
+      margin: 15px 0 0 0; }
+  #sidebar-engraving-review .wrap-engraving .box-note-preview {
+    padding: 0 20px;
+    font-size: 14px;
+    text-align: center; }
+    #sidebar-engraving-review .wrap-engraving .box-note-preview .wrap-note-preview {
+      display: flex;
+      align-items: start;
+      gap: 10px;
+      position: relative; }
+      #sidebar-engraving-review .wrap-engraving .box-note-preview .wrap-note-preview .notify-choose-size {
+        position: absolute;
+        z-index: 1;
+        top: -53px;
+        left: 2%;
+        transition: all 0.25s ease-in-out 0s;
+        -moz-transition: all 0.25s ease-in-out 0s;
+        -o-transition: all 0.25s ease-in-out 0s;
+        -webkit-transition: all 0.25s ease-in-out 0s;
+        -ms-transition: all 0.25s ease-in-out 0s;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        filter: drop-shadow(0px 0px 10px rgba(46, 46, 46, 0.4));
+        background: #2E2E2E;
+        color: white;
+        padding: 12px 19px;
+        letter-spacing: 1px;
+        border-radius: 4px; }
+        #sidebar-engraving-review .wrap-engraving .box-note-preview .wrap-note-preview .notify-choose-size:before {
+          width: 0px;
+          height: 0px;
+          border-top: 10px solid transparent;
+          border-bottom: 10px solid transparent;
+          border-left: 10px solid #2e2e2e;
+          content: "";
+          position: absolute;
+          left: 0;
+          bottom: -10px; }
+        #sidebar-engraving-review .wrap-engraving .box-note-preview .wrap-note-preview .notify-choose-size.active {
+          opacity: 1;
+          visibility: visible;
+          pointer-events: all; }
+      #sidebar-engraving-review .wrap-engraving .box-note-preview .wrap-note-preview p {
+        text-align: justify; }
+      #sidebar-engraving-review .wrap-engraving .box-note-preview .wrap-note-preview input {
+        margin: 3px 0 0 0; }
+        #sidebar-engraving-review .wrap-engraving .box-note-preview .wrap-note-preview input.error {
+          border-color: red; }
+    #sidebar-engraving-review .wrap-engraving .box-note-preview a {
+      text-decoration: underline; }
+
+.mask-overlay-engraving {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 400;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: auto;
+  background-color: rgba(0, 0, 0, 0.7);
+  transition: opacity .25s, visibility .25s;
+  cursor: pointer; }
+  .open-engraving .mask-overlay-engraving,
+  .open-engraving-review .mask-overlay-engraving {
+    pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity .25s, visibility; }
+
+#sidebar-engraving {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 375px;
+  background-color: #fff;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.5);
+  display: block;
+  z-index: 500;
+  right: 0;
+  left: auto;
+  -webkit-transform: translate3d(104%, 0, 0);
+  transform: translate3d(104%, 0, 0);
+  transition: transform .35s;
+  display: flex;
+  flex-direction: column;
+  /*-webkit-transform: none;*/
+  /*transform: none;*/ }
+  .open-engraving #sidebar-engraving {
+    -webkit-transform: none;
+    transform: none; }
+  #sidebar-engraving .wrap-engraving .head-sidebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 30px 15px 20px 15px;
+    border-bottom: 1px solid #d0d1d2; }
+    #sidebar-engraving .wrap-engraving .head-sidebar .title-sidebar {
+      font-size: 20px;
+      line-height: 32px;
+      font-weight: bold;
+      text-transform: uppercase; }
+    #sidebar-engraving .wrap-engraving .head-sidebar .close-sidebar {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer; }
+      #sidebar-engraving .wrap-engraving .head-sidebar .close-sidebar svg {
+        width: 18px;
+        height: 18px; }
+  #sidebar-engraving .wrap-engraving .engraving-one-side-note {
+    background-color: #f5f5f5;
+    border-left-color: #27251f;
+    margin: 0 0 1.25rem;
+    padding: 1.25rem;
+    border-left: .625rem solid #000000;
+    width: calc(100% - 30px);
+    margin: 0 auto;
+    display: flex;
+    gap: 20px; }
+    #sidebar-engraving .wrap-engraving .engraving-one-side-note svg {
+      width: 20px;
+      height: 20px;
+      marign-right: 20px; }
+    #sidebar-engraving .wrap-engraving .engraving-one-side-note .content-asset {
+      width: calc(100% - 30px);
+      color: black; }
+  #sidebar-engraving .wrap-engraving .tab-front-back {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 15px; }
+    #sidebar-engraving .wrap-engraving .tab-front-back .item-tab {
+      border-bottom: 3px solid #d0d1d2;
+      color: #71706c;
+      font-size: 1.125rem;
+      font-weight: 700;
+      line-height: 2.1875rem;
+      padding: 0 0 .3125rem;
+      width: 100%;
+      text-align: center;
+      text-transform: uppercase;
+      cursor: pointer; }
+      #sidebar-engraving .wrap-engraving .tab-front-back .item-tab.active {
+        border-color: #27251f;
+        color: #27251f; }
+  #sidebar-engraving .wrap-engraving .type-engraving {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 0;
+    border-bottom: 1px solid #d0d1d2;
+    width: calc(100% - 30px);
+    margin: 0 auto;
+    gap: 30px; }
+    #sidebar-engraving .wrap-engraving .type-engraving .item-type {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer; }
+      #sidebar-engraving .wrap-engraving .type-engraving .item-type img {
+        border: 2px solid transparent;
+        border-radius: 50%;
+        height: 78px;
+        width: 78px; }
+      #sidebar-engraving .wrap-engraving .type-engraving .item-type span {
+        font-size: 11px; }
+      #sidebar-engraving .wrap-engraving .type-engraving .item-type.active img {
+        border-color: #27251f; }
+      #sidebar-engraving .wrap-engraving .type-engraving .item-type.active span {
+        color: #27251f; }
+  #sidebar-engraving .wrap-engraving #canvas-capture-front, #sidebar-engraving .wrap-engraving #canvas-capture-back {
+    max-width: calc(100% - 30px);
+    margin: 20px auto;
+    background: #f5f5f5;
+    display: none;
+    height: 330px; }
+    #sidebar-engraving .wrap-engraving #canvas-capture-front.active, #sidebar-engraving .wrap-engraving #canvas-capture-back.active {
+      display: flex;
+      align-items: center;
+      justify-content: center; }
+  #sidebar-engraving .wrap-engraving .group-optional {
+    width: calc(100% - 30px);
+    margin: 0 auto; }
+    #sidebar-engraving .wrap-engraving .group-optional .group-type {
+      display: none; }
+      #sidebar-engraving .wrap-engraving .group-optional .group-type.active {
+        display: block; }
+      #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .wrap-small-tab {
+        display: flex;
+        align-items: center;
+        justify-content: center; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .wrap-small-tab button {
+          background-color: #f5f5f5;
+          border: 1px solid #f5f5f5;
+          border-radius: 2.1875rem;
+          color: #27251f;
+          height: 2.5rem;
+          padding: 0 1.875rem;
+          text-transform: capitalize;
+          width: 50%;
+          outline: none;
+          box-shadow: none; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .wrap-small-tab button.active {
+            background-color: #27251f;
+            border: 1px solid #27251f;
+            border-radius: 2.1875rem;
+            color: #fff;
+            z-index: 2; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .wrap-small-tab button.active:first-child {
+              margin-right: -0.9375rem; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .wrap-small-tab button.active:last-child {
+              margin-left: -0.9375rem; }
+      #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab {
+        display: none; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab.active {
+          display: flex; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .wrap-input-text {
+          width: 100%;
+          margin: 15px 0 0 0; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .wrap-input-text input {
+            width: 100%;
+            height: 45px;
+            border: none;
+            border-bottom: 1px solid #ececec;
+            outline: none;
+            box-shadow: none; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper {
+          display: flex;
+          justify-content: space-between;
+          width: 100%;
+          padding: 20px; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button {
+            background: #fff;
+            border: 1px solid #000;
+            border-radius: 50%;
+            -ms-flex-negative: 0;
+            flex-shrink: 0;
+            height: 2.375rem;
+            margin: 0 .3125rem .3125rem;
+            padding: 0;
+            width: 2.375rem;
+            outline: none;
+            box-shadow: none; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button[data-attr-value="OptimaLTProRoman"] {
+              font-family: 'OptimaLTProRoman'; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button[data-attr-value="Casual_JennaSuePro"] {
+              font-family: 'Casual_JennaSuePro'; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button[data-attr-value="TypewriterEliteMTStd"] {
+              font-family: 'TypewriterEliteMTStd'; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button[data-attr-value="Gothic_FRAKTUR"] {
+              font-family: 'Gothic_FRAKTUR'; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button[data-attr-value="Magazine_ROMAN"] {
+              font-family: 'Magazine_ROMAN'; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button[data-attr-value="Script_VANESSA"] {
+              font-family: 'Script_VANESSA'; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button svg {
+              height: 1.5625rem;
+              width: 100%; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button.active {
+              background: #000; }
+              #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button.active svg {
+                fill: #fff; }
+              #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-wrapper button.active span {
+                color: #fff; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-symbols {
+          background-color: #f5f5f5;
+          border-radius: 40px;
+          -webkit-overflow-scrolling: touch;
+          -ms-overflow-style: none;
+          overflow-x: scroll;
+          overflow-y: hide;
+          scrollbar-width: none;
+          white-space: nowrap;
+          margin-top: 20px; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-symbols button {
+            border-width: 0;
+            display: inline-block;
+            height: 2.5rem;
+            padding: 0 .625rem;
+            text-align: center;
+            outline: none;
+            box-shadow: none;
+            border: none;
+            background: transparent; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .inner-scroll-symbols button.selected {
+              background-color: #e6e6e6;
+              border-radius: 2.1875rem;
+              color: #211710; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab[data-tab-type="fonts"].active {
+          flex-direction: column; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab[data-tab-type="icon"].active {
+          flex-direction: column; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .js-icons-vertical-carousel {
+          height: 250px;
+          -ms-overflow-style: none;
+          overflow-y: scroll;
+          scrollbar-width: none;
+          margin: 20px 0 0 0; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .js-icons-vertical-carousel .engraving-symbols-content-title {
+            color: #71706c;
+            font-size: .75rem;
+            padding-bottom: 1.25rem;
+            text-transform: capitalize; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .js-icons-vertical-carousel .engraving-symbols-content-icons {
+            display: -ms-flexbox;
+            display: flex;
+            -ms-flex-wrap: wrap;
+            flex-wrap: wrap;
+            gap: 1rem 1rem;
+            padding-bottom: 1.25rem; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-icon .content-small-tab .item-content-tab .js-icons-vertical-carousel .engraving-symbols-content-icons button {
+              border: 0;
+              height: 50px;
+              padding: 0;
+              position: relative;
+              width: 50px; }
+      #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image {
+        position: relative;
+        padding: 0 0 50px 0; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-wrapper .swiper-slide .item-type-image .head-type {
+          color: #71706c;
+          font-size: .75rem;
+          margin-top: 1.25rem;
+          text-transform: capitalize;
+          margin-bottom: 20px; }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-wrapper .swiper-slide .item-type-image .list-icon {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          grid-template-rows: 1fr;
+          gap: 30px; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-wrapper .swiper-slide .item-type-image .list-icon .item-icon {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-wrapper .swiper-slide .item-type-image .list-icon .item-icon button {
+              background-color: #fff;
+              border: 1px solid #d0d1d2;
+              border-radius: 50%;
+              display: block;
+              height: 5rem;
+              width: 5rem;
+              outline: none;
+              box-shadow: none; }
+              #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-wrapper .swiper-slide .item-type-image .list-icon .item-icon button img {
+                width: 38px;
+                height: 38px;
+                filter: brightness(0) saturate(100%) invert(10%) sepia(2%) saturate(4749%) hue-rotate(358deg) brightness(98%) contrast(89%); }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-wrapper .swiper-slide .item-type-image .list-icon .item-icon.active button {
+              background: #000;
+              border-color: #000; }
+              #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-wrapper .swiper-slide .item-type-image .list-icon .item-icon.active button img {
+                filter: brightness(0) invert(1); }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-style-btn {
+          position: absolute;
+          top: 14px;
+          right: 0;
+          z-index: 9;
+          cursor: pointer; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-style-btn svg {
+            width: 20px;
+            height: 20px; }
+          #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-style-btn.swiper-prev {
+            right: 30px; }
+            #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-engraving .swiper-style-btn.swiper-prev svg {
+              transform: rotate(180deg); }
+        #sidebar-engraving .wrap-engraving .group-optional .group-type.group-image .swiper-pagination {
+          bottom: 15px; }
+  #sidebar-engraving .wrap-engraving .action-print {
+    display: flex;
+    flex-direction: column;
+    padding: 15px; }
+    #sidebar-engraving .wrap-engraving .action-print .wrap-at-print {
+      display: flex;
+      gap: 5px;
+      justify-content: space-between; }
+    #sidebar-engraving .wrap-engraving .action-print #capture-btn-save, #sidebar-engraving .wrap-engraving .action-print #capture-btn-review {
+      height: 45px;
+      background: #27251f;
+      border: 1px solid #27251f;
+      color: #fff;
+      text-transform: uppercase;
+      outline: none;
+      box-shadow: none;
+      width: 100%; }
+    #sidebar-engraving .wrap-engraving .action-print .close-engraving {
+      border: 0;
+      letter-spacing: .0375rem;
+      text-decoration: underline;
+      text-transform: capitalize;
+      background: transparent;
+      outline: none;
+      box-shadow: none;
+      margin: 15px 0 0 0; }
+  #sidebar-engraving .wrap-engraving .face-print {
+    position: relative; }
+    #sidebar-engraving .wrap-engraving .face-print[data-font="OptimaLTProRoman"] .text-item {
+      font-family: 'OptimaLTProRoman'; }
+    #sidebar-engraving .wrap-engraving .face-print[data-font="Casual_JennaSuePro"] .text-item {
+      font-family: 'Casual_JennaSuePro'; }
+    #sidebar-engraving .wrap-engraving .face-print[data-font="TypewriterEliteMTStd"] .text-item {
+      font-family: 'TypewriterEliteMTStd'; }
+    #sidebar-engraving .wrap-engraving .face-print[data-font="Gothic_FRAKTUR"] .text-item {
+      font-family: 'Gothic_FRAKTUR'; }
+    #sidebar-engraving .wrap-engraving .face-print[data-font="Magazine_ROMAN"] .text-item {
+      font-family: 'Magazine_ROMAN'; }
+    #sidebar-engraving .wrap-engraving .face-print[data-font="Script_VANESSA"] .text-item {
+      font-family: 'Script_VANESSA'; }
+    #sidebar-engraving .wrap-engraving .face-print .draw-icon-text {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center; }
+      #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #canvasContainer-front,
+      #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #canvasContainer-back {
+        display: inline-block;
+        max-width: 100%; }
+      #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #myCanvas-front,
+      #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #myCanvas-back {
+        width: 100px;
+        min-height: 50px;
+        max-height: 100px;
+        border: 1px dashed #d0d1d2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        line-height: 1; }
+        #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #myCanvas-front .text-item,
+        #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #myCanvas-back .text-item {
+          line-height: 0.6; }
+          #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #myCanvas-front .text-item.text-item-enter,
+          #sidebar-engraving .wrap-engraving .face-print .draw-icon-text #myCanvas-back .text-item.text-item-enter {
+            width: 100%; }
+    #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front,
+    #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back {
+      display: -ms-flexbox;
+      display: flex;
+      position: absolute;
+      top: 3.125rem;
+      flex-direction: column !important;
+      z-index: 99;
+      align-items: end; }
+      #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front span,
+      #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back span {
+        margin-right: -23px; }
+      #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front input,
+      #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back input {
+        -moz-appearance: none;
+        appearance: none;
+        background: transparent;
+        cursor: pointer;
+        height: 1.125rem;
+        transform: rotate(270deg);
+        transform-origin: right 0;
+        width: 15rem; }
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front input:focus,
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back input:focus {
+          outline: none; }
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front input::-webkit-slider-runnable-track,
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back input::-webkit-slider-runnable-track {
+          background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNDAiIGhlaWdodD0iMTgiIGZpbGw9Im5vbmUiIHhtbG5zOnY9Imh0dHBzOi8vdmVjdGEuaW8vbmFubyI+PG1hc2sgaWQ9IkEiIG1hc2tVbml0cz0idXNlclNwYWNlT25Vc2UiIHg9IjIwIiB5PSIyNSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjI0MCI+PHBhdGggZD0iTTI5IDI2NUwyMCAyNWgxOHoiIGZpbGw9IiNkMGQxZDIiLz48L21hc2s+PGcgdHJhbnNmb3JtPSJyb3RhdGUoOTAgMTQzIDEyMykiPjxwYXRoIGQ9Ik0yOSAyNjZMMjAgMjZoMTh6IiBmaWxsPSIjZDBkMWQyIi8+PGcgbWFzaz0idXJsKCNBKSI+PHBhdGggc3Ryb2tlPSIjZjVmNWY1IiBkPSJNMjAgNDQuNWgxOG0tMTggMjBoMThtLTE4IDIwaDE4bS0xOCAyMGgxOG0tMTggMjBoMThtLTE4IDIwaDE4bS0xOCAyMGgxOG0tMTggMjBoMThtLTE4IDIwaDE4bS0xOCAyMGgxOG0tMTggMjBoMThtLTE4IDIwaDE4Ii8+PC9nPjwvZz48L3N2Zz4=") no-repeat 0 0;
+          border-radius: 0;
+          height: 1.125rem; }
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front input::-webkit-slider-thumb,
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back input::-webkit-slider-thumb {
+          appearance: none;
+          background-color: #fff;
+          border: 1px solid #f5f5f5;
+          border-radius: 50%;
+          box-shadow: 0 0.625rem 0.625rem -0.5rem rgba(0, 0, 0, 0.05);
+          height: 1.75rem;
+          margin-top: -3px;
+          width: 1.75rem; }
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front input::-moz-range-track,
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back input::-moz-range-track {
+          background: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNDAiIGhlaWdodD0iMTgiIGZpbGw9Im5vbmUiIHhtbG5zOnY9Imh0dHBzOi8vdmVjdGEuaW8vbmFubyI+PG1hc2sgaWQ9IkEiIG1hc2tVbml0cz0idXNlclNwYWNlT25Vc2UiIHg9IjIwIiB5PSIyNSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjI0MCI+PHBhdGggZD0iTTI5IDI2NUwyMCAyNWgxOHoiIGZpbGw9IiNkMGQxZDIiLz48L21hc2s+PGcgdHJhbnNmb3JtPSJyb3RhdGUoOTAgMTQzIDEyMykiPjxwYXRoIGQ9Ik0yOSAyNjZMMjAgMjZoMTh6IiBmaWxsPSIjZDBkMWQyIi8+PGcgbWFzaz0idXJsKCNBKSI+PHBhdGggc3Ryb2tlPSIjZjVmNWY1IiBkPSJNMjAgNDQuNWgxOG0tMTggMjBoMThtLTE4IDIwaDE4bS0xOCAyMGgxOG0tMTggMjBoMThtLTE4IDIwaDE4bS0xOCAyMGgxOG0tMTggMjBoMThtLTE4IDIwaDE4bS0xOCAyMGgxOG0tMTggMjBoMThtLTE4IDIwaDE4Ii8+PC9nPjwvZz48L3N2Zz4=") no-repeat 0 0;
+          border-radius: 0;
+          height: 1.125rem; }
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-front input::-moz-range-thumb,
+        #sidebar-engraving .wrap-engraving .face-print .slider-ranger-size-back input::-moz-range-thumb {
+          background-color: #fff;
+          border: 1px solid #f5f5f5;
+          border-radius: 50%;
+          box-shadow: 0 0.625rem 0.625rem -0.5rem rgba(0, 0, 0, 0.05);
+          height: 1.75rem;
+          width: 1.75rem; }
+    #sidebar-engraving .wrap-engraving .face-print .draw-image {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center; }
+      #sidebar-engraving .wrap-engraving .face-print .draw-image img {
+        width: 45px;
+        height: 45px; }
+    #sidebar-engraving .wrap-engraving .face-print.processing #myCanvas-front,
+    #sidebar-engraving .wrap-engraving .face-print.processing #myCanvas-back {
+      border: none; }
+    #sidebar-engraving .wrap-engraving .face-print.processing .slider-ranger-size-front,
+    #sidebar-engraving .wrap-engraving .face-print.processing .slider-ranger-size-back {
+      display: none; }
+    #sidebar-engraving .wrap-engraving .face-print.no-print > div {
+      display: none; }
+    #sidebar-engraving .wrap-engraving .face-print.just-draw-image .slider-ranger-size-front,
+    #sidebar-engraving .wrap-engraving .face-print.just-draw-image .slider-ranger-size-back {
+      display: none; }
+    #sidebar-engraving .wrap-engraving .face-print.just-draw-image .draw-icon-text {
+      display: none; }
+    #sidebar-engraving .wrap-engraving .face-print.just-draw-image .draw-image {
+      display: flex; }
+    #sidebar-engraving .wrap-engraving .face-print.special-draw .draw-icon-text #myCanvas-front, #sidebar-engraving .wrap-engraving .face-print.special-draw .draw-icon-text #myCanvas-back {
+      width: 180px;
+      height: 45px;
+      min-height: 45px;
+      max-height: none; }
+    #sidebar-engraving .wrap-engraving .face-print.special-draw .draw-image img {
+      width: 40px;
+      height: 40px; }
+  #sidebar-engraving .wrap-engraving #warningMessage {
+    width: calc(100% - 30px);
+    margin: 0 auto 10px auto;
+    color: red; }
+
+.box-detail-engraving {
+  padding: 15px;
+  background: #f5f5f5;
+  margin: 15px 0 0 0; }
+  .box-detail-engraving span {
+    font-weight: bold;
+    margin: 0 0 5px 0;
+    display: block; }
+  .box-detail-engraving a {
+    text-decoration: underline; }

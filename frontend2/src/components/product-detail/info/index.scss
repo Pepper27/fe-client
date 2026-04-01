@@ -1,0 +1,104 @@
+/* Local styles for InformationDetail */
+
+.info-container {
+  margin-top: 16px;
+}
+
+.info-section {
+  padding: 12px 0;
+}
+
+.info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.info-title {
+  font-size: 16px;
+  margin: 0;
+}
+
+.info-content {
+  padding: 12px 0 0;
+  color: #374151;
+  line-height: 1.6;
+}
+
+.text-bold {
+  font-weight: 600;
+}
+
+.pt-10 {
+  padding-top: 10px;
+}
+
+.text-relaxed {
+  color: #6b7280;
+}
+
+.text-footer-note {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.image-wrapper {
+  margin: 12px 0;
+}
+
+.image-wrapper img {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  display: block;
+}
+
+.centered {
+  text-align: center;
+}
+
+.size-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.size-table th,
+.size-table td {
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  text-align: left;
+}
+
+.info-list {
+  margin: 8px 0 0 16px;
+}
+
+.border-y {
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.border-b {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.category-section .info-list {
+  list-style: disc;
+}
+
+.section-subtitle {
+  margin-top: 12px;
+}
+
+.step-title {
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 12px;
+}

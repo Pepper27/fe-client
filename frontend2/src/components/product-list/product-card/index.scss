@@ -1,0 +1,128 @@
+@import "../../../assets/styles/variables";
+
+/* WRAPPER */
+.product-item-link {
+  text-decoration: none;
+  color: inherit;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: block;
+  width: 100%;
+}
+
+/* CARD */
+.product-item-container {
+  background: #fff;
+  position: relative;
+  width: 100%;
+}
+
+/* button reset: avoid native button styles affecting layout */
+button.product-item-link {
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: left;
+}
+
+/* IMAGE */
+.image-wrapper {
+  position: relative;
+  // background: #f2f2f2;
+  overflow: hidden; // tránh zoom tràn
+  width: 100%;
+}
+
+.product-image {
+  width: 100%;
+  height: auto;
+  object-fit: cover; // ảnh phủ kín khung
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.product-item-container:hover .product-image {
+  transform: scale(1.05);
+}
+
+/* LIKE BUTTON */
+.like-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.heart-icon {
+  width: 22px;
+  height: 22px;
+  color: #222;
+}
+
+.like-button.liked .heart-icon {
+  color: $color-hot;
+}
+
+/* QUICK VIEW */
+.quick-view-button {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 20px;
+  width: 85%;
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 14px 0;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.product-item-container:hover .quick-view-button {
+  opacity: 1;
+}
+
+/* INFO TAG */
+.info-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 2px;
+  justify-content: flex-start;
+  color: #000;
+}
+
+.message-tag {
+  font-size: 11px;
+  background: #f6cdd2;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  color: #000;
+  display: inline-block;
+}
+
+/* NAME */
+.product-name {
+  margin: 8px 0 0 0;
+  font-size: 13px;
+  min-height: 38px;
+  text-align: left;
+  color: #000;
+  padding-left: 2px;
+}
+
+/* PRICE */
+.product-price {
+  color: $color-main;
+  font-weight: 700;
+  text-align: left;
+  padding-left: 2px;
+  font-size: 14px;
+}
