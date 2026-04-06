@@ -4,6 +4,7 @@ import { IoCloseOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
 import { TfiLocationPin } from "react-icons/tfi";
 import { MdMenu } from "react-icons/md";
+import { RiSparkling2Line } from "react-icons/ri";
 import "./index.scss";
 import { Link } from 'react-router-dom';
 
@@ -48,6 +49,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                   <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
                 </svg>
               </Link>
+              <Link to="/design" className="icon-btn" aria-label="Mix charm">
+                <RiSparkling2Line />
+              </Link>
               <button className="icon-btn desktop-only"><TfiLocationPin /></button>
               <div className="icon-btn has-popover">
                 <Link to="/authen" className="account-icon-link" aria-label="Đăng nhập tài khoản">
@@ -63,7 +67,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                   </div>
                 </div>
               </div>
-              <button className="icon-btn"><CiShoppingCart /></button>
+              <Link to="/cart" className="icon-btn" aria-label="Giỏ hàng">
+                <CiShoppingCart />
+              </Link>
             </div>
           </div>
         </div>

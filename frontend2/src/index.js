@@ -11,6 +11,8 @@ import Products from './pages/product-list/Products';
 import ProductDetailPage from './pages/product-detail';
 import Wishlist from './pages/wishlist';
 import Authentication from './pages/authen';
+import DesignBuilder from './pages/design';
+import Cart from './pages/Cart';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -27,6 +29,8 @@ root.render(
       <Route path="/product/:id" element={<ProductDetailPageWrapper />} />
       <Route path="/wishlist" element={<Wishlist />} />
       <Route path="/authen" element={<Authentication />} />
+      <Route path="/design" element={<DesignBuilder />} />
+      <Route path="/cart" element={<Cart />} />
     </Routes>
     <Footer />
   </BrowserRouter>
