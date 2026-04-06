@@ -1,0 +1,264 @@
+// .info-container {
+//   max-width: 100%;
+//   margin: 0 auto;
+//   font-family: Arial, sans-serif;
+//   color: #333;
+// }
+
+// /* Layout helpers */
+// .border-y {
+//   border-top: 1px solid #e5e7eb;
+//   border-bottom: 1px solid #e5e7eb;
+// }
+
+
+// // Container
+// .info-container {
+//   max-width: 100%;
+//   margin: 0 auto;
+//   font-family: Arial, sans-serif;
+//   color: #333;
+// }
+
+// // Layout helperss
+// .border-y {
+//   border-top: 1px solid #e5e7eb;
+//   border-bottom: 1px solid #e5e7eb;
+// }
+// .border-b {
+//   border-bottom: 1px solid #e5e7eb;
+// }
+// .pt-10 { padding-top: 10px; }
+
+// // Section Header
+// .info-section {
+//   padding: 12px 0;
+// }
+// .info-header {
+//   display: flex;
+//   justify-content: space-between;
+//   align-items: center;
+//   cursor: pointer;
+// }
+// .info-title {
+//   font-size: 16px;
+//   font-weight: bold;
+//   margin: 0;
+// }
+// .uppercase { text-transform: uppercase; }
+
+// // Content Styling
+// .info-content {
+//   padding: 12px 0 0;
+//   color: #374151;
+//   line-height: 1.6;
+// }
+// .info-content p {
+//   margin-bottom: 12px;
+//   line-height: 1.6;
+// }
+// .text-bold { font-weight: 600; }
+// .italic-bold { font-weight: bold; font-style: italic; }
+// .underline { text-decoration: underline; }
+
+// .info-list {
+//   margin: 8px 0 0 16px;
+//   list-style: disc;
+// }
+// .info-list li {
+//   margin-bottom: 4px;
+// }
+// .no-bullet { list-style: none; padding-left: 0; }
+// .text-relaxed { color: #6b7280; }
+// .text-footer-note {
+//   font-size: 12px;
+//   color: #6b7280;
+// }
+
+// // Image & Table Styling
+// .image-wrapper {
+//   margin: 12px 0;
+// }
+// .image-wrapper img {
+//   width: 100%;
+//   max-width: 320px;
+//   height: auto;
+//   display: block;
+// }
+// .image-wrapper.centered {
+//   text-align: center;
+// }
+// .size-table {
+//   width: 100%;
+//   border-collapse: collapse;
+//   margin-top: 12px;
+// }
+// .size-table th, .size-table td {
+//   border: 1px solid #e5e7eb;
+//   padding: 8px;
+//   text-align: left;
+// }
+// .size-table th {
+//   background-color: #f3f4f6;
+//   font-weight: bold;
+// }
+// .brand-title {
+//   font-size: 16px;
+//   font-weight: 700;
+//   margin-top: 12px;
+// }
+// .step-title {
+//   font-size: 14px;
+//   margin-top: 8px;
+// }
+/* WRAPPER */
+.info-container {
+  width: 100%;
+  font-size: 14px;
+  color: #222;
+}
+
+/* SECTION */
+.info-section {
+  padding: 16px 0;
+}
+
+.border-y {
+  border-top: 1px solid #e5e5e5;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.border-b {
+  border-bottom: 1px solid #e5e5e5;
+}
+
+/* HEADER */
+.info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.info-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.uppercase {
+  text-transform: uppercase;
+}
+
+/* CONTENT */
+.info-content {
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+/* TEXT */
+.text-bold {
+  font-weight: 700;
+}
+
+.italic-bold {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.text-relaxed {
+  line-height: 1.7;
+  margin: 12px 0;
+}
+
+.text-footer-note {
+  font-style: italic;
+  font-weight: 700;
+  color: #6b7280;
+}
+
+/* SPACING */
+.pt-10 {
+  padding-top: 10px;
+}
+
+/* LIST */
+.info-list {
+  padding-left: 20px;
+  margin-top: 8px;
+}
+
+.info-list li {
+  margin-bottom: 4px;
+}
+
+.no-bullet {
+  list-style: none;
+  padding-left: 0;
+}
+
+/* CATEGORY */
+.category-section {
+  margin-top: 20px;
+}
+
+/* SUBTITLE */
+.section-subtitle {
+  margin-top: 20px;
+  font-weight: 600;
+}
+
+.underline {
+  text-decoration: underline;
+}
+
+/* STEP */
+.step-title {
+  font-weight: 700;
+  font-style: italic;
+  margin-top: 16px;
+}
+
+/* BRAND */
+.brand-title {
+  font-weight: 700;
+  margin-top: 20px;
+}
+
+/* IMAGE */
+.image-wrapper {
+  margin: 12px 0;
+}
+
+.image-wrapper img {
+  width: 100%;
+  display: block;
+}
+
+.image-wrapper.centered {
+  display: flex;
+  justify-content: center;
+}
+
+/* TABLE */
+.size-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.size-table th,
+.size-table td {
+  border: 1px solid #d1d5db;
+  padding: 8px;
+}
+
+.size-table thead {
+  background-color: #f3f4f6;
+}
+
+/* NOTE */
+.description-note {
+  margin-top: 10px;
+  line-height: 1.6;
+}

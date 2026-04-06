@@ -1,5 +1,5 @@
 import { products } from "../../../data/product";
-import { ProductCard } from "../../../components/product-list/product-card/index";
+import { ProductCard } from "../../../components/product-card/index";
 import "./index.scss";
 
 export const ProductSignature = () => {

@@ -84,7 +84,7 @@ export default function ProductListPage() {
                   className="sort-trigger"
                   onClick={() => setSortOpen(!sortOpen)}
                 >
-                  <div>
+                  <div className="content">
                     <p className="sort-label">Sắp xếp</p>
                     <p className="sort-value">{selectedSort.label}</p>
                   </div>
@@ -106,6 +106,7 @@ export default function ProductListPage() {
                   </ul>
                 )}
               </div>
+              {/* category */}
               <div className="filter-section">
                 <div
                   className="filter-section__header"

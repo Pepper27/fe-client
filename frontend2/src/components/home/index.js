@@ -3,7 +3,7 @@ import { ProductSignature } from "./product-signature"
 import "./index.scss";
 import { Navigation } from "swiper/modules";
 import { products } from "../../data/product";
-import { ProductCard } from "../product-list/product-card";
+import { ProductCard } from "../product-card";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { AiOutlineLeft, AiOutlineRight } from 'react-icons/ai';
 import { COMMITMENTS_DATA } from "../../data/commitment";

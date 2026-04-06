@@ -1,11 +1,27 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { HiOutlinePencil } from "react-icons/hi2";
+import { isInWishlist, subscribeWishlist, toggleWishlistItem } from "../../utils/wishlist";
 import "./index.scss";
 
 export const ProductCard = ({ id, name, price, images }) => {
-  const [liked, setLiked] = useState(false);
+  const productPayload = useMemo(
+    () => ({ id: String(id), name, price, images }),
+    [id, images, name, price]
+  );
+  const [liked, setLiked] = useState(() => isInWishlist(productPayload.id));
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setLiked(isInWishlist(productPayload.id));
+  }, [productPayload.id]);
+
+  useEffect(() => {
+    return subscribeWishlist((items) => {
+      const active = items.some((item) => String(item.id) === productPayload.id);
+      setLiked(active);
+    });
+  }, [productPayload.id]);
 
   return (
     <button type="button" className="product-item-link" onClick={() => navigate(`/product/${id}`)}>
@@ -14,7 +30,8 @@ export const ProductCard = ({ id, name, price, images }) => {
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            setLiked((prev) => !prev);
+            const nextLiked = toggleWishlistItem(productPayload);
+            setLiked(nextLiked);
           }}
           className={`like-button ${liked ? 'liked' : 'unliked'}`}
           aria-pressed={liked}
@@ -37,16 +54,11 @@ export const ProductCard = ({ id, name, price, images }) => {
         {/* IMAGE */}
         <div className="image-wrapper">
           <img src={images} alt={name} className="product-image" />
-
-          
           <button
             className="quick-view-button"
             onClick={(e) => {
-              // prevent outer button navigation; the quick view modal can be implemented later
               e.preventDefault();
               e.stopPropagation();
-              // placeholder action for quick view
-              // eslint-disable-next-line no-console
               console.log("Quick view ->", id);
             }}
             aria-label={`Xem nhanh ${name}`}
@@ -56,12 +68,11 @@ export const ProductCard = ({ id, name, price, images }) => {
         </div>
 
         {/* INFO */}
-        <div className="info-section">
+        <div className="customization-tag">
           <HiOutlinePencil />
           <span className="message-tag">khắc thông điệp</span>
         </div>
-
-        <p className="product-name">{name}</p>
+        <p className="product-name-card">{name}</p>
         <p className="product-price">{price}</p>
       </div>
     </button>

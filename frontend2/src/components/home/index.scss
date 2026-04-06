@@ -82,13 +82,11 @@
     right: 0;
   }
 
-  /* Ẩn nút trên mobile cho đỡ vướng */
   @media (max-width: 768px) {
     display: none;
   }
 }
 
-// Nếu bạn muốn tiêu đề ml-36 co lại trên mobile
 @media (max-width: 1024px) {
   .slider-title {
     margin-left: 0;
@@ -111,16 +109,15 @@
 
 .promo-video {
   width: 100%;
-  max-width: 802px; // Giới hạn chiều rộng tối đa như code cũ của bạn
-  height: auto;
-  aspect-ratio: 802 / 766; // Giữ tỉ lệ khung hình chuẩn
+  max-width: 802px; 
+  height: 500px;
+  aspect-ratio: 802 / 766; 
   object-fit: cover;
-  border-radius: 4px;
 }
 
 .promo-content {
   width: 100%;
-  max-width: 350px; // Tăng nhẹ để chữ không bị quá vụn
+  max-width: 350px; 
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -130,6 +127,7 @@
     font-weight: bold;
     line-height: 1.2;
     text-transform: uppercase;
+    color: black;
   }
 
   .promo-description {
@@ -187,6 +185,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  padding: 0 92px;
 }
 .discovery-bg-text {
   position: absolute;

@@ -7,8 +7,10 @@ import { Header } from './components/header';
 import { BannerImage } from './components/banner';
 import { Home } from './components/home';
 import { Footer } from './components/footer';
-import Products from './pages/Products';
-import ProductDetailPage from './components/product-detail';
+import Products from './pages/product-list/Products';
+import ProductDetailPage from './pages/product-detail';
+import Wishlist from './pages/wishlist';
+import Authentication from './pages/authen';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
@@ -23,6 +25,8 @@ root.render(
       } />
       <Route path="/products" element={<Products />} />
       <Route path="/product/:id" element={<ProductDetailPageWrapper />} />
+      <Route path="/wishlist" element={<Wishlist />} />
+      <Route path="/authen" element={<Authentication />} />
     </Routes>
     <Footer />
   </BrowserRouter>

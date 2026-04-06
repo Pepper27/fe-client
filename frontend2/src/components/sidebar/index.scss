@@ -1,15 +1,13 @@
 .sidebar-panel {
-  border: 1px solid #dbdbdb;
-  border-radius: 6px;
-  background: #fff;
-  padding: 28px;
+  background: transparent;
+  // padding: 28px;
 }
 
 .sort-box {
-  border: 1px solid #cfcfcf;
-  border-radius: 4px;
+  border: 1px solid #adadad;
   background: #fafafa;
-  margin-bottom: 28px;
+  border-top: 1px solid #adadad;
+  margin-bottom: 20px;
 }
 
 .sort-trigger {
@@ -17,24 +15,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
   text-align: left;
   background: transparent;
   border: none;
 }
 
+.content{
+  padding: 6px 6px;
+  background: transparent;
+}
 .sort-label {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #9b9b9b;
-  margin-bottom: 4px;
+  font-size: 11px;
+  color: #bbbaba;
+  margin: 0;
 }
 
 .sort-value {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: #1f1f1f;
+  margin: 0;
 }
 
 .sort-icon {
@@ -48,32 +48,47 @@
 }
 
 .sort-menu {
-  border-top: 1px solid #ededed;
-  padding: 10px 0;
+  list-style: none; 
+  padding: 0;     
+  margin: 0;      
+  border-top: 1px solid #000;
+  li {
+    width: 100%;
+    border-bottom: 1px solid #ededed;
+    
+    &:last-child {
+      border-bottom: none; 
+    }
+  }
 }
 
 .sort-option {
   width: 100%;
   text-align: left;
-  padding: 10px 18px;
+  padding: 15px 20px; 
   font-size: 15px;
-  color: #2e2e2e;
-  background: transparent;
-}
+  font-weight: 500;
+  color: #1f1f1f;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  display: block;
+  transition: all 0.2s ease;
 
-.sort-option.active {
-  font-weight: 600;
-  background: #f5f5f5;
+  &:hover {
+    background-color: #f5f5f5; 
+  }
+
+  &.active {
+    background-color: #26211a; 
+    color: #fff;               
+  }
 }
 
 .filter-section {
   border-top: 1px solid #e8e8e8;
-  padding: 28px 0;
-}
-
-.filter-section:first-of-type {
-  padding-top: 0;
-  border-top: 0;
+  padding: 10px 0;
+  color: #1f1f1f;
 }
 
 .filter-section__header {
@@ -87,6 +102,7 @@
   font-size: 20px;
   font-weight: 700;
   color: #1f1f1f;
+  margin: 10px 0;
 }
 
 .filter-section__toggle {
@@ -194,3 +210,4 @@
   color: #fff;
   border-color: #111;
 }
+

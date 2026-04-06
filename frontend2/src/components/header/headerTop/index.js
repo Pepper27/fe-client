@@ -5,11 +5,11 @@ import { BsPerson } from "react-icons/bs";
 import { TfiLocationPin } from "react-icons/tfi";
 import { MdMenu } from "react-icons/md";
 import "./index.scss";
+import { Link } from 'react-router-dom';
 
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   return (
     <div className="header-top">
-      {/* <div className="hot-badge float-hot"><span>HOT</span></div> */}
       <div className="container">
         <div className="top-content">
           {/* --- MOBILE BUTTONS --- */}
@@ -38,24 +38,31 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
             </div>
 
             <div className="icon-actions">
-              <button className="icon-btn heart-btn">
+              {/* <button className="icon-btn heart-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
                 </svg>
-              </button>
+              </button> */}
+              <Link to="/wishlist" className="icon-btn heart-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
+                </svg>
+              </Link>
               <button className="icon-btn desktop-only"><TfiLocationPin /></button>
-              <button className="icon-btn has-popover">
-                <BsPerson />
+              <div className="icon-btn has-popover">
+                <Link to="/authen" className="account-icon-link" aria-label="Đăng nhập tài khoản">
+                  <BsPerson />
+                </Link>
                 <div className="popover-box">
-                  <button style={{ width: "100%", background: "#000", color: "#fff", padding: "18px 0", fontWeight: 700, fontSize: 20, borderRadius: 8, marginBottom: 18, border: "none", letterSpacing: 1 }}>ĐĂNG NHẬP</button>
-                  <button style={{ width: "100%", background: "#000", color: "#fff", padding: "18px 0", fontWeight: 700, fontSize: 20, borderRadius: 8, marginBottom: 18, border: "none", letterSpacing: 1 }}>ĐĂNG KÝ</button>
+                  <Link to="/authen" style={{ width: "80%", background: "#000", color: "#fff", padding: "13px 0", fontWeight: 700, fontSize: 14, margin: "14px auto 14px", border: "none", letterSpacing: 1, display: "block", textAlign: "center", textDecoration: "none" }}>ĐĂNG NHẬP</Link>
+                  <Link to="/authen?tab=register" style={{ width: "80%", background: "#000", color: "#fff", padding: "13px 0", fontWeight: 700, fontSize: 14, margin: "0 auto 14px", border: "none", letterSpacing: 1, display: "block", textAlign: "center", textDecoration: "none" }}>ĐĂNG KÝ</Link>
                   <img src="/client/image/wow.png" alt="member" style={{ width: "100%", marginBottom: 18, display: "block" }} />
-                  <div style={{ textAlign: "center", fontSize: 16, color: "#222", lineHeight: 1.1 }}>
+                  <div style={{ textAlign: "center", fontSize: 13, color: "#222", lineHeight: 1.3, margin: "14px auto 14px", fontWeight: 600 }}>
                     Đăng ký thành viên PANDORA ngay<br />
                     để tận hưởng ưu đãi độc quyền online.
                   </div>
                 </div>
-              </button>
+              </div>
               <button className="icon-btn"><CiShoppingCart /></button>
             </div>
           </div>

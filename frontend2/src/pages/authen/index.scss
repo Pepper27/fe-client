@@ -1,0 +1,316 @@
+@import "../../assets/styles/variables";
+
+.auth-page {
+	min-height: calc(100vh - 180px);
+	padding: 36px 20px 56px;
+	background: #fff;
+}
+
+.auth-shell {
+	max-width: 720px;
+}
+
+.auth-title {
+	text-align: center;
+	font-size: 28px;
+	font-weight: 800;
+	letter-spacing: 1px;
+	margin: 0 0 12px;
+}
+
+.auth-subtitle {
+	text-align: center;
+	font-size: 16px;
+	font-weight: 600;
+	margin: 0 0 36px;
+	color: #333;
+}
+
+.auth-tabs {
+	display: flex;
+	justify-content: center;
+	gap: 10px;
+	margin-bottom: 30px;
+}
+
+.auth-tab {
+	width: min(250px, 100%);
+	text-align: center;
+	padding: 12px 10px;
+	text-decoration: none;
+	color: #7d7d7d;
+	font-size: 28px;
+	font-weight: 500;
+	border-bottom: 3px solid #d8d8d8;
+
+	&.active {
+		color: #222;
+		border-bottom-color: #222;
+	}
+}
+
+.auth-card {
+	max-width: 440px;
+	margin: auto;
+	border: 1px solid #d9d9d9;
+	padding: 34px 34px;
+	background: #fff;
+}
+
+.auth-form {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+
+	input {
+		width: 100%;
+		height: 44px;
+		border: 1px solid #cfcfcf;
+		padding: 0 12px;
+		font-size: 13px;
+		outline: none;
+		background: #fff;
+		border-radius: 0;
+		box-sizing: border-box;
+
+		&:focus {
+			border-color: #999;
+		}
+	}
+}
+
+.password-row {
+	position: relative;
+	width: 100%;
+
+	input {
+		display: block;
+		width: 100%;
+		padding-right: 46px;
+	}
+
+	.password-toggle {
+		position: absolute;
+		top: 50%;
+		right: 14px;
+		transform: translateY(-50%);
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		width: 24px;
+		height: 24px;
+		padding: 0;
+		font-size: 0;
+		line-height: 1;
+		color: #222;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+
+		svg {
+			width: 22px;
+			height: 22px;
+			display: block;
+		}
+	}
+}
+
+.forgot-row {
+	display: flex;
+	justify-content: flex-end;
+
+	button {
+		border: none;
+		background: transparent;
+		padding: 0;
+		cursor: pointer;
+		color: #222;
+		font-size: 14px;
+		font-weight: 700;
+		text-decoration: underline;
+	}
+}
+
+.primary-action {
+	height: 48px;
+	border: none;
+	background: #000;
+	color: #fff;
+	font-weight: 800;
+	font-size: 14px;
+	letter-spacing: 1px;
+	cursor: pointer;
+}
+
+.divider-text {
+	text-align: center;
+	font-size: 20px;
+	font-weight: 700;
+	color: #222;
+}
+
+.social-btn {
+	height: 48px;
+	border: none;
+	font-weight: 700;
+	font-size: 13px;
+	letter-spacing: 0.6px;
+	cursor: pointer;
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	.social-icon {
+		position: absolute;
+		left: 16px;
+		font-size: 20px;
+	}
+}
+
+.google-btn {
+	background: #f7c4d0;
+	color: #222;
+}
+
+.facebook-btn {
+	background: #1f6feb;
+	color: #fff;
+}
+
+.forgot-modal-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.45);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 4000;
+	padding: 20px;
+}
+
+.forgot-modal {
+	width: min(100%, 620px);
+	background: #fff;
+	padding: 34px 38px 36px;
+	border: 1px solid #dadada;
+}
+
+.forgot-modal-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding-bottom: 22px;
+	border-bottom: 2px solid #e8e8e8;
+
+	h2 {
+		margin: 0;
+		font-size: 22px;
+		line-height: 1;
+		font-weight: 800;
+	}
+}
+
+.forgot-modal-close {
+	border: none;
+	background: transparent;
+	cursor: pointer;
+	padding: 0;
+	line-height: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+
+	svg {
+		width: 42px;
+		height: 42px;
+		color: #222;
+	}
+}
+
+.forgot-modal-text {
+	font-size: 16px;
+	line-height: 1.35;
+	font-weight: 500;
+	color: #222;
+	margin: 28px 0 22px;
+}
+
+.forgot-modal input {
+	width: 100%;
+	height: 58px;
+	border: 2px solid #d4d4d4;
+	padding: 0 18px;
+	font-size: 24px;
+	outline: none;
+	box-sizing: border-box;
+}
+
+.forgot-modal-submit {
+	width: 100%;
+	height: 72px;
+	margin-top: 22px;
+	border: none;
+	background: #000;
+	color: #fff;
+	font-size: 16px;
+	font-weight: 500;
+	letter-spacing: 1px;
+	cursor: pointer;
+}
+
+@media (max-width: 768px) {
+	.auth-page {
+		padding: 24px 16px 44px;
+	}
+
+	.auth-title {
+		font-size: 28px;
+	}
+
+	.auth-subtitle {
+		font-size: 14px;
+		margin-bottom: 24px;
+	}
+
+	.auth-tab {
+		font-size: 16px;
+	}
+
+	.auth-card {
+		padding: 24px 18px 26px;
+	}
+
+	.forgot-modal {
+		padding: 22px 18px 20px;
+	}
+
+	.forgot-modal-header {
+		padding-bottom: 14px;
+
+		h2 {
+			font-size: 30px;
+		}
+	}
+
+	.forgot-modal-close svg {
+		width: 30px;
+		height: 30px;
+	}
+
+	.forgot-modal-text {
+		font-size: 23px;
+		margin: 16px 0 14px;
+	}
+
+	.forgot-modal input {
+		height: 46px;
+		font-size: 16px;
+	}
+
+	.forgot-modal-submit {
+		height: 52px;
+		font-size: 16px;
+		margin-top: 14px;
+	}
+}

@@ -1,4 +1,22 @@
-/* Global styles (shared across the whole app) */
+/* .app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; 
+}
+
+.main-content {
+  flex: 1 0 auto; 
+}
+
+footer {
+  flex-shrink: 0;
+}
+
+html,
+body {
+  position: relative;
+  height: 100%;
+}
 
 body {
   margin: 0;
@@ -9,9 +27,9 @@ body {
   position: relative;
   overflow-x: hidden;
   color: #000;
+  font-size: 14px;
 }
 
-/* App root should be full-width; constrain content via `.container` */
 #root {
   width: 100%;
 }
@@ -20,7 +38,6 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* Shared page container */
 .container {
   max-width: 1440px;
   width: 100%;
@@ -44,4 +61,59 @@ code {
 
 .hidden {
   display: none !important;
+} */
+
+/* Reset căn bản */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #000;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Cấu trúc Sticky Footer */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* Chiếm toàn bộ chiều cao của #root */
+}
+
+.main-content {
+  flex: 1 0 auto;
+}
+
+footer {
+  flex-shrink: 0;
+}
+
+/* Helper class */
+.container {
+  max-width: 1440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 15px;
+  box-sizing: border-box; 
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.float-hot {
+  animation: float 1s ease-in-out infinite;
 }

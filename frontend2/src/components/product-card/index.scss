@@ -1,5 +1,5 @@
-@import "../../../assets/styles/variables";
-
+// @import "../../assets/styles/variables";
+@use "../../assets/styles/variables" as *;
 /* WRAPPER */
 .product-item-link {
   text-decoration: none;
@@ -89,7 +89,7 @@ button.product-item-link {
 }
 
 /* INFO TAG */
-.info-section {
+.customization-tag {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -109,9 +109,10 @@ button.product-item-link {
 }
 
 /* NAME */
-.product-name {
+.product-name-card {
   margin: 8px 0 0 0;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   min-height: 38px;
   text-align: left;
   color: #000;

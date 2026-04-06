@@ -1,4 +1,5 @@
 /* Footer.scss */
+@use "../../assets/styles/variables" as *;
 .footer-main {
   padding-top: 50px;
   padding-bottom: 20px;
@@ -32,25 +33,21 @@
   .newsletter-form {
     flex: 1;
     display: flex;
-    background: white;
+    background: $color-white;
     padding: 12px 20px;
-    border-radius: 10px;
     gap: 10px;
     width: 100%;
 
     input {
       flex: 1;
-      border: 1px solid #9ca3af;
       padding: 0 22px;
-      border-radius: 10px;
       outline: none;
     }
 
     button {
-      background: var(--pri);
-      color: white;
+      background: $color-black;
+      color: $color-white;
       padding: 10px 25px;
-      border-radius: 10px;
       border: none;
       cursor: pointer;
     }
