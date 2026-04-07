@@ -293,7 +293,7 @@ export default function Cart() {
                   </div>
                 ) : (
                   <div className="cart2-empty">
-                    Giỏ hàng đang trống. Vào <a className="font-semibold underline" href="/design">Mix Charm</a> để tạo 1 thiết kế.
+                    Giỏ hàng đang trống. Vào <a className="font-semibold underline" href="/design/mix">Mix Charm</a> để tạo 1 thiết kế.
                   </div>
                 )}
               </div>

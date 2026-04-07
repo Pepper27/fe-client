@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 
@@ -13,6 +14,19 @@ const SIZES = [16, 17, 18, 19, 20];
 const currencyVND = (value) => {
   const n = Number(value) || 0;
   return n.toLocaleString("vi-VN") + "₫";
+};
+
+const readEditPayload = () => {
+  try {
+    const raw = localStorage.getItem("mixcharm:edit");
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return null;
+    if (!data.bracelet || !data.items) return null;
+    return data;
+  } catch {
+    return null;
+  }
 };
 
 const firstImage = (product, variantCode) => {
@@ -32,18 +46,6 @@ const loadImage = (url) =>
     img.src = url;
   });
 
-const uniqBy = (arr, keyFn) => {
-  const out = [];
-  const seen = new Set();
-  for (const it of arr || []) {
-    const k = keyFn(it);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(it);
-  }
-  return out;
-};
-
 const findVariantByCode = (product, code) => {
   const variants = Array.isArray(product?.variants) ? product.variants : [];
   if (!code) return variants[0] || null;
@@ -56,6 +58,8 @@ const isInStock = (variant) => {
 };
 
 export default function DesignBuilder() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [typeCode, setTypeCode] = useState("vong-tay-mem");
   const [sizeCm, setSizeCm] = useState(17);
 
@@ -72,6 +76,7 @@ export default function DesignBuilder() {
   const [validation, setValidation] = useState(null);
   const [loadingBracelets, setLoadingBracelets] = useState(false);
   const [toast, setToast] = useState(null);
+  const [editBundleId, setEditBundleId] = useState(null);
 
   const [braceletImages, setBraceletImages] = useState(new Map());
   const [charmImages, setCharmImages] = useState(new Map());
@@ -84,6 +89,56 @@ export default function DesignBuilder() {
   const renderModelRef = useRef(new Map());
   const dragRef = useRef(null);
   const lastBraceletSelectionRef = useRef({ braceletId: null, sizeCm: null });
+  const pendingEditRef = useRef(null);
+
+  // If coming from the design list (edit flow), hydrate initial state from localStorage.
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search || "");
+    const mode = String(qs.get("mode") || "").toLowerCase();
+    if (mode !== "edit") return;
+
+    const payload = readEditPayload();
+    if (!payload) {
+      setToast({ type: "error", message: "Không tìm thấy design để sửa" });
+      return;
+    }
+
+    pendingEditRef.current = payload;
+    setEditBundleId(payload?.bundleId || null);
+
+    const b = payload.bracelet || null;
+    const nextType = b?.typeCode ? String(b.typeCode) : "vong-tay-mem";
+    const nextSize = b?.sizeCm ? Number(b.sizeCm) || 17 : 17;
+    const nextBraceletId = b?.productId ? String(b.productId) : null;
+
+    // Prime the ref so the size/material sync effect won't clear items on hydrate.
+    if (nextBraceletId) lastBraceletSelectionRef.current = { braceletId: nextBraceletId, sizeCm: nextSize };
+
+    setTypeCode(nextType);
+    setSizeCm(nextSize);
+    if (b?.variantCode) setBraceletVariantCode(String(b.variantCode));
+
+    const nextItems = {};
+    for (const it of Array.isArray(payload.items) ? payload.items : []) {
+      const idx = Number(it?.slotIndex);
+      if (!Number.isFinite(idx)) continue;
+      const charmProductId = it?.charmProductId;
+      const charmVariantCode = it?.charmVariantCode;
+      if (!charmProductId || !charmVariantCode) continue;
+      nextItems[idx] = {
+        slotIndex: idx,
+        charmProductId,
+        charmVariantCode,
+        // offsets are persisted in BE (optional)
+        offsetN: it?.offsetN && typeof it.offsetN === "object" ? it.offsetN : { x: 0, y: 0 },
+      };
+    }
+    setItemsBySlot(nextItems);
+
+    // Clean URL (keep state in memory).
+    navigate("/design/mix", { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const items = useMemo(() => {
     return Object.values(itemsBySlot)
@@ -166,12 +221,13 @@ export default function DesignBuilder() {
     setBraceletMaterial(nextMat);
 
     // Only clear placed charms when bracelet or size changes.
+    // In edit mode, we want to keep loaded items intact.
     const curId = String(bracelet?._id || "");
     const last = lastBraceletSelectionRef.current;
     const sizeChanged = Number(last?.sizeCm) !== Number(sizeCm);
     const braceletChanged = String(last?.braceletId || "") !== curId;
     if (sizeChanged || braceletChanged) {
-      setItemsBySlot({});
+      if (!pendingEditRef.current) setItemsBySlot({});
       lastBraceletSelectionRef.current = { braceletId: curId, sizeCm };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -215,6 +271,29 @@ export default function DesignBuilder() {
         if (cancelled) return;
         const list = res?.data || [];
         setBracelets(list);
+
+        // If we are hydrating an edit payload, select that bracelet once data is available.
+        const pending = pendingEditRef.current;
+        if (pending?.bracelet?.productId) {
+          const wantId = String(pending.bracelet.productId);
+          const found = list.find((p) => String(p?._id) === wantId) || null;
+          if (found) {
+            pendingEditRef.current = null;
+            setBracelet(found);
+            // Keep variantCode if provided (builder's size/material sync will reconcile if needed).
+            if (pending?.bracelet?.variantCode) setBraceletVariantCode(String(pending.bracelet.variantCode));
+            lastBraceletSelectionRef.current = {
+              braceletId: String(found?._id || wantId),
+              sizeCm: Number(pending?.bracelet?.sizeCm) || sizeCm,
+            };
+            try {
+              localStorage.removeItem("mixcharm:edit");
+            } catch {
+              // ignore
+            }
+          }
+        }
+
         if (bracelet && !list.some((p) => String(p._id) === String(bracelet._id))) {
           setBracelet(null);
           setBraceletVariantCode("");
@@ -306,16 +385,17 @@ export default function DesignBuilder() {
     }
     let cancelled = false;
     const t = setTimeout(() => {
-      api
-        .validateMix({
-          bracelet: { productId: bracelet._id, variantCode: braceletVariantCode, sizeCm },
-          // Backend contract doesn't care about preview-only offsets.
-          items: items.map(({ slotIndex, charmProductId, charmVariantCode }) => ({
-            slotIndex,
-            charmProductId,
-            charmVariantCode,
-          })),
-        })
+        api
+          .validateMix({
+            bracelet: { productId: bracelet._id, variantCode: braceletVariantCode, sizeCm },
+            // Include offsetN so cart/design snapshots can persist drag positions.
+            items: items.map(({ slotIndex, charmProductId, charmVariantCode, offsetN }) => ({
+              slotIndex,
+              charmProductId,
+              charmVariantCode,
+              offsetN: offsetN || { x: 0, y: 0 },
+            })),
+          })
         .then((res) => {
           if (!cancelled) setValidation(res);
         })
@@ -833,32 +913,32 @@ export default function DesignBuilder() {
       return;
     }
 
-    const res = await api.addBundleToCart({
+    const payload = {
       bracelet: { productId: bracelet._id, variantCode: braceletVariantCode, sizeCm },
-      items: items.map(({ slotIndex, charmProductId, charmVariantCode }) => ({
+      items: items.map(({ slotIndex, charmProductId, charmVariantCode, offsetN }) => ({
         slotIndex,
         charmProductId,
         charmVariantCode,
+        offsetN: offsetN || { x: 0, y: 0 },
       })),
-    });
+    };
+
+    const res = editBundleId
+      ? await api.patchBundle(editBundleId, payload)
+      : await api.addBundleToCart(payload);
 
     if (!res?.valid) {
       setValidation(res);
       setToast({ type: "error", message: "Thiết kế chưa hợp lệ" });
       return;
     }
-    setToast({ type: "success", message: "Đã thêm thiết kế vào giỏ hàng" });
+    if (editBundleId) {
+      setToast({ type: "success", message: "Đã lưu thay đổi design" });
+      setEditBundleId(null);
+    } else {
+      setToast({ type: "success", message: "Đã thêm thiết kế vào giỏ hàng" });
+    }
   };
-
-  const braceletVariants = useMemo(() => {
-    if (!bracelet?.variants) return [];
-    return uniqBy(bracelet.variants, (v) => v.code).filter((v) => v.code);
-  }, [bracelet]);
-
-  const charmVariants = useMemo(() => {
-    if (!selectedCharm?.variants) return [];
-    return uniqBy(selectedCharm.variants, (v) => v.code).filter((v) => v.code);
-  }, [selectedCharm]);
 
   const slotCount = validation?.slotCount || 0;
   const clipZones = new Set(validation?.clipZones || []);
@@ -891,7 +971,10 @@ export default function DesignBuilder() {
 
   return (
     <div className="container mixcharm-page">
-      <h1 className="mixcharm-title">Mix Charm</h1>
+      <div className="mixcharm-titleRow">
+        <h1 className="mixcharm-title">Mix Charm</h1>
+        <button type="button" className="mixcharm-btn" onClick={() => navigate("/design")}>Danh sách design</button>
+      </div>
       <div className="mixcharm-actions">
         <button type="button" onClick={() => setShowGuides((v) => !v)} className="mixcharm-btn">
           {showGuides ? "Ẩn điểm gắn" : "Hiện điểm gắn"}
@@ -903,7 +986,7 @@ export default function DesignBuilder() {
           Tải ảnh thiết kế
         </button>
         <button type="button" onClick={addToCart} className="mixcharm-btn mixcharm-btnPrimary">
-          Thêm vào giỏ
+          {editBundleId ? "Lưu design" : "Thêm vào giỏ"}
         </button>
       </div>
 

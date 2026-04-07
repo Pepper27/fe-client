@@ -86,7 +86,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                   <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
                 </svg>
               </Link>
-              <Link to="/design" className="icon-btn" aria-label="Mix charm">
+              <Link to="/design" className="icon-btn" aria-label="Design của bạn">
                 <RiSparkling2Line />
               </Link>
               <button className="icon-btn desktop-only"><TfiLocationPin /></button>

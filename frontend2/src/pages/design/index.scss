@@ -13,6 +13,19 @@
   margin: 0;
 }
 
+.mixcharm-titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .mixcharm-titleRow {
+    align-items: flex-start;
+  }
+}
+
 .mixcharm-actions {
   margin-top: 14px;
   display: flex;
