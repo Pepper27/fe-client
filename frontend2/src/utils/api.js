@@ -1,4 +1,5 @@
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:3899";
+// Backend-charm default port is 3879; override via REACT_APP_API_BASE when needed.
+const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:3879";
 
 const request = async (path, options = {}) => {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -36,11 +37,7 @@ export const api = {
     if (sizeCm) qs.set("sizeCm", String(sizeCm));
     return request(`/api/public/bracelets?${qs.toString()}`);
   },
-  getCharms: ({ kind }) => {
-    const qs = new URLSearchParams();
-    if (kind) qs.set("kind", kind);
-    return request(`/api/public/charms?${qs.toString()}`);
-  },
+  getCharms: () => request(`/api/public/charms`),
   validateMix: ({ bracelet, items }) =>
     request(`/api/public/mix/validate`, {
       method: "POST",
@@ -60,5 +57,32 @@ export const api = {
   deleteBundle: (bundleId) =>
     request(`/api/public/cart/bundles/${encodeURIComponent(bundleId)}`, {
       method: "DELETE",
+    }),
+
+  // Client auth (cookie-based)
+  authRegister: ({ fullName, email, password, phone }) =>
+    request(`/api/public/auth/register`, {
+      method: "POST",
+      body: JSON.stringify({ fullName, email, password, phone }),
+    }),
+  authLogin: ({ email, password }) =>
+    request(`/api/public/auth/login`, {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  authMe: () => request(`/api/public/auth/me`),
+  authLogout: () =>
+    request(`/api/public/auth/logout`, {
+      method: "POST",
+    }),
+  authForgotPassword: ({ email }) =>
+    request(`/api/public/auth/forgot-password`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+  authResetPassword: ({ email, otp, newPassword }) =>
+    request(`/api/public/auth/reset-password`, {
+      method: "POST",
+      body: JSON.stringify({ email, otp, newPassword }),
     }),
 };

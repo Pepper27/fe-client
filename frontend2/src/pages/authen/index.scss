@@ -26,6 +26,48 @@
 	color: #333;
 }
 
+.auth-me {
+	max-width: 440px;
+	margin: 0 auto 18px;
+	border: 1px solid #e5e5e5;
+	background: #fafafa;
+	padding: 14px 14px;
+}
+
+.auth-meText {
+	font-size: 14px;
+	font-weight: 700;
+	color: #111;
+}
+
+.auth-meHint {
+	margin-top: 6px;
+	font-size: 13px;
+	color: #444;
+}
+
+.auth-toast {
+	max-width: 440px;
+	margin: 0 auto 18px;
+	padding: 12px 14px;
+	font-size: 13px;
+	font-weight: 700;
+	border: 1px solid;
+	cursor: pointer;
+}
+
+.auth-toastError {
+	background: #fff3f3;
+	border-color: #ffb4b4;
+	color: #8a1212;
+}
+
+.auth-toastSuccess {
+	background: #f2fff6;
+	border-color: #9be3b1;
+	color: #0b5b25;
+}
+
 .auth-tabs {
 	display: flex;
 	justify-content: center;
@@ -244,6 +286,11 @@
 	font-size: 24px;
 	outline: none;
 	box-sizing: border-box;
+	margin-top: 14px;
+}
+
+.forgot-modal input:first-of-type {
+	margin-top: 0;
 }
 
 .forgot-modal-submit {

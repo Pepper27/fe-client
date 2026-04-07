@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { CiSearch, CiShoppingCart } from "react-icons/ci";
 import { IoCloseOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
@@ -7,8 +7,45 @@ import { MdMenu } from "react-icons/md";
 import { RiSparkling2Line } from "react-icons/ri";
 import "./index.scss";
 import { Link } from 'react-router-dom';
+import { api } from "../../../utils/api";
 
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
+  const [me, setMe] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refresh = () => {
+      api
+        .authMe()
+        .then((res) => {
+          if (cancelled) return;
+          setMe(res?.data || null);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setMe(null);
+        });
+    };
+
+    refresh();
+    const onAuthChanged = () => refresh();
+    window.addEventListener("auth:changed", onAuthChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("auth:changed", onAuthChanged);
+    };
+  }, []);
+
+  const onLogout = async () => {
+    try {
+      await api.authLogout();
+    } finally {
+      setMe(null);
+      window.dispatchEvent(new Event("auth:changed"));
+    }
+  };
+
   return (
     <div className="header-top">
       <div className="container">
@@ -58,8 +95,25 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                   <BsPerson />
                 </Link>
                 <div className="popover-box">
-                  <Link to="/authen" style={{ width: "80%", background: "#000", color: "#fff", padding: "13px 0", fontWeight: 700, fontSize: 14, margin: "14px auto 14px", border: "none", letterSpacing: 1, display: "block", textAlign: "center", textDecoration: "none" }}>ĐĂNG NHẬP</Link>
-                  <Link to="/authen?tab=register" style={{ width: "80%", background: "#000", color: "#fff", padding: "13px 0", fontWeight: 700, fontSize: 14, margin: "0 auto 14px", border: "none", letterSpacing: 1, display: "block", textAlign: "center", textDecoration: "none" }}>ĐĂNG KÝ</Link>
+                  {me ? (
+                    <>
+                      <div style={{ width: "80%", margin: "14px auto 10px", fontWeight: 800, fontSize: 13, textAlign: "center" }}>
+                        Xin chào, {me.fullName || me.email}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onLogout}
+                        style={{ width: "80%", background: "#000", color: "#fff", padding: "13px 0", fontWeight: 700, fontSize: 14, margin: "0 auto 14px", border: "none", letterSpacing: 1, display: "block", textAlign: "center", cursor: "pointer" }}
+                      >
+                        ĐĂNG XUẤT
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link to="/authen" style={{ width: "80%", background: "#000", color: "#fff", padding: "13px 0", fontWeight: 700, fontSize: 14, margin: "14px auto 14px", border: "none", letterSpacing: 1, display: "block", textAlign: "center", textDecoration: "none" }}>ĐĂNG NHẬP</Link>
+                      <Link to="/authen?tab=register" style={{ width: "80%", background: "#000", color: "#fff", padding: "13px 0", fontWeight: 700, fontSize: 14, margin: "0 auto 14px", border: "none", letterSpacing: 1, display: "block", textAlign: "center", textDecoration: "none" }}>ĐĂNG KÝ</Link>
+                    </>
+                  )}
                   <img src="/client/image/wow.png" alt="member" style={{ width: "100%", marginBottom: 18, display: "block" }} />
                   <div style={{ textAlign: "center", fontSize: 13, color: "#222", lineHeight: 1.3, margin: "14px auto 14px", fontWeight: 600 }}>
                     Đăng ký thành viên PANDORA ngay<br />

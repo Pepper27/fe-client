@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../utils/api";
+import "./index.scss";
 
 const TYPES = [
   { code: "vong-tay-mem", label: "Vòng tay mềm" },
@@ -43,6 +44,17 @@ const uniqBy = (arr, keyFn) => {
   return out;
 };
 
+const findVariantByCode = (product, code) => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  if (!code) return variants[0] || null;
+  return variants.find((v) => String(v?.code) === String(code)) || variants[0] || null;
+};
+
+const isInStock = (variant) => {
+  // Treat missing quantity as 0 to be safe.
+  return (Number(variant?.quantity) || 0) > 0;
+};
+
 export default function DesignBuilder() {
   const [typeCode, setTypeCode] = useState("vong-tay-mem");
   const [sizeCm, setSizeCm] = useState(17);
@@ -50,8 +62,8 @@ export default function DesignBuilder() {
   const [bracelets, setBracelets] = useState([]);
   const [bracelet, setBracelet] = useState(null);
   const [braceletVariantCode, setBraceletVariantCode] = useState("");
+  const [braceletMaterial, setBraceletMaterial] = useState("");
 
-  const [charmKind, setCharmKind] = useState("regular");
   const [charms, setCharms] = useState([]);
   const [selectedCharm, setSelectedCharm] = useState(null);
   const [selectedCharmVariantCode, setSelectedCharmVariantCode] = useState("");
@@ -71,12 +83,128 @@ export default function DesignBuilder() {
   const processedCharmRef = useRef(new Map());
   const renderModelRef = useRef(new Map());
   const dragRef = useRef(null);
+  const lastBraceletSelectionRef = useRef({ braceletId: null, sizeCm: null });
 
   const items = useMemo(() => {
     return Object.values(itemsBySlot)
       .filter(Boolean)
       .sort((a, b) => a.slotIndex - b.slotIndex);
   }, [itemsBySlot]);
+
+  const braceletVariantsBySize = useMemo(() => {
+    if (!bracelet?.variants) return [];
+    return (bracelet.variants || [])
+      .filter((v) => String(v?.code || "").trim())
+      .filter((v) => Number(v?.size) === Number(sizeCm));
+  }, [bracelet, sizeCm]);
+
+  const braceletSizeStock = useMemo(() => {
+    if (!bracelet?.variants) return new Map();
+    const m = new Map();
+    for (const s of SIZES) {
+      const anyInStock = (bracelet.variants || []).some(
+        (v) => Number(v?.size) === Number(s) && String(v?.code || "").trim() && isInStock(v)
+      );
+      m.set(Number(s), anyInStock);
+    }
+    return m;
+  }, [bracelet]);
+
+  const braceletMaterialOptions = useMemo(() => {
+    const vs = braceletVariantsBySize;
+    const out = [];
+    const seen = new Set();
+    for (const v of vs) {
+      const material = String(v?.material || "").trim();
+      if (!material) continue;
+      const k = material.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({
+        material,
+        inStock: isInStock(v),
+        variantCode: String(v?.code || ""),
+        price: Number(v?.price) || 0,
+      });
+    }
+    // stable-ish order
+    const prefer = ["bạc", "vang", "vàng", "vàng hồng", "vang hong"];
+    out.sort((a, b) => {
+      const ka = String(a.material).toLowerCase();
+      const kb = String(b.material).toLowerCase();
+      const ia = prefer.findIndex((p) => ka.includes(p));
+      const ib = prefer.findIndex((p) => kb.includes(p));
+      const ra = ia === -1 ? 999 : ia;
+      const rb = ib === -1 ? 999 : ib;
+      if (ra !== rb) return ra - rb;
+      return ka.localeCompare(kb);
+    });
+    return out;
+  }, [braceletVariantsBySize]);
+
+  // Keep bracelet variantCode in sync with size + selected material.
+  useEffect(() => {
+    if (!bracelet) return;
+    const vs = braceletVariantsBySize;
+    if (!vs.length) {
+      setBraceletVariantCode("");
+      setBraceletMaterial("");
+      setValidation(null);
+      return;
+    }
+
+    const safeMat = String(braceletMaterial || "").trim();
+    const matchMat = safeMat
+      ? vs.find((v) => String(v?.material || "").trim().toLowerCase() === safeMat.toLowerCase() && isInStock(v))
+      : null;
+    const firstInStock = vs.find((v) => isInStock(v)) || null;
+    const next = matchMat || firstInStock || vs[0];
+    const nextCode = String(next?.code || "");
+    const nextMat = String(next?.material || "");
+
+    setBraceletVariantCode(nextCode);
+    setBraceletMaterial(nextMat);
+
+    // Only clear placed charms when bracelet or size changes.
+    const curId = String(bracelet?._id || "");
+    const last = lastBraceletSelectionRef.current;
+    const sizeChanged = Number(last?.sizeCm) !== Number(sizeCm);
+    const braceletChanged = String(last?.braceletId || "") !== curId;
+    if (sizeChanged || braceletChanged) {
+      setItemsBySlot({});
+      lastBraceletSelectionRef.current = { braceletId: curId, sizeCm };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bracelet, sizeCm, braceletMaterial]);
+
+  const charmById = useMemo(() => {
+    const m = new Map();
+    for (const p of charms || []) m.set(String(p?._id), p);
+    return m;
+  }, [charms]);
+
+  const braceletVariant = useMemo(() => {
+    if (!bracelet) return null;
+    return findVariantByCode(bracelet, braceletVariantCode);
+  }, [bracelet, braceletVariantCode]);
+
+  const braceletPriceLocal = Number(braceletVariant?.price) || 0;
+  const charmsPriceLocal = useMemo(() => {
+    let sum = 0;
+    for (const it of items) {
+      const p = charmById.get(String(it.charmProductId));
+      const v = findVariantByCode(p, it.charmVariantCode);
+      sum += Number(v?.price) || 0;
+    }
+    return sum;
+  }, [items, charmById]);
+
+  const braceletPrice = Number(validation?.pricing?.braceletPrice);
+  const charmsPrice = Number(validation?.pricing?.charmsPrice);
+  const totalPrice = Number(validation?.pricing?.total);
+  const braceletPriceShown = Number.isFinite(braceletPrice) ? braceletPrice : braceletPriceLocal;
+  const charmsPriceShown = Number.isFinite(charmsPrice) ? charmsPrice : charmsPriceLocal;
+  const totalPriceShown = Number.isFinite(totalPrice) ? totalPrice : braceletPriceShown + charmsPriceShown;
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +237,7 @@ export default function DesignBuilder() {
   useEffect(() => {
     let cancelled = false;
     api
-      .getCharms({ kind: charmKind })
+      .getCharms()
       .then((res) => {
         if (cancelled) return;
         setCharms(res?.data || []);
@@ -121,7 +249,7 @@ export default function DesignBuilder() {
     return () => {
       cancelled = true;
     };
-  }, [charmKind]);
+  }, []);
 
   // Preload bracelet thumbnails for nicer UX.
   useEffect(() => {
@@ -539,10 +667,28 @@ export default function DesignBuilder() {
   }, []);
 
   const selectBracelet = (p) => {
+    const vs = Array.isArray(p?.variants) ? p.variants : [];
+    const hasStockForSize = (s) =>
+      vs.some((v) => Number(v?.size) === Number(s) && String(v?.code || "").trim() && isInStock(v));
+
+    const desiredSize = hasStockForSize(sizeCm)
+      ? sizeCm
+      : (SIZES.find((s) => hasStockForSize(s)) || sizeCm);
+
+    if (!hasStockForSize(sizeCm) && desiredSize !== sizeCm) {
+      setToast({ type: "error", message: `Size ${sizeCm} hết hàng. Đã chuyển sang size ${desiredSize}.` });
+      setSizeCm(desiredSize);
+    }
+
     setBracelet(p);
-    const firstCode = p?.variants?.[0]?.code || "";
-    setBraceletVariantCode(firstCode);
+    const bySize = vs.find((v) => Number(v?.size) === Number(desiredSize) && String(v?.code || "").trim() && isInStock(v));
+    const fallbackBySize = vs.find((v) => Number(v?.size) === Number(desiredSize) && String(v?.code || "").trim());
+    const chosen = bySize || fallbackBySize || null;
+    setBraceletVariantCode(String(chosen?.code || ""));
+    setBraceletMaterial(String(chosen?.material || ""));
     setItemsBySlot({});
+
+    lastBraceletSelectionRef.current = { braceletId: String(p?._id || ""), sizeCm: desiredSize };
   };
 
   const selectCharm = (p) => {
@@ -555,12 +701,6 @@ export default function DesignBuilder() {
     if (!validation?.slotCount) return false;
     if (slotIndex < 0 || slotIndex >= validation.slotCount) return false;
     if (itemsBySlot[slotIndex]) return false;
-
-    const isSnakeLike = typeCode === "vong-tay-mem";
-    const isClipSelected = charmKind === "clip";
-    if (isSnakeLike && isClipSelected) {
-      return (validation.clipZones || []).includes(slotIndex);
-    }
     return true;
   };
 
@@ -723,307 +863,245 @@ export default function DesignBuilder() {
   const slotCount = validation?.slotCount || 0;
   const clipZones = new Set(validation?.clipZones || []);
 
+  const MiniCard = ({ product, selected, onClick }) => {
+    const thumbUrl = firstImage(product);
+    const price = product?.variants?.[0]?.price || 0;
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={
+          "mixcharm-miniCard" + (selected ? " mixcharm-miniCardSelected" : "")
+        }
+      >
+        <div className="mixcharm-miniThumb">
+          {thumbUrl ? (
+            <img src={thumbUrl} alt={product?.name || ""} loading="lazy" />
+          ) : (
+            <div className="mixcharm-note" style={{ padding: 10 }}>
+              No image
+            </div>
+          )}
+        </div>
+        <div className="mixcharm-miniName">{product?.name}</div>
+        <div className="mixcharm-miniPrice">{currencyVND(price)}</div>
+      </button>
+    );
+  };
+
   return (
-    <div className="container" style={{ paddingTop: 24, paddingBottom: 40 }}>
-      <div className="flex items-start gap-6" style={{ alignItems: "stretch" }}>
-        <div className="flex-1" style={{ minWidth: 0 }}>
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex items-center justify-between gap-3">
-              <h1 className="text-lg font-semibold">Mix Charm</h1>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGuides((v) => !v)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold hover:bg-gray-50"
-                >
-                  {showGuides ? "Ẩn điểm gắn" : "Hiện điểm gắn"}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetCharmPositions}
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold hover:bg-gray-50"
-                >
-                  Reset vị trí charm
-                </button>
-                <button
-                  type="button"
-                  onClick={downloadPng}
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold hover:bg-gray-50"
-                >
-                  Tải ảnh thiết kế
-                </button>
-                <button
-                  type="button"
-                  onClick={addToCart}
-                  className="rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900"
-                >
-                  Thêm vào giỏ
-                </button>
+    <div className="container mixcharm-page">
+      <h1 className="mixcharm-title">Mix Charm</h1>
+      <div className="mixcharm-actions">
+        <button type="button" onClick={() => setShowGuides((v) => !v)} className="mixcharm-btn">
+          {showGuides ? "Ẩn điểm gắn" : "Hiện điểm gắn"}
+        </button>
+        <button type="button" onClick={resetCharmPositions} className="mixcharm-btn">
+          Reset vị trí charm
+        </button>
+        <button type="button" onClick={downloadPng} className="mixcharm-btn">
+          Tải ảnh thiết kế
+        </button>
+        <button type="button" onClick={addToCart} className="mixcharm-btn mixcharm-btnPrimary">
+          Thêm vào giỏ
+        </button>
+      </div>
+
+      <div className="mixcharm-main">
+        <div className="mixcharm-left">
+          <div className="mixcharm-card mixcharm-cardPad" ref={canvasWrapRef}>
+            <canvas
+              ref={canvasRef}
+              className="mixcharm-canvas"
+              onPointerDown={onCanvasPointerDown}
+              onPointerMove={onCanvasPointerMove}
+              onPointerUp={onCanvasPointerUp}
+              onPointerCancel={onCanvasPointerUp}
+              style={{ touchAction: "none", cursor: items.length ? "grab" : "default" }}
+            />
+          </div>
+
+          <div className="mixcharm-card mixcharm-cardPad mixcharm-panel">
+            <div className="mixcharm-panelTitle">Thông tin mix</div>
+            <div style={{ marginTop: 10, fontSize: 14, color: "#111827" }}>
+              <div>
+                Slot: <span style={{ fontWeight: 800 }}>{slotCount || "-"}</span> | Recommended:{" "}
+                <span style={{ fontWeight: 800 }}>{validation?.recommendedCharms ?? "-"}</span>
               </div>
+              <div className="mixcharm-note" style={{ marginTop: 4 }}>Kéo charm trực tiếp trên ảnh để chỉnh vị trí.</div>
+              {validation?.clipZones?.length ? (
+                <div style={{ marginTop: 6 }}>
+                  Clip zones: <span style={{ fontWeight: 800 }}>{validation.clipZones.join(", ")}</span>
+                </div>
+              ) : null}
+              <div className="mixcharm-note" style={{ marginTop: 6 }}>Click slot để đặt charm. Click charm để xóa.</div>
             </div>
 
-            <div className="mt-4 grid grid-cols-1 gap-4" style={{ gridTemplateColumns: "minmax(320px, 560px) 1fr" }}>
-              <div ref={canvasWrapRef}>
-                <canvas
-                  ref={canvasRef}
-                  className="w-full rounded-lg border border-gray-200"
-                  onPointerDown={onCanvasPointerDown}
-                  onPointerMove={onCanvasPointerMove}
-                  onPointerUp={onCanvasPointerUp}
-                  onPointerCancel={onCanvasPointerUp}
-                  style={{ touchAction: "none", cursor: items.length ? "grab" : "default" }}
-                />
+            <div className="mixcharm-slotGrid">
+              {Array.from({ length: slotCount || 0 }).map((_, i) => {
+                const filled = itemsBySlot[i];
+                const isClipZone = clipZones.has(i);
+                const canPlace = canPlaceOnSlot(i);
+                const cls =
+                  "mixcharm-slotBtn" +
+                  (filled ? " mixcharm-slotBtnFilled" : "") +
+                  (!filled && !canPlace ? " mixcharm-slotBtnDisabled" : "") +
+                  (!filled && canPlace && isClipZone ? " mixcharm-slotBtnClip" : "");
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      if (filled) removeFromSlot(i);
+                      else placeSelectedCharmToSlot(i);
+                    }}
+                    className={cls}
+                    title={isClipZone ? "Clip zone" : "Slot"}
+                    disabled={!filled && !canPlace}
+                  >
+                    {filled ? "Charm" : isClipZone ? "Clip" : i}
+                  </button>
+                );
+              })}
+            </div>
 
-                <div className="mt-3 text-sm text-gray-700">
-                  <div>
-                    Slot: <span className="font-semibold">{slotCount || "-"}</span> | Recommended:{" "}
-                    <span className="font-semibold">{validation?.recommendedCharms ?? "-"}</span>
+            <div className="mixcharm-panel" style={{ marginTop: 14 }}>
+              <div className="mixcharm-panelTitle">Bracelet</div>
+              <div className="mixcharm-chipRow">
+                {TYPES.map((t) => (
+                  <button
+                    key={t.code}
+                    type="button"
+                    onClick={() => setTypeCode(t.code)}
+                    className={
+                      "mixcharm-chipBtn" + (typeCode === t.code ? " mixcharm-chipBtnActive" : "")
+                    }
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mixcharm-panel" style={{ marginTop: 12 }}>
+                <div className="mixcharm-panelTitle">Size (cm)</div>
+                <div className="mixcharm-chipRow">
+                  {SIZES.map((s) => (
+                    (() => {
+                      const disabled = bracelet ? !braceletSizeStock.get(Number(s)) : false;
+                      const cls =
+                        "mixcharm-chipBtn" +
+                        (sizeCm === s ? " mixcharm-chipBtnActive" : "") +
+                        (disabled ? " mixcharm-chipBtnDisabled" : "");
+                      return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSizeCm(s)}
+                      className={cls}
+                      disabled={disabled}
+                      title={disabled ? `Size ${s} hết hàng` : `Size ${s}`}
+                    >
+                      {s}
+                    </button>
+                      );
+                    })()
+                  ))}
+                </div>
+              </div>
+
+              {bracelet ? (
+                <div className="mixcharm-panel" style={{ marginTop: 12 }}>
+                  <div className="mixcharm-panelTitle">Chất liệu</div>
+                  <div className="mixcharm-chipRow">
+                    {(braceletMaterialOptions.length ? braceletMaterialOptions : []).map((opt) => (
+                      <button
+                        key={opt.material}
+                        type="button"
+                        onClick={() => {
+                          if (!opt.inStock) return;
+                          setBraceletMaterial(opt.material);
+                        }}
+                        className={
+                          "mixcharm-chipBtn" +
+                          (String(braceletMaterial || "").toLowerCase() === String(opt.material || "").toLowerCase()
+                            ? " mixcharm-chipBtnActive"
+                            : "")
+                          +
+                          (!opt.inStock ? " mixcharm-chipBtnDisabled" : "")
+                        }
+                        title={!opt.inStock ? `${opt.material} hết hàng` : opt.material}
+                        disabled={!opt.inStock}
+                      >
+                        {opt.material}
+                      </button>
+                    ))}
                   </div>
-                  <div className="mt-1 text-xs text-gray-600">Kéo charm trực tiếp trên ảnh để chỉnh vị trí.</div>
-                  {validation?.clipZones?.length ? (
-                    <div className="mt-1">
-                      Clip zones: <span className="font-semibold">{validation.clipZones.join(", ")}</span>
+                  {!braceletVariantsBySize.length ? (
+                    <div className="mixcharm-note" style={{ marginTop: 8 }}>
+                      Vòng này không có variant theo size {sizeCm}.
                     </div>
                   ) : null}
                 </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold">Slots</div>
-                  <div className="text-xs text-gray-600">Click slot để đặt charm. Click charm để xóa.</div>
-                </div>
-                <div className="mt-2 grid grid-cols-8 gap-2">
-                  {Array.from({ length: slotCount || 0 }).map((_, i) => {
-                    const filled = itemsBySlot[i];
-                    const isClipZone = clipZones.has(i);
-                    const canPlace = canPlaceOnSlot(i);
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          if (filled) removeFromSlot(i);
-                          else placeSelectedCharmToSlot(i);
-                        }}
-                        className={
-                          "h-10 rounded-lg border text-xs font-semibold transition " +
-                          (filled
-                            ? "border-black bg-black text-white"
-                            : canPlace
-                            ? isClipZone
-                              ? "border-amber-300 bg-amber-50 hover:bg-amber-100"
-                              : "border-gray-200 bg-white hover:bg-gray-50"
-                            : "cursor-not-allowed border-gray-100 bg-gray-50 text-gray-400")
-                        }
-                        title={isClipZone ? "Clip zone" : "Slot"}
-                        disabled={!filled && !canPlace}
-                      >
-                        {filled ? "Charm" : isClipZone ? "Clip" : i}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {validation && validation.valid === false && Array.isArray(validation.errors) && validation.errors.length ? (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    <div className="font-semibold">Lỗi mix</div>
-                    <ul className="mt-2 list-disc pl-5">
-                      {validation.errors.slice(0, 6).map((e, idx) => (
-                        <li key={idx}>
-                          {e.message} <span className="opacity-70">({e.field})</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
+              ) : null}
             </div>
+
+            {validation && validation.valid === false && Array.isArray(validation.errors) && validation.errors.length ? (
+              <div className="mixcharm-error">
+                <div style={{ fontWeight: 900 }}>Lỗi mix</div>
+                <ul style={{ marginTop: 8, paddingLeft: 18, listStyle: "disc" }}>
+                  {validation.errors.slice(0, 6).map((e, idx) => (
+                    <li key={idx}>
+                      {e.message} <span style={{ opacity: 0.7 }}>({e.field})</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </div>
         </div>
 
-        <div style={{ width: 460 }}>
-          <div className="rounded-xl border border-gray-200 bg-white p-4">
-            <div className="text-sm font-semibold">Bracelet</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {TYPES.map((t) => (
-                <button
-                  key={t.code}
-                  type="button"
-                  onClick={() => setTypeCode(t.code)}
-                  className={
-                    "rounded-lg border px-3 py-2 text-sm font-semibold " +
-                    (typeCode === t.code ? "border-black bg-black text-white" : "border-gray-200 hover:bg-gray-50")
-                  }
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-3 text-sm font-semibold">Size (cm)</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {SIZES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSizeCm(s)}
-                  className={
-                    "rounded-lg border px-3 py-2 text-sm font-semibold " +
-                    (sizeCm === s ? "border-black bg-black text-white" : "border-gray-200 hover:bg-gray-50")
-                  }
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 text-sm font-semibold">Chọn vòng</div>
-            <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-gray-100 p-2">
-              {loadingBracelets ? (
-                <div className="p-3 text-sm text-gray-600">Đang tải...</div>
-              ) : bracelets.length ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {bracelets.map((p) => {
-                    const selected = bracelet && String(bracelet._id) === String(p._id);
-                    const thumbUrl = firstImage(p);
-                    return (
-                      <button
-                        key={p._id}
-                        type="button"
-                        onClick={() => selectBracelet(p)}
-                        className={
-                          "rounded-lg border p-2 text-left transition hover:bg-gray-50 " +
-                          (selected ? "border-black" : "border-gray-200")
-                        }
-                      >
-                        <div className="aspect-[4/3] w-full overflow-hidden rounded-md bg-gray-50">
-                          {thumbUrl ? (
-                            <img src={thumbUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-gray-500">No image</div>
-                          )}
-                        </div>
-                        <div className="mt-2 line-clamp-2 text-xs font-semibold text-gray-900">{p.name}</div>
-                        <div className="mt-1 text-[11px] text-gray-600">{currencyVND(p?.variants?.[0]?.price || 0)}</div>
-                      </button>
-                    );
-                  })}
+        <div className="mixcharm-right">
+          <div className="mixcharm-card mixcharm-cardPad mixcharm-sticky">
+            <div className="mixcharm-panelTitle">Cart preview</div>
+            <div style={{ marginTop: 10, fontSize: 14, color: "#111827" }}>
+              <div style={{ fontWeight: 900 }}>
+                {typeCode} bracelet {sizeCm ? `size ${sizeCm}` : ""}
+              </div>
+              {braceletVariantCode || Number.isFinite(braceletPrice) ? (
+                <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div className="mixcharm-muted">
+                    Vòng: {bracelet?.name || typeCode}{braceletVariantCode ? ` (${braceletVariantCode})` : ""}
+                  </div>
+                  <div style={{ fontWeight: 900 }}>{currencyVND(braceletPriceShown)}</div>
                 </div>
-              ) : (
-                <div className="p-3 text-sm text-gray-600">Không có vòng trong loại này.</div>
-              )}
-            </div>
-
-            {bracelet ? (
-              <div className="mt-3">
-                <div className="text-sm font-semibold">Variant vòng</div>
-                <select
-                  className="mt-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
-                  value={braceletVariantCode}
-                  onChange={(e) => setBraceletVariantCode(e.target.value)}
-                >
-                  {braceletVariants.map((v) => (
-                    <option key={v.code} value={v.code}>
-                      {v.code} ({currencyVND(v.price)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Charms</div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCharmKind("regular")}
-                  className={
-                    "rounded-lg border px-3 py-2 text-sm font-semibold " +
-                    (charmKind === "regular" ? "border-black bg-black text-white" : "border-gray-200 hover:bg-gray-50")
-                  }
-                >
-                  Regular
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCharmKind("clip")}
-                  className={
-                    "rounded-lg border px-3 py-2 text-sm font-semibold " +
-                    (charmKind === "clip" ? "border-black bg-black text-white" : "border-gray-200 hover:bg-gray-50")
-                  }
-                >
-                  Clip
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-2 max-h-80 overflow-auto rounded-lg border border-gray-100 p-2">
-              {charms.length ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {charms.map((p) => {
-                    const selected = selectedCharm && String(selectedCharm._id) === String(p._id);
-                    const thumbUrl = firstImage(p);
-                    return (
-                      <button
-                        key={p._id}
-                        type="button"
-                        onClick={() => selectCharm(p)}
-                        className={
-                          "rounded-lg border p-2 text-left transition hover:bg-gray-50 " +
-                          (selected ? "border-black" : "border-gray-200")
-                        }
-                      >
-                        <div className="aspect-[4/3] w-full overflow-hidden rounded-md bg-gray-50">
-                          {thumbUrl ? (
-                            <img src={thumbUrl} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-gray-500">No image</div>
-                          )}
-                        </div>
-                        <div className="mt-2 line-clamp-2 text-xs font-semibold text-gray-900">{p.name}</div>
-                        <div className="mt-1 text-[11px] text-gray-600">{currencyVND(p?.variants?.[0]?.price || 0)}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-3 text-sm text-gray-600">Không có charms.</div>
-              )}
-            </div>
-
-            {selectedCharm ? (
-              <div className="mt-3">
-                <div className="text-sm font-semibold">Variant charm</div>
-                <select
-                  className="mt-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
-                  value={selectedCharmVariantCode}
-                  onChange={(e) => setSelectedCharmVariantCode(e.target.value)}
-                >
-                  {charmVariants.map((v) => (
-                    <option key={v.code} value={v.code}>
-                      {v.code} ({currencyVND(v.price)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-4 rounded-xl border border-gray-200 bg-white p-4">
-            <div className="text-sm font-semibold">Cart preview</div>
-            <div className="mt-2 text-sm text-gray-800">
-              <div className="font-semibold">{typeCode} bracelet</div>
-              <div className="mt-2 space-y-1">
+              ) : null}
+              <div style={{ marginTop: 10 }}>
                 {items.length ? (
                   items.map((it) => (
-                    <div key={it.slotIndex} className="flex items-center justify-between">
-                      <div className="text-gray-700">Slot {it.slotIndex}</div>
+                    <div
+                      key={it.slotIndex}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 6 }}
+                    >
+                      <div className="mixcharm-muted" style={{ flex: 1, minWidth: 0 }}>
+                        {(() => {
+                          const p = charmById.get(String(it.charmProductId));
+                          const v = findVariantByCode(p, it.charmVariantCode);
+                          const price = Number(v?.price) || 0;
+                          const name = p?.name || "Charm";
+                          return (
+                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+                              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                Slot {it.slotIndex}: {name}{it.charmVariantCode ? ` (${it.charmVariantCode})` : ""}
+                              </div>
+                              <div style={{ fontWeight: 900, whiteSpace: "nowrap" }}>{currencyVND(price)}</div>
+                            </div>
+                          );
+                        })()}
+                      </div>
                       <button
                         type="button"
-                        className="text-xs font-semibold text-red-600 hover:underline"
+                        className="mixcharm-btn"
+                        style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
                         onClick={() => removeFromSlot(it.slotIndex)}
                       >
                         Xóa
@@ -1031,16 +1109,105 @@ export default function DesignBuilder() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-gray-600">Chưa có charm nào.</div>
+                  <div className="mixcharm-muted">Chưa có charm nào.</div>
                 )}
               </div>
-              <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
-                <div className="font-semibold">Total</div>
-                <div className="font-semibold">{currencyVND(validation?.pricing?.total || 0)}</div>
+              <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ fontWeight: 900 }}>Bracelet</div>
+                  <div style={{ fontWeight: 900 }}>{currencyVND(braceletPriceShown)}</div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ fontWeight: 900 }}>Charms</div>
+                  <div style={{ fontWeight: 900 }}>{currencyVND(charmsPriceShown)}</div>
+                </div>
+                <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ fontWeight: 900 }}>Total</div>
+                  <div style={{ fontWeight: 900 }}>{currencyVND(totalPriceShown)}</div>
+                </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mixcharm-section">
+        <div className="mixcharm-sectionHeader">
+          <div className="mixcharm-sectionTitle">Hiện list vòng</div>
+          <div className="mixcharm-note">Chọn 1 vòng trước khi gắn charm</div>
+        </div>
+
+        {loadingBracelets ? (
+          <div className="mixcharm-note" style={{ marginTop: 10 }}>Đang tải...</div>
+        ) : bracelets.length ? (
+          <div className="mixcharm-carousel" role="list">
+            {bracelets.map((p) => {
+              const selected = bracelet && String(bracelet._id) === String(p._id);
+              return (
+                <MiniCard
+                  key={p._id}
+                  product={p}
+                  selected={selected}
+                  onClick={() => selectBracelet(p)}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mixcharm-note" style={{ marginTop: 10 }}>Không có vòng trong loại này.</div>
+        )}
+
+        {/* {bracelet ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="mixcharm-panelTitle">Variant vòng</div>
+            <select
+              className="mixcharm-select"
+              value={braceletVariantCode}
+              onChange={(e) => setBraceletVariantCode(e.target.value)}
+            >
+              {braceletVariants.map((v) => (
+                <option key={v.code} value={v.code}>
+                  {v.code} ({currencyVND(v.price)})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null} */}
+      </div>
+
+      <div className="mixcharm-section">
+        <div className="mixcharm-sectionHeader">
+          <div className="mixcharm-sectionTitle">Hiện list charm</div>
+          <div className="mixcharm-note">Chọn charm rồi click slot để đặt</div>
+        </div>
+
+        {charms.length ? (
+          <div className="mixcharm-carousel" role="list">
+            {charms.map((p) => {
+              const selected = selectedCharm && String(selectedCharm._id) === String(p._id);
+              return <MiniCard key={p._id} product={p} selected={selected} onClick={() => selectCharm(p)} />;
+            })}
+          </div>
+        ) : (
+          <div className="mixcharm-note" style={{ marginTop: 10 }}>Không có charms.</div>
+        )}
+
+        {/* {selectedCharm ? (
+          <div style={{ marginTop: 10 }}>
+            <div className="mixcharm-panelTitle">Variant charm</div>
+            <select
+              className="mixcharm-select"
+              value={selectedCharmVariantCode}
+              onChange={(e) => setSelectedCharmVariantCode(e.target.value)}
+            >
+              {charmVariants.map((v) => (
+                <option key={v.code} value={v.code}>
+                  {v.code} ({currencyVND(v.price)})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null} */}
       </div>
 
       {toast ? (
