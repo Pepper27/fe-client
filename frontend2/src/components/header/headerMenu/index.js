@@ -1,32 +1,85 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from "react";
 import { FaAngleDown } from "react-icons/fa6";
+import { Link } from "react-router-dom";
 import "./index.scss";
+import { api } from "../../../utils/api";
 
-// data structure for menus with sample children and promo image paths
-const MENU_DATA = [
-  { title: 'BỘ SƯU TẬP MỚI', children: ['Sản phẩm mới nhất', 'Bộ sưu tập mùa'], image: '/client/image/ads.jpg' },
-  { title: 'VÒNG TAY', children: ['Vòng tay bạc', 'Vòng tay vàng', 'Vòng charm'], image: '/client/image/vongtay.jpg' },
-  { title: 'CHARMS', children: ['Charm đính đá', 'Charm ký tự', 'Charm limited'], image: '/client/image/charm.png' },
-  { title: 'DÂY CHUYỀN', children: ['Dây chuyền bạc', 'Dây chuyền vàng'], image: '/client/image/nhan.png' },
-  { title: 'HOA TAI', children: ['Hoa tai đơn', 'Hoa tai bộ'], image: '/client/image/new.png' },
-  { title: 'NHẪN', children: ['Nhẫn trơn', 'Nhẫn đá'], image: '/client/image/nhan.png' },
-  { title: 'THEO CHỦ ĐỀ', children: ['Valentine', 'Tình yêu', 'Bữa tiệc'], image: '/client/image/goiy.png' },
-];
-
-const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+const safeStr = (v) => String(v ?? "").trim();
+const isBlank = (v) => !safeStr(v);
 
 export const HeaderMenu = ({ isOpen, onClose }) => {
   const [openSub, setOpenSub] = useState(null);
+  const [allCategories, setAllCategories] = useState([]);
   const hoverTimeout = useRef(null);
   const menuRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      // root=0 => return all categories so we can build parent/child menu.
+      .getCategories({ root: 0 })
+      .then((res) => {
+        if (cancelled) return;
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setAllCategories(list);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAllCategories([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const { roots, childrenByParent } = useMemo(() => {
+    const list = Array.isArray(allCategories) ? allCategories : [];
+    const byParent = {};
+    for (const c of list) {
+      const parent = safeStr(c?.parent);
+      if (isBlank(parent)) continue;
+      if (!byParent[parent]) byParent[parent] = [];
+      byParent[parent].push(c);
+    }
+
+    const hasChildren = (id) => (byParent[String(id)] || []).length > 0;
+
+    const rootCats = list
+      .filter((c) => {
+        // Root categories should have parent:"" (or null).
+        // Some records may have parent missing/undefined; treat those as root only
+        // if they actually have children to avoid leafs like "Vòng mềm" showing up.
+        if (c?.parent === "" || c?.parent === null) return true;
+        if (c?.parent === undefined) return hasChildren(c?._id);
+        return false;
+      })
+      .slice()
+      .sort((a, b) => {
+        const pa = Number(a?.position ?? 0);
+        const pb = Number(b?.position ?? 0);
+        if (pa !== pb) return pa - pb;
+        return safeStr(a?.name).localeCompare(safeStr(b?.name));
+      });
+
+    for (const k of Object.keys(byParent)) {
+      byParent[k].sort((a, b) => {
+        const pa = Number(a?.position ?? 0);
+        const pb = Number(b?.position ?? 0);
+        if (pa !== pb) return pa - pb;
+        return safeStr(a?.name).localeCompare(safeStr(b?.name));
+      });
+    }
+
+    return { roots: rootCats, childrenByParent: byParent };
+  }, [allCategories]);
 
   // close on escape
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') setOpenSub(null);
+      if (e.key === "Escape") setOpenSub(null);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const openWithDelay = (title) => {
@@ -39,89 +92,93 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
     hoverTimeout.current = setTimeout(() => setOpenSub(null), 160);
   };
 
-  const handleToggleSub = (e, name) => {
-    // mobile: toggle on click
-    if (window.innerWidth <= 768) {
-      e?.preventDefault?.();
-      e?.stopPropagation?.();
-      setOpenSub(openSub === name ? null : name);
-    }
-  };
+  // Mobile click toggle is currently not wired in markup.
+  // Keeping old handler commented-out to avoid dead code warnings.
 
   return (
     <>
-      <div className={`menu-overlay ${isOpen ? 'active' : ''}`} onClick={onClose}></div>
+      <div
+        className={`menu-overlay ${isOpen ? "active" : ""}`}
+        onClick={onClose}
+      ></div>
 
-      <nav ref={menuRef} className={`header-menu ${isOpen ? 'is-open' : ''}`}>
+      <nav ref={menuRef} className={`header-menu ${isOpen ? "is-open" : ""}`}>
         <div className="container">
           <ul className="menu-list">
-            {MENU_DATA.map((item) => (
+            {roots.map((item) => (
               <li
-                key={item.title}
-                className={`menu-item has-dropdown ${openSub === item.title ? 'submenu-open' : ''}`}
-                onMouseEnter={() => openWithDelay(item.title)}
+                key={item?._id}
+                className={`menu-item has-dropdown ${openSub === item?._id ? "submenu-open" : ""}`}
+                onMouseEnter={() => openWithDelay(item?._id)}
                 onMouseLeave={() => closeWithDelay()}
               >
                 <div className="menu-top">
-                  <a href={`/category/${slugify(item.title)}`} className="menu-link">{item.title}</a>
-                  <FaAngleDown className="icon-down" />
-                  {/* <button
-                    type="button"
-                    className="menu-toggle"
-                    aria-expanded={openSub === item.title}
-                    aria-controls={`submenu-${slugify(item.title)}`}
-                    onClick={(e) => handleToggleSub(e, item.title)}
+                  <Link
+                    to={`/products?categorySlug=${encodeURIComponent(safeStr(item?.slug))}`}
+                    className="menu-link"
                   >
-                    <FaAngleDown className="icon-down" />
-                  </button> */}
+                    {item?.name}
+                  </Link>
+                  <FaAngleDown className="icon-down" />
                 </div>
-
-                {/* per-item dropdown removed — using shared submenu below */}
               </li>
             ))}
           </ul>
           {/* Shared submenu: fixed position below header, updates content based on `openSub` */}
           {(() => {
-            const active = MENU_DATA.find((m) => m.title === openSub) || null;
+            const active =
+              roots.find((m) => String(m?._id) === String(openSub)) || null;
+            const children = active
+              ? childrenByParent[String(active._id)] || []
+              : [];
             return (
               <div
                 id={`shared-submenu`}
-                className={`dropdown-container shared ${openSub ? 'open' : ''}`}
+                className={`dropdown-container shared ${openSub ? "open" : ""}`}
                 role="region"
                 aria-hidden={!openSub}
               >
                 <div className="dropdown-box content-center">
                   {active ? (
-                    active.children && (
-                      <>
-                        {/** render children in columns (split roughly) **/}
-                        <div className="dropdown-col">
-                          <span className="dropdown-title">PHÂN LOẠI</span>
-                          <ul className="submenu">
-                            {active.children.map((c, i) => (
-                              <li key={i}><a href="#">{c}</a></li>
-                            ))}
-                          </ul>
-                        </div>
-                        {/* placeholder additional columns - can be populated from API later */}
-                        <div className="dropdown-col">
-                          <span className="dropdown-title">THEO CHỦ ĐỀ</span>
-                          <ul className="submenu">
-                            <li><a href="#">Mẫu 1</a></li>
-                            <li><a href="#">Mẫu 2</a></li>
-                            <li><a href="#">Mẫu 3</a></li>
-                          </ul>
-                        </div>
-                        <div className="dropdown-col">
-                          <span className="dropdown-title">THEO MỨC GIÁ</span>
-                          <ul className="submenu">
-                            <li><a href="#">Dưới 1 triệu</a></li>
-                            <li><a href="#">1-2 triệu</a></li>
-                            <li><a href="#">Trên 2 triệu</a></li>
-                          </ul>
-                        </div>
-                      </>
-                    )
+                    <>
+                      <div className="dropdown-col">
+                        <span className="dropdown-title">DANH MỤC</span>
+                        <ul className="submenu">
+                          <li>
+                            <Link
+                              to={`/products?categorySlug=${encodeURIComponent(safeStr(active?.slug))}`}
+                            >
+                              Xem tất cả
+                            </Link>
+                          </li>
+                          {children.map((c) => (
+                            <li key={c._id}>
+                              <Link
+                                to={`/products?categorySlug=${encodeURIComponent(safeStr(c?.slug))}`}
+                              >
+                                {c?.name}
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="dropdown-col">
+                        <span className="dropdown-title">THEO CHỦ ĐỀ</span>
+                        <ul className="submenu">
+                          <li>
+                            <button type="button">Đang cập nhật</button>
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="dropdown-col">
+                        <span className="dropdown-title">THEO MỨC GIÁ</span>
+                        <ul className="submenu">
+                          <li>
+                            <button type="button">Đang cập nhật</button>
+                          </li>
+                        </ul>
+                      </div>
+                    </>
                   ) : null}
                 </div>
               </div>

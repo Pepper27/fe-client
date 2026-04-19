@@ -4,6 +4,7 @@ import { IoCloseOutline } from "react-icons/io5";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { FaFacebookF, FaGoogle } from "react-icons/fa";
 import { api } from "../../utils/api";
+import { syncWishlistFromServer } from "../../utils/wishlist";
 import "./index.scss";
 
 export default function Authentication() {
@@ -11,7 +12,8 @@ export default function Authentication() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
-  const activeTab = searchParams.get("tab") === "register" ? "register" : "login";
+  const activeTab =
+    searchParams.get("tab") === "register" ? "register" : "login";
 
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
@@ -33,8 +35,9 @@ export default function Authentication() {
   const [forgotNewPassword, setForgotNewPassword] = useState("");
 
   const heading = useMemo(
-    () => (activeTab === "register" ? "TẠO TÀI KHOẢN CỦA TÔI" : "TÀI KHOẢN CỦA TÔI"),
-    [activeTab]
+    () =>
+      activeTab === "register" ? "TẠO TÀI KHOẢN CỦA TÔI" : "TÀI KHOẢN CỦA TÔI",
+    [activeTab],
   );
 
   useEffect(() => {
@@ -55,7 +58,10 @@ export default function Authentication() {
   }, []);
 
   const showError = (err, fallback) => {
-    setToast({ type: "error", message: err?.message || fallback || "Có lỗi xảy ra" });
+    setToast({
+      type: "error",
+      message: err?.message || fallback || "Có lỗi xảy ra",
+    });
   };
 
   const onLoginSubmit = async (e) => {
@@ -63,14 +69,22 @@ export default function Authentication() {
     if (busy) return;
     const email = String(loginForm.email || "").trim();
     const password = String(loginForm.password || "");
-    if (!email) return setToast({ type: "error", message: "Vui lòng nhập email" });
-    if (!password) return setToast({ type: "error", message: "Vui lòng nhập mật khẩu" });
+    if (!email)
+      return setToast({ type: "error", message: "Vui lòng nhập email" });
+    if (!password)
+      return setToast({ type: "error", message: "Vui lòng nhập mật khẩu" });
 
     setBusy(true);
     try {
       await api.authLogin({ email, password });
       const resMe = await api.authMe();
       setMe(resMe?.data || null);
+      // Sync server wishlist (if logged in) into local store.
+      try {
+        await syncWishlistFromServer();
+      } catch {
+        // ignore
+      }
       setToast({ type: "success", message: "Đăng nhập thành công" });
       window.dispatchEvent(new Event("auth:changed"));
       navigate("/", { replace: true });
@@ -90,17 +104,27 @@ export default function Authentication() {
     const password = String(registerForm.password || "");
     const confirmPassword = String(registerForm.confirmPassword || "");
 
-    if (!fullName) return setToast({ type: "error", message: "Vui lòng nhập họ và tên" });
-    if (!email) return setToast({ type: "error", message: "Vui lòng nhập email" });
-    if (!password) return setToast({ type: "error", message: "Vui lòng nhập mật khẩu" });
-    if (password.length < 6) return setToast({ type: "error", message: "Mật khẩu tối thiểu 6 ký tự" });
+    if (!fullName)
+      return setToast({ type: "error", message: "Vui lòng nhập họ và tên" });
+    if (!email)
+      return setToast({ type: "error", message: "Vui lòng nhập email" });
+    if (!password)
+      return setToast({ type: "error", message: "Vui lòng nhập mật khẩu" });
+    if (password.length < 6)
+      return setToast({ type: "error", message: "Mật khẩu tối thiểu 6 ký tự" });
     if (password !== confirmPassword)
-      return setToast({ type: "error", message: "Xác nhận mật khẩu không khớp" });
+      return setToast({
+        type: "error",
+        message: "Xác nhận mật khẩu không khớp",
+      });
 
     setBusy(true);
     try {
       await api.authRegister({ fullName, email, password, phone });
-      setToast({ type: "success", message: "Đăng ký thành công. Vui lòng đăng nhập." });
+      setToast({
+        type: "success",
+        message: "Đăng ký thành công. Vui lòng đăng nhập.",
+      });
       navigate("/authen", { replace: true });
     } catch (err) {
       showError(err, "Đăng ký thất bại");
@@ -120,12 +144,16 @@ export default function Authentication() {
   const onForgotSendOtp = async () => {
     if (busy) return;
     const email = String(forgotEmail || "").trim();
-    if (!email) return setToast({ type: "error", message: "Vui lòng nhập email" });
+    if (!email)
+      return setToast({ type: "error", message: "Vui lòng nhập email" });
 
     setBusy(true);
     try {
       await api.authForgotPassword({ email });
-      setToast({ type: "success", message: "Đã gửi OTP. Vui lòng kiểm tra email." });
+      setToast({
+        type: "success",
+        message: "Đã gửi OTP. Vui lòng kiểm tra email.",
+      });
       setForgotStep("reset");
     } catch (err) {
       showError(err, "Gửi OTP thất bại");
@@ -139,15 +167,21 @@ export default function Authentication() {
     const email = String(forgotEmail || "").trim();
     const otp = String(forgotOtp || "").trim();
     const newPassword = String(forgotNewPassword || "");
-    if (!email) return setToast({ type: "error", message: "Vui lòng nhập email" });
+    if (!email)
+      return setToast({ type: "error", message: "Vui lòng nhập email" });
     if (!otp) return setToast({ type: "error", message: "Vui lòng nhập OTP" });
-    if (!newPassword) return setToast({ type: "error", message: "Vui lòng nhập mật khẩu mới" });
-    if (newPassword.length < 6) return setToast({ type: "error", message: "Mật khẩu tối thiểu 6 ký tự" });
+    if (!newPassword)
+      return setToast({ type: "error", message: "Vui lòng nhập mật khẩu mới" });
+    if (newPassword.length < 6)
+      return setToast({ type: "error", message: "Mật khẩu tối thiểu 6 ký tự" });
 
     setBusy(true);
     try {
       await api.authResetPassword({ email, otp, newPassword });
-      setToast({ type: "success", message: "Đổi mật khẩu thành công. Bạn có thể đăng nhập." });
+      setToast({
+        type: "success",
+        message: "Đổi mật khẩu thành công. Bạn có thể đăng nhập.",
+      });
       setIsForgotOpen(false);
     } catch (err) {
       showError(err, "Đổi mật khẩu thất bại");
@@ -171,13 +205,18 @@ export default function Authentication() {
             <div className="auth-meText">
               Xin chào, <b>{me.fullName || me.email}</b>
             </div>
-            <div className="auth-meHint">Bạn đã đăng nhập. Vào trang chủ hoặc giỏ hàng để tiếp tục.</div>
+            <div className="auth-meHint">
+              Bạn đã đăng nhập. Vào trang chủ hoặc giỏ hàng để tiếp tục.
+            </div>
           </div>
         ) : null}
 
         {toast && !isForgotOpen ? (
           <div
-            className={"auth-toast " + (toast.type === "error" ? "auth-toastError" : "auth-toastSuccess")}
+            className={
+              "auth-toast " +
+              (toast.type === "error" ? "auth-toastError" : "auth-toastSuccess")
+            }
             role="status"
             onClick={() => setToast(null)}
           >
@@ -212,7 +251,9 @@ export default function Authentication() {
                 placeholder="Email *"
                 aria-label="Email"
                 value={loginForm.email}
-                onChange={(e) => setLoginForm((p) => ({ ...p, email: e.target.value }))}
+                onChange={(e) =>
+                  setLoginForm((p) => ({ ...p, email: e.target.value }))
+                }
                 autoComplete="email"
               />
               <div className="password-row">
@@ -221,7 +262,9 @@ export default function Authentication() {
                   placeholder="Mật khẩu *"
                   aria-label="Mật khẩu"
                   value={loginForm.password}
-                  onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))}
+                  onChange={(e) =>
+                    setLoginForm((p) => ({ ...p, password: e.target.value }))
+                  }
                   autoComplete="current-password"
                 />
                 <button
@@ -258,7 +301,9 @@ export default function Authentication() {
                 placeholder="Họ và tên *"
                 aria-label="Họ và tên"
                 value={registerForm.fullName}
-                onChange={(e) => setRegisterForm((p) => ({ ...p, fullName: e.target.value }))}
+                onChange={(e) =>
+                  setRegisterForm((p) => ({ ...p, fullName: e.target.value }))
+                }
                 autoComplete="name"
               />
               <input
@@ -266,7 +311,9 @@ export default function Authentication() {
                 placeholder="Email *"
                 aria-label="Email"
                 value={registerForm.email}
-                onChange={(e) => setRegisterForm((p) => ({ ...p, email: e.target.value }))}
+                onChange={(e) =>
+                  setRegisterForm((p) => ({ ...p, email: e.target.value }))
+                }
                 autoComplete="email"
               />
               <input
@@ -274,7 +321,9 @@ export default function Authentication() {
                 placeholder="Số điện thoại *"
                 aria-label="Số điện thoại"
                 value={registerForm.phone}
-                onChange={(e) => setRegisterForm((p) => ({ ...p, phone: e.target.value }))}
+                onChange={(e) =>
+                  setRegisterForm((p) => ({ ...p, phone: e.target.value }))
+                }
                 autoComplete="tel"
               />
               <input
@@ -282,7 +331,9 @@ export default function Authentication() {
                 placeholder="Ngày/tháng/năm"
                 aria-label="Ngày sinh"
                 value={registerForm.birthday}
-                onChange={(e) => setRegisterForm((p) => ({ ...p, birthday: e.target.value }))}
+                onChange={(e) =>
+                  setRegisterForm((p) => ({ ...p, birthday: e.target.value }))
+                }
               />
               <div className="password-row">
                 <input
@@ -290,7 +341,9 @@ export default function Authentication() {
                   placeholder="Mật khẩu *"
                   aria-label="Mật khẩu"
                   value={registerForm.password}
-                  onChange={(e) => setRegisterForm((p) => ({ ...p, password: e.target.value }))}
+                  onChange={(e) =>
+                    setRegisterForm((p) => ({ ...p, password: e.target.value }))
+                  }
                   autoComplete="new-password"
                 />
                 <button
@@ -308,13 +361,22 @@ export default function Authentication() {
                   placeholder="Xác nhận mật khẩu *"
                   aria-label="Xác nhận mật khẩu"
                   value={registerForm.confirmPassword}
-                  onChange={(e) => setRegisterForm((p) => ({ ...p, confirmPassword: e.target.value }))}
+                  onChange={(e) =>
+                    setRegisterForm((p) => ({
+                      ...p,
+                      confirmPassword: e.target.value,
+                    }))
+                  }
                   autoComplete="new-password"
                 />
                 <button
                   type="button"
                   className="password-toggle"
-                  aria-label={showPassword ? "Ẩn mật khẩu xác nhận" : "Hiện mật khẩu xác nhận"}
+                  aria-label={
+                    showPassword
+                      ? "Ẩn mật khẩu xác nhận"
+                      : "Hiện mật khẩu xác nhận"
+                  }
                   onClick={() => setShowPassword((prev) => !prev)}
                 >
                   {showPassword ? <IoEyeOutline /> : <IoEyeOffOutline />}
@@ -338,7 +400,10 @@ export default function Authentication() {
       </div>
 
       {isForgotOpen ? (
-        <div className="forgot-modal-overlay" onClick={() => setIsForgotOpen(false)}>
+        <div
+          className="forgot-modal-overlay"
+          onClick={() => setIsForgotOpen(false)}
+        >
           <div
             className="forgot-modal"
             role="dialog"
@@ -359,8 +424,8 @@ export default function Authentication() {
             </div>
 
             <p className="forgot-modal-text">
-              Vui lòng nhập địa chỉ email đã đăng ký của bạn để nhận email thông báo khôi phục mật
-              khẩu từ chúng tôi.
+              Vui lòng nhập địa chỉ email đã đăng ký của bạn để nhận email thông
+              báo khôi phục mật khẩu từ chúng tôi.
             </p>
 
             <input
@@ -394,7 +459,12 @@ export default function Authentication() {
 
             {toast ? (
               <div
-                className={"auth-toast " + (toast.type === "error" ? "auth-toastError" : "auth-toastSuccess")}
+                className={
+                  "auth-toast " +
+                  (toast.type === "error"
+                    ? "auth-toastError"
+                    : "auth-toastSuccess")
+                }
                 role="status"
                 style={{ marginTop: 14 }}
                 onClick={() => setToast(null)}
@@ -409,7 +479,11 @@ export default function Authentication() {
               onClick={forgotStep === "email" ? onForgotSendOtp : onForgotReset}
               disabled={busy}
             >
-              {busy ? "ĐANG XỬ LÝ..." : forgotStep === "email" ? "GỬI OTP" : "ĐỔI MẬT KHẨU"}
+              {busy
+                ? "ĐANG XỬ LÝ..."
+                : forgotStep === "email"
+                  ? "GỬI OTP"
+                  : "ĐỔI MẬT KHẨU"}
             </button>
           </div>
         </div>

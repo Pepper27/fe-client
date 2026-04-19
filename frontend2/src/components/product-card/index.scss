@@ -18,6 +18,12 @@
   width: 100%;
 }
 
+/* square modifier: force no rounding and clip overflow */
+.product-item-container.is-square {
+  border-radius: 0;
+  overflow: hidden;
+}
+
 /* button reset: avoid native button styles affecting layout */
 button.product-item-link {
   appearance: none;

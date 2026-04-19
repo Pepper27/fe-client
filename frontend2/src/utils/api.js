@@ -1,6 +1,10 @@
 // Backend-charm default port is 3879; override via REACT_APP_API_BASE when needed.
 const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:3879";
 
+// Prefer v1 endpoints for new work.
+const V1_PUBLIC = "/api/v1/public";
+const V1_CLIENT = "/api/v1/client";
+
 const request = async (path, options = {}) => {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: "include",
@@ -30,14 +34,74 @@ const request = async (path, options = {}) => {
   return data;
 };
 
+const readClientToken = () => {
+  try {
+    const t = localStorage.getItem("clientAccessToken");
+    return t && String(t).trim() ? String(t).trim() : null;
+  } catch {
+    return null;
+  }
+};
+
 export const api = {
+  getCategories: ({ root } = {}) => {
+    const qs = new URLSearchParams();
+    // root=1 -> only top-level categories
+    if (root !== undefined) qs.set("root", String(root));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`${V1_PUBLIC}/categories${suffix}`);
+  },
+  // filters: optional object that will be JSON.stringify'd and placed in `filters` query param
+  getProducts: ({ page, limit, q, categorySlug, filters } = {}) => {
+    const qs = new URLSearchParams();
+    if (page !== undefined) qs.set("page", String(page));
+    if (limit !== undefined) qs.set("limit", String(limit));
+    if (q) qs.set("q", String(q));
+    if (categorySlug) qs.set("categorySlug", String(categorySlug));
+    if (filters !== undefined) {
+      try {
+        qs.set("filters", JSON.stringify(filters));
+      } catch (e) {
+        // ignore invalid filters
+      }
+    }
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`${V1_PUBLIC}/products${suffix}`);
+  },
+  getProductBySlug: (slug) =>
+    request(
+      `${V1_PUBLIC}/products/slug/${encodeURIComponent(String(slug || "").trim())}`,
+    ),
+  getProductById: (id) =>
+    request(
+      `${V1_PUBLIC}/products/${encodeURIComponent(String(id || "").trim())}`,
+    ),
+  // Attribute lists used for filters in the sidebar
+  getMaterials: () => request(`${V1_PUBLIC}/materials`),
+  getColors: () => request(`${V1_PUBLIC}/colors`),
+  getSizes: () => request(`${V1_PUBLIC}/sizes`),
+  getThemes: () => request(`${V1_PUBLIC}/themes`),
+  getCollections: () => request(`${V1_PUBLIC}/collections`),
   getBracelets: ({ typeCode, sizeCm }) => {
     const qs = new URLSearchParams();
     if (typeCode) qs.set("typeCode", typeCode);
     if (sizeCm) qs.set("sizeCm", String(sizeCm));
     return request(`/api/public/bracelets?${qs.toString()}`);
   },
-  getCharms: () => request(`/api/public/charms`),
+  getCharms: ({ kind } = {}) => {
+    const qs = new URLSearchParams();
+    if (kind) qs.set("kind", kind);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/public/charms${suffix}`);
+  },
+
+  // Use v1 product detail instead of stitching public lists.
+  getProductByIdPublic: async (id) => {
+    const safeId = String(id || "").trim();
+    if (!safeId) return null;
+    const res = await api.getProductById(safeId);
+    return res?.data || null;
+  },
   validateMix: ({ bracelet, items }) =>
     request(`/api/public/mix/validate`, {
       method: "POST",
@@ -59,6 +123,45 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Bundle-centric checkout + order tracking
+  checkoutBundles: ({ bundleIds, phone, fullName, address, email, method }) =>
+    request(`/api/public/checkout`, {
+      method: "POST",
+      body: JSON.stringify({
+        bundleIds,
+        phone,
+        fullName,
+        address,
+        email,
+        method,
+      }),
+    }).then((res) => {
+      // Defensive: older backend versions returned HTTP 200 with { valid:false }.
+      const orderCode = res?.data?.orderCode;
+      if (!orderCode) {
+        const err = new Error(res?.message || "Đặt hàng thất bại");
+        err.data = res;
+        throw err;
+      }
+      return res;
+    }),
+  lookupOrders: ({ phone, email }) => {
+    const qs = new URLSearchParams();
+    if (phone) qs.set("phone", String(phone));
+    if (email) qs.set("email", String(email));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`/api/public/orders/lookup${suffix}`);
+  },
+  getOrderByCode: (orderCode) =>
+    request(
+      `/api/public/orders/${encodeURIComponent(String(orderCode || "").trim())}`,
+    ),
+  emailOrders: ({ email }) =>
+    request(`/api/public/orders/email`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
   // Client auth (cookie-based)
   authRegister: ({ fullName, email, password, phone }) =>
     request(`/api/public/auth/register`, {
@@ -69,11 +172,28 @@ export const api = {
     request(`/api/public/auth/login`, {
       method: "POST",
       body: JSON.stringify({ email, password }),
+    }).then((res) => {
+      // Persist token for v1 bearer endpoints if BE returns it.
+      const token = res?.token;
+      if (token) {
+        try {
+          localStorage.setItem("clientAccessToken", String(token));
+        } catch {
+          // ignore
+        }
+      }
+      return res;
     }),
   authMe: () => request(`/api/public/auth/me`),
   authLogout: () =>
     request(`/api/public/auth/logout`, {
       method: "POST",
+    }).finally(() => {
+      try {
+        localStorage.removeItem("clientAccessToken");
+      } catch {
+        // ignore
+      }
     }),
   authForgotPassword: ({ email }) =>
     request(`/api/public/auth/forgot-password`, {
@@ -85,4 +205,72 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, otp, newPassword }),
     }),
+
+  // v1 bearer auth (token stored in localStorage)
+  v1AuthLogin: ({ email, password }) =>
+    request(`${V1_PUBLIC}/auth/login`, {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }).then((res) => {
+      const token = res?.data?.accessToken;
+      if (token) {
+        try {
+          localStorage.setItem("clientAccessToken", String(token));
+        } catch {
+          // ignore
+        }
+      }
+      return res;
+    }),
+  v1AuthMe: () => {
+    const token = readClientToken();
+    return request(`${V1_PUBLIC}/auth/me`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+
+  // v1 client orders (requires bearer)
+  v1ClientOrdersStats: () => {
+    const token = readClientToken();
+    return request(`${V1_CLIENT}/orders/stats`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+  v1ClientOrdersList: ({ status, page, limit } = {}) => {
+    const token = readClientToken();
+    const qs = new URLSearchParams();
+    if (status) qs.set("status", String(status));
+    if (page !== undefined) qs.set("page", String(page));
+    if (limit !== undefined) qs.set("limit", String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`${V1_CLIENT}/orders${suffix}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  },
+  v1ClientOrderByCode: (orderCode) => {
+    const token = readClientToken();
+    return request(
+      `${V1_CLIENT}/orders/${encodeURIComponent(String(orderCode || "").trim())}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      },
+    );
+  },
+
+  // Wishlist (requires legacy cookie auth currently)
+  wishlistList: () => request(`/api/public/wishlist`),
+  wishlistAdd: ({ productId, variantCode }) =>
+    request(`/api/public/wishlist`, {
+      method: "POST",
+      body: JSON.stringify({ productId, variantCode }),
+    }),
+  wishlistRemove: ({ productId, variantCode }) => {
+    const qs = new URLSearchParams();
+    if (variantCode) qs.set("variantCode", String(variantCode));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(
+      `/api/public/wishlist/${encodeURIComponent(String(productId))}${suffix}`,
+      { method: "DELETE" },
+    );
+  },
 };

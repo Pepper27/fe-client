@@ -1,14 +1,46 @@
-import { Categories } from "./product-category-list"
-import { ProductSignature } from "./product-signature"
+import { Categories } from "./product-category-list";
+import { ProductSignature } from "./product-signature";
 import "./index.scss";
 import { Navigation } from "swiper/modules";
-import { products } from "../../data/product";
 import { ProductCard } from "../product-card";
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { AiOutlineLeft, AiOutlineRight } from 'react-icons/ai';
+import { Swiper, SwiperSlide } from "swiper/react";
+import { AiOutlineLeft, AiOutlineRight } from "react-icons/ai";
 import { COMMITMENTS_DATA } from "../../data/commitment";
+import React, { useEffect, useState } from "react";
+import { api } from "../../utils/api";
 
 export const Home = () => {
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // Prefer v1 unified product catalog. Fallback to legacy lists.
+        let merged = [];
+        try {
+          const v1 = await api.getProducts({ page: 1, limit: 40 });
+          merged = v1?.data || [];
+        } catch {
+          const [braceletsRes, charmsRes] = await Promise.all([
+            api.getBracelets({}),
+            api.getCharms({}),
+          ]);
+          merged = [...(braceletsRes?.data || []), ...(charmsRes?.data || [])];
+        }
+        if (cancelled) return;
+        setProducts(merged);
+      } catch (e) {
+        if (cancelled) return;
+        console.error(e);
+        setProducts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const discoveryItems = [
     { id: 1, title: "MÙA HÈ RỰC RỠ", image: "../client/image/khampha.jpg" },
     { id: 2, title: "MÙA HÈ RỰC RỠ", image: "../client/image/khampha.jpg" },
@@ -16,7 +48,7 @@ export const Home = () => {
     { id: 4, title: "MÙA HÈ RỰC RỠ", image: "../client/image/khampha.jpg" },
   ];
   return (
-    < >
+    <>
       <ProductSignature />
       <Categories />
       {/* video */}
@@ -44,7 +76,7 @@ export const Home = () => {
           modules={[Navigation]}
           navigation={{
             prevEl: ".custom-prev",
-            nextEl: ".custom-next"
+            nextEl: ".custom-next",
           }}
           slidesPerView={5}
           spaceBetween={5}
@@ -59,16 +91,22 @@ export const Home = () => {
             1280: { slidesPerView: 5 },
           }}
         >
-          {products.map((item) => (
-            <SwiperSlide key={item.id}>
-              <ProductCard
-                id={String(item.id)}
-                name={item.name}
-                price={item.price}
-                images={item.variants?.[0]?.images?.[0] || item.images}
-              />
-            </SwiperSlide>
-          ))}
+          {products.map((item) => {
+            const firstVariant = (item?.variants || [])[0] || null;
+            const image = (firstVariant?.images || [])[0] || "";
+            const price = firstVariant?.price ?? 0;
+            return (
+              <SwiperSlide key={item._id}>
+                <ProductCard
+                  id={String(item._id)}
+                  slug={item.slug}
+                  name={item.name}
+                  price={price}
+                  images={image}
+                />
+              </SwiperSlide>
+            );
+          })}
 
           {/* NÚT ĐIỀU HƯỚNG */}
           <button className="custom-prev swiper-btn">
@@ -91,14 +129,16 @@ export const Home = () => {
             playsInline
           />
           <div className="promo-content">
-            <h2 className="promo-title">
-              CHẠM YÊU THƯƠNG - KHẮC CẢM XÚC
-            </h2>
+            <h2 className="promo-title">CHẠM YÊU THƯƠNG - KHẮC CẢM XÚC</h2>
             <p className="promo-description">
-              Hãy để Pandora cùng bạn khắc ghi từng khoảnh khắc mùa hè với những thiết kế trang sức đầy cảm hứng – từ ánh vàng rực rỡ như nắng sớm đến những viên đá xanh biển như làn sóng vỗ về.
+              Hãy để Pandora cùng bạn khắc ghi từng khoảnh khắc mùa hè với những
+              thiết kế trang sức đầy cảm hứng – từ ánh vàng rực rỡ như nắng sớm
+              đến những viên đá xanh biển như làn sóng vỗ về.
             </p>
             <p className="promo-description">
-              Mỗi charm, mỗi vòng tay là một mảnh ghép kể nên câu chuyện cá nhân, để bạn đeo cả mùa hè trên cổ tay, và mang theo cảm xúc đi suốt hành trình...
+              Mỗi charm, mỗi vòng tay là một mảnh ghép kể nên câu chuyện cá
+              nhân, để bạn đeo cả mùa hè trên cổ tay, và mang theo cảm xúc đi
+              suốt hành trình...
             </p>
             <button className="promo-button">
               <span>KHÁM PHÁ NGAY</span>
@@ -107,7 +147,11 @@ export const Home = () => {
         </div>
       </section>
       <section className="container discovery-wrapper">
-        <span className="discovery-bg-text" data-aos="fade-up" data-aos-delay="200">
+        <span
+          className="discovery-bg-text"
+          data-aos="fade-up"
+          data-aos-delay="200"
+        >
           KHÁM PHÁ
         </span>
         <img
@@ -149,5 +193,5 @@ export const Home = () => {
         ))}
       </section>
     </>
-  )
-}
+  );
+};

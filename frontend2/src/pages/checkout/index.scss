@@ -1,0 +1,257 @@
+.checkout-page {
+  padding: 22px 0 60px;
+  background: #fff;
+}
+
+.checkout-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.checkout-back {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.checkout-title {
+  margin: 6px 0 14px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #0b1220;
+}
+
+.checkout-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 16px;
+  align-items: start;
+}
+
+.checkout-card {
+  border: 1px solid rgba(2, 31, 61, 0.12);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px;
+}
+
+.checkout-cardTitle {
+  font-weight: 900;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+
+.checkout-subTitle {
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.checkout-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 12px 0;
+}
+
+.checkout-empty {
+  opacity: 0.75;
+  padding: 6px 0;
+}
+
+.checkout-addressList {
+  display: grid;
+  gap: 10px;
+}
+
+.checkout-addressRow {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(1, 126, 189, 0.03);
+}
+
+.checkout-addressText {
+  min-width: 0;
+}
+
+.checkout-addressName {
+  font-weight: 900;
+}
+
+.checkout-addressAddr,
+.checkout-addressEmail {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+.checkout-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.checkout-formFull {
+  grid-column: 1 / -1;
+}
+
+.checkout-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.checkout-form span {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.checkout-form input {
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  padding: 0 12px;
+}
+
+.checkout-addAddr {
+  grid-column: 1 / -1;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: #0b1220;
+  color: #fff;
+  font-weight: 900;
+}
+
+.checkout-payMethods {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.checkout-payMethods label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(1, 126, 189, 0.03);
+  font-weight: 800;
+}
+
+.checkout-lines {
+  display: grid;
+  gap: 10px;
+}
+
+.checkout-line {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.checkout-lineTitle {
+  font-weight: 900;
+}
+
+.checkout-lineMeta {
+  font-size: 13px;
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+.checkout-lineQty {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-top: 6px;
+}
+
+.checkout-linePrice {
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.checkout-summary {
+  display: grid;
+  gap: 8px;
+}
+
+.checkout-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.checkout-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.checkout-place {
+  width: 100%;
+  height: 54px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: linear-gradient(180deg, #0f7ab7, #0a5f91);
+  color: #fff;
+  font-weight: 900;
+  font-size: 18px;
+  margin-top: 12px;
+}
+
+.checkout-track {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.checkout-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+  max-width: min(440px, calc(100vw - 32px));
+  cursor: pointer;
+}
+
+.checkout-toastError {
+  border-color: rgba(255, 0, 0, 0.22);
+}
+
+.checkout-toastSuccess {
+  border-color: rgba(0, 128, 0, 0.22);
+}
+
+@media (max-width: 980px) {
+  .checkout-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .checkout-form {
+    grid-template-columns: 1fr;
+  }
+}
