@@ -1,12 +1,18 @@
-// Backend-charm default port is 3879; override via REACT_APP_API_BASE when needed.
-const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:3879";
+// Determine API base at request-time so runtime-injected window.__API_BASE
+// (set by index.js after fetching /config.json) is honored even when
+// modules import this file before bootstrap runs.
+function getApiBase() {
+  if (typeof window !== 'undefined' && window.__API_BASE) return window.__API_BASE;
+  if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_BASE) return process.env.REACT_APP_API_BASE;
+  return "http://localhost:3879";
+}
 
 // Prefer v1 endpoints for new work.
 const V1_PUBLIC = "/api/v1/public";
 const V1_CLIENT = "/api/v1/client";
 
 const request = async (path, options = {}) => {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     credentials: "include",
     ...options,
     headers: {
