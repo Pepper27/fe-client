@@ -218,157 +218,146 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
   }, [selectedSort, onSortChange]);
 
   return (
-    <>
-      {/* <div className="container mx-auto">
-        <Breadcrumb />
-      </div> */}
-      <div className="container mx-auto mt-[60px]">
-        <div className="flex flex-col lg:flex-row gap-[30px]">
-          <div className="w-full lg:w-[25%]">
-            <div className="sidebar-panel">
-              <div className={`sort-box ${sortOpen ? "is-open" : ""}`}>
+    <div className="sidebar-panel">
+      <div className={`sort-box ${sortOpen ? "is-open" : ""}`}>
+        <button
+          type="button"
+          className="sort-trigger"
+          onClick={() => setSortOpen(!sortOpen)}
+        >
+          <div className="content">
+            <p className="sort-label">Sắp xếp</p>
+            <p className="sort-value">{selectedSort.label}</p>
+          </div>
+          <MdKeyboardArrowRight className={`sort-icon ${sortOpen ? "rotate" : ""}`} />
+        </button>
+        {sortOpen && (
+          <ul className="sort-menu">
+            {sortOptions.map((option) => (
+              <li key={option.value}>
                 <button
                   type="button"
-                  className="sort-trigger"
-                  onClick={() => setSortOpen(!sortOpen)}
+                  className={`sort-option ${selectedSort.value === option.value ? "active" : ""}`}
+                  onClick={() => handleSortSelect(option)}
                 >
-                  <div className="content">
-                    <p className="sort-label">Sắp xếp</p>
-                    <p className="sort-value">{selectedSort.label}</p>
-                  </div>
-                  <MdKeyboardArrowRight className={`sort-icon ${sortOpen ? "rotate" : ""}`} />
+                  {option.label}
                 </button>
-                {sortOpen && (
-                  <ul className="sort-menu">
-                    {sortOptions.map((option) => (
-                      <li key={option.value}>
-                        <button
-                          type="button"
-                          className={`sort-option ${selectedSort.value === option.value ? "active" : ""}`}
-                          onClick={() => handleSortSelect(option)}
-                        >
-                          {option.label}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              {/* Render filter sections based on category metadata or defaults */}
-              {(() => {
-                const visible = Array.isArray(categoryProp?.visibleFilters) && categoryProp.visibleFilters.length
-                  ? categoryProp.visibleFilters
-                  : DEFAULT_VISIBLE_FILTERS;
-
-                const getOptions = (key) => {
-                  const fromCategory = categoryProp?.filterOptions?.[key];
-                  if (Array.isArray(fromCategory)) return fromCategory;
-                  // If we have server-provided attribute lists, use them for accurate ids/names
-                  switch (key) {
-                    case 'material': return attrOptions.materials.length ? attrOptions.materials : (DEFAULT_FILTER_OPTIONS.material || []);
-                    case 'color': return attrOptions.colors.length ? attrOptions.colors : (DEFAULT_FILTER_OPTIONS.color || []);
-                    case 'size': return attrOptions.sizes.length ? attrOptions.sizes : (DEFAULT_FILTER_OPTIONS.size || []);
-                    case 'theme': return attrOptions.themes.length ? attrOptions.themes : (DEFAULT_FILTER_OPTIONS.theme || []);
-                    case 'collection': return attrOptions.collections.length ? attrOptions.collections : (DEFAULT_FILTER_OPTIONS.collection || []);
-                    default: return DEFAULT_FILTER_OPTIONS[key] || [];
-                  }
-                };
-
-                const isSelected = (key, value) => (selectedFilters[key] || []).includes(value);
-
-                const renderSection = (key) => {
-                  const opts = getOptions(key);
-                  const open = openSections[key] !== false; // default true
-                  switch (key) {
-                    case 'category':
-                    case 'material':
-                    case 'collection':
-                    case 'theme':
-                    case 'classification':
-                    case 'price':
-                      return (
-                        <div className="filter-section" key={key}>
-                          <div className="filter-section__header" onClick={() => toggleSection(key)}>
-                            <h3 className="filter-section__title">{key === 'material' ? 'Chất liệu' : key === 'price' ? 'Mức giá' : key === 'category' ? 'Loại sản phẩm' : key === 'theme' ? 'Chủ đề' : key === 'collection' ? 'Bộ sưu tập' : 'Phân loại'}</h3>
-                            <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
-                          </div>
-                          {open && (
-                            <div className="filter-section__body">
-                              {(opts || []).map((label) => {
-                                // label may be object { _id, name } or string
-                                const value = (label && (label._id || label.id)) ? String(label._id || label.id) : String(label);
-                                const display = (label && (label.name || label.title)) ? (label.name || label.title) : String(label);
-                                return (
-                                  <label className="filter-checkbox" key={value}>
-                                    <input type="checkbox" checked={isSelected(key, value)} onChange={() => toggleOption(key, value)} />
-                                    <span>{display}</span>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    case 'color':
-                      return (
-                        <div className="filter-section" key={key}>
-                          <div className="filter-section__header" onClick={() => toggleSection(key)}>
-                            <h3 className="filter-section__title">Màu sắc</h3>
-                            <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
-                          </div>
-                          {open && (
-                            <div className="filter-section__body color-list">
-                              {(opts || []).map((color) => {
-                                const value = (color && (color._id || color.id)) ? String(color._id || color.id) : String(color.name || color);
-                                const name = color.name || color;
-                                const selected = isSelected(key, value);
-                                return (
-                                  <button type="button" className="color-option" key={value} onClick={() => toggleOption(key, value)}>
-                                    <span className={`color-swatch ${selected ? 'is-selected' : ''}`}>
-                                      <span className="color-swatch__fill" style={{ background: color.gradient ? color.gradient : color.code }} />
-                                    </span>
-                                    <span>{name}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    case 'size':
-                      return (
-                        <div className="filter-section" key={key}>
-                          <div className="filter-section__header" onClick={() => toggleSection(key)}>
-                            <h3 className="filter-section__title">Size</h3>
-                            <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
-                          </div>
-                          {open && (
-                            <div className="filter-section__body size-grid">
-                              {(opts || []).map((s) => {
-                                const value = (s && (s._id || s.id)) ? String(s._id || s.id) : String(s.name || s);
-                                const name = s.name || s;
-                                const selected = isSelected(key, value);
-                                return (
-                                  <button type="button" key={value} className={`size-pill ${selected ? 'is-selected' : ''}`} onClick={() => toggleOption(key, value)}>
-                                    {name}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    default:
-                      return null;
-                  }
-                };
-
-                return visible.map((k) => renderSection(k));
-              })()}
-            </div>
-          </div>
-        </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-    </>
+      {/* Render filter sections based on category metadata or defaults */}
+      {(() => {
+        const visible = Array.isArray(categoryProp?.visibleFilters) && categoryProp.visibleFilters.length
+          ? categoryProp.visibleFilters
+          : DEFAULT_VISIBLE_FILTERS;
+
+        const getOptions = (key) => {
+          const fromCategory = categoryProp?.filterOptions?.[key];
+          if (Array.isArray(fromCategory)) return fromCategory;
+          // If we have server-provided attribute lists, use them for accurate ids/names
+          switch (key) {
+            case 'material': return attrOptions.materials.length ? attrOptions.materials : (DEFAULT_FILTER_OPTIONS.material || []);
+            case 'color': return attrOptions.colors.length ? attrOptions.colors : (DEFAULT_FILTER_OPTIONS.color || []);
+            case 'size': return attrOptions.sizes.length ? attrOptions.sizes : (DEFAULT_FILTER_OPTIONS.size || []);
+            case 'theme': return attrOptions.themes.length ? attrOptions.themes : (DEFAULT_FILTER_OPTIONS.theme || []);
+            case 'collection': return attrOptions.collections.length ? attrOptions.collections : (DEFAULT_FILTER_OPTIONS.collection || []);
+            default: return DEFAULT_FILTER_OPTIONS[key] || [];
+          }
+        };
+
+        const isSelected = (key, value) => (selectedFilters[key] || []).includes(value);
+
+        const renderSection = (key) => {
+          const opts = getOptions(key);
+          const open = openSections[key] !== false; // default true
+          switch (key) {
+            case 'category':
+            case 'material':
+            case 'collection':
+            case 'theme':
+            case 'classification':
+            case 'price':
+              return (
+                <div className="filter-section" key={key}>
+                  <div className="filter-section__header" onClick={() => toggleSection(key)}>
+                    <h3 className="filter-section__title">{key === 'material' ? 'Chất liệu' : key === 'price' ? 'Mức giá' : key === 'category' ? 'Loại sản phẩm' : key === 'theme' ? 'Chủ đề' : key === 'collection' ? 'Bộ sưu tập' : 'Phân loại'}</h3>
+                    <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
+                  </div>
+                  {open && (
+                    <div className="filter-section__body">
+                      {(opts || []).map((label) => {
+                        // label may be object { _id, name } or string
+                        const value = (label && (label._id || label.id)) ? String(label._id || label.id) : String(label);
+                        const display = (label && (label.name || label.title)) ? (label.name || label.title) : String(label);
+                        return (
+                          <label className="filter-checkbox" key={value}>
+                            <input type="checkbox" checked={isSelected(key, value)} onChange={() => toggleOption(key, value)} />
+                            <span>{display}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            case 'color':
+              return (
+                <div className="filter-section" key={key}>
+                  <div className="filter-section__header" onClick={() => toggleSection(key)}>
+                    <h3 className="filter-section__title">Màu sắc</h3>
+                    <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
+                  </div>
+                  {open && (
+                    <div className="filter-section__body color-list">
+                      {(opts || []).map((color) => {
+                        const value = (color && (color._id || color.id)) ? String(color._id || color.id) : String(color.name || color);
+                        const name = color.name || color;
+                        const selected = isSelected(key, value);
+                        return (
+                          <button type="button" className="color-option" key={value} onClick={() => toggleOption(key, value)}>
+                            <span className={`color-swatch ${selected ? 'is-selected' : ''}`}>
+                              <span className="color-swatch__fill" style={{ background: color.gradient ? color.gradient : color.code }} />
+                            </span>
+                            <span>{name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            case 'size':
+              return (
+                <div className="filter-section" key={key}>
+                  <div className="filter-section__header" onClick={() => toggleSection(key)}>
+                    <h3 className="filter-section__title">Size</h3>
+                    <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
+                  </div>
+                  {open && (
+                    <div className="filter-section__body size-grid">
+                      {(opts || []).map((s) => {
+                        const value = (s && (s._id || s.id)) ? String(s._id || s.id) : String(s.name || s);
+                        const name = s.name || s;
+                        const selected = isSelected(key, value);
+                        return (
+                          <button type="button" key={value} className={`size-pill ${selected ? 'is-selected' : ''}`} onClick={() => toggleOption(key, value)}>
+                            {name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            default:
+              return null;
+          }
+        };
+
+        return visible.map((k) => renderSection(k));
+      })()}
+    </div>
   )
 }
