@@ -32,49 +32,48 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
     };
   }, []);
 
-
   const { roots, childrenByParent } = useMemo(() => {
-    const list = Array.isArray(allCategories) ? allCategories : [];
-    const byParent = {};
-    for (const c of list) {
-      const parent = safeStr(c?.parent);
-      if (isBlank(parent)) continue;
-      if (!byParent[parent]) byParent[parent] = [];
-      byParent[parent].push(c);
-    }
+  const list = Array.isArray(allCategories) ? allCategories : [];
 
-    const hasChildren = (id) => (byParent[String(id)] || []).length > 0;
+  const byParent = {};
+  for (const c of list) {
+    const parent = safeStr(c?.parent);
+    if (isBlank(parent)) continue;
+    if (!byParent[parent]) byParent[parent] = [];
+    byParent[parent].push(c);
+  }
+  const rootLevel0 = list.filter(
+    (c) => isBlank(c?.parent)
+  );
 
-    const rootCats = list
-      .filter((c) => {
-        // Root categories should have parent:"" (or null).
-        // Some records may have parent missing/undefined; treat those as root only
-        // if they actually have children to avoid leafs like "Vòng mềm" showing up.
-        if (c?.parent === "" || c?.parent === null) return true;
-        if (c?.parent === undefined) return hasChildren(c?._id);
-        return false;
-      })
-      .slice()
-      .sort((a, b) => {
-        const pa = Number(a?.position ?? 0);
-        const pb = Number(b?.position ?? 0);
-        if (pa !== pb) return pa - pb;
-        return safeStr(a?.name).localeCompare(safeStr(b?.name));
-      });
+  const rootIds = rootLevel0.map((c) => String(c._id));
+  const rootLevel1 = list.filter((c) =>
+    rootIds.includes(safeStr(c?.parent))
+  );
+  const sortFn = (a, b) => {
+    const pa = Number(a?.position ?? 0);
+    const pb = Number(b?.position ?? 0);
+    if (pa !== pb) return pa - pb;
+    return safeStr(a?.name).localeCompare(safeStr(b?.name));
+  };
 
-    for (const k of Object.keys(byParent)) {
-      byParent[k].sort((a, b) => {
-        const pa = Number(a?.position ?? 0);
-        const pb = Number(b?.position ?? 0);
-        if (pa !== pb) return pa - pb;
-        return safeStr(a?.name).localeCompare(safeStr(b?.name));
-      });
-    }
+  const level0Sorted = rootLevel0.slice().sort(sortFn);
+  const level1Sorted = rootLevel1.slice().sort(sortFn);
+
+  const rootCats = [...level0Sorted, ...level1Sorted];
+
+  for (const k of Object.keys(byParent)) {
+    byParent[k].sort((a, b) => {
+      const pa = Number(a?.position ?? 0);
+      const pb = Number(b?.position ?? 0);
+      if (pa !== pb) return pa - pb;
+      return safeStr(a?.name).localeCompare(safeStr(b?.name));
+    });
+  }
 
     return { roots: rootCats, childrenByParent: byParent };
+    
   }, [allCategories]);
-
-  // close on escape
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === "Escape") setOpenSub(null);
@@ -199,25 +198,27 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                           ))}
                         </ul>
                       </div>
-                     <div className="dropdown-col">
-                        <span className="dropdown-title">THEO CHỦ ĐỀ</span>
-                        <ul className="submenu">
-                          {(active?.collections || []).map((col) => {
-                            const params = new URLSearchParams({
-                              categorySlug: safeStr(active?.slug),
-                              collection: safeStr(col?.slug),
-                            }).toString();
+                      {active?.collections?.length > 0 && (
+                        <div className="dropdown-col">
+                          <span className="dropdown-title">Theo chủ đề</span>
+                          <ul className="submenu">
+                            {(active.collections || []).map((col) => {
+                              const params = new URLSearchParams({
+                                categorySlug: safeStr(active?.slug),
+                                collection: safeStr(col?.slug),
+                              }).toString();
 
-                            return (
-                              <li key={col._id}>
-                                <Link to={`/products?${params}`}>
-                                  {col?.name}
-                                </Link>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
+                              return (
+                                <li key={col._id}>
+                                  <Link to={`/products?${params}`}>
+                                    {col?.name}
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
                       <div className="dropdown-col">
                         <span className="dropdown-title">Chất liệu</span>
                         <ul className="submenu">
