@@ -32,6 +32,7 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
     };
   }, []);
 
+
   const { roots, childrenByParent } = useMemo(() => {
     const list = Array.isArray(allCategories) ? allCategories : [];
     const byParent = {};
@@ -127,6 +128,7 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
     },
    
   ];
+
   return (
     <>
       <div
@@ -157,6 +159,7 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                 </div>
               </li>
             ))}
+
           </ul>
           {/* Shared submenu: fixed position below header, updates content based on `openSub` */}
           {(() => {
@@ -196,23 +199,23 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                           ))}
                         </ul>
                       </div>
-                      <div className="dropdown-col">
+                     <div className="dropdown-col">
                         <span className="dropdown-title">THEO CHỦ ĐỀ</span>
                         <ul className="submenu">
-                          <li>
-                            <Link
-                              to={`/products?categorySlug=${encodeURIComponent(safeStr(active?.slug))}`}
-                            >
-                              Demo
-                            </Link>
-                          </li>
-                          <li>
-                            <Link
-                              to={`/products?categorySlug=${encodeURIComponent(safeStr(active?.slug))}`}
-                            >
-                              Demo
-                            </Link>
-                          </li>
+                          {(active?.collections || []).map((col) => {
+                            const params = new URLSearchParams({
+                              categorySlug: safeStr(active?.slug),
+                              collection: safeStr(col?.slug),
+                            }).toString();
+
+                            return (
+                              <li key={col._id}>
+                                <Link to={`/products?${params}`}>
+                                  {col?.name}
+                                </Link>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                       <div className="dropdown-col">
