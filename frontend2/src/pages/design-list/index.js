@@ -2,11 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
-
-const currencyVND = (value) => {
-  const n = Number(value) || 0;
-  return n.toLocaleString("vi-VN") + "₫";
-};
+import { formatPrice } from "../../utils/format";
 
 export default function DesignList() {
   const navigate = useNavigate();
@@ -67,7 +63,7 @@ export default function DesignList() {
         <div>
           <h1 className="designlist-title">Design của bạn</h1>
           <div className="designlist-sub">
-            {loading ? "Đang tải..." : stats.count ? `${stats.count} design · Tổng ${currencyVND(stats.total)}` : "Chưa có design"}
+            {loading ? "Đang tải..." : stats.count ? `${stats.count} design · Tổng ${formatPrice(stats.total)}` : "Chưa có design"}
           </div>
         </div>
 
@@ -99,7 +95,7 @@ export default function DesignList() {
                   <div className="designlist-cardTop">
                     <div className="designlist-name">Bundle</div>
                     <div className="designlist-price">
-                      {currencyVND((Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1))}
+                       {formatPrice((Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1))}
                     </div>
                   </div>
 

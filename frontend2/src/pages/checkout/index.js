@@ -2,11 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
-
-const currencyVND = (value) => {
-  const n = Number(value) || 0;
-  return n.toLocaleString("vi-VN") + "₫";
-};
+import { formatPrice } from "../../utils/format";
 
 const readCheckoutBundleIds = () => {
   try {
@@ -331,7 +327,7 @@ export default function CheckoutPage() {
                         </div>
                       </div>
                       <div className="checkout-linePrice">
-                        {currencyVND(
+                        {formatPrice(
                           (Number(b?.priceSnapshot?.total) || 0) *
                             (Number(b?.quantity) || 1),
                         )}
@@ -354,7 +350,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="checkout-row">
                   <div>Tạm tính</div>
-                  <strong>{currencyVND(total)}</strong>
+                  <strong>{formatPrice(total)}</strong>
                 </div>
                 <div className="checkout-row">
                   <div>Vận chuyển</div>
@@ -362,7 +358,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="checkout-total">
                   <div>Tổng</div>
-                  <div>{currencyVND(total)}</div>
+                  <div>{formatPrice(total)}</div>
                 </div>
               </div>
 

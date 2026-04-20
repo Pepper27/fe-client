@@ -199,9 +199,9 @@ function ProductsPage() {
                 className="w-full h-full object-cover"
               />
             )}
-            {category.name && (
+            {/* {category.name && (
               <div className="products-banner-title">{category.name}</div>
-            )}
+            )} */}
           </>
         ) : (
           <img
