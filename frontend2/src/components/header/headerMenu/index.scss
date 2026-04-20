@@ -24,12 +24,12 @@
     left: -280px;
     width: 280px;
     height: 100vh;
-    z-index: 999;
+    z-index: 9999;
     transition: left 0.3s ease-in-out;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
     border-bottom: none;
     overflow-y: auto;
-
+    overflow-x:hidden;
     &.is-open {
       left: 0;
     }
@@ -52,7 +52,6 @@
       gap: 0;
     }
   }
-
   .menu-item {
     position: relative;
     height: 100%;
@@ -91,6 +90,11 @@
       align-items: center;
       gap: 5px;
     }
+    .menu-link{
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
 
     // --- LOGIC HIỆN MENU CON ---
     
@@ -100,7 +104,6 @@
         display: block;
       }
     }
-
     // Mobile: Click (class submenu-open)
     @media (max-width: 768px) {
       &.submenu-open {
@@ -108,6 +111,7 @@
           display: block !important;
         }
         .icon-down {
+          font-weight:200;
           transform: rotate(180deg);
         }
       }
@@ -144,7 +148,7 @@
       position: absolute;
       left: 0;
       right: 0;
-      top: 72px; /* adjust to sit right under header */
+      top: 81px; /* adjust to sit right under header */
       pointer-events: none;
       background: transparent;
       opacity: 0;
@@ -153,13 +157,13 @@
       transition: opacity 200ms ease, visibility 0s linear 200ms;
       z-index: 50;
       /* presentational container width/height */
-        .dropdown-box {
+      .dropdown-box {
           background: #fff;
           max-width: 1440px; /* match shared .container width */
           margin: 0 auto;
           padding: 18px 40px; /* tighter padding to match banner width */
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          // display: grid;
+          // grid-template-columns: repeat(3, 1fr);
         gap: 36px; /* reduced gap between columns */
         align-items: start;
         min-height: 160px; /* smaller height */
@@ -189,9 +193,9 @@
           background: #fff; 
           // width: 100%;
           position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100vw; 
+          top: -20px;
+          left: 0;
+          width: 100vw; 
           border-radius: 6px;
           padding: 26px 40px;
           display: grid;
@@ -216,10 +220,21 @@
           margin-bottom: 12px;
           display: block;
         }
+         @media (max-width: 768px) {
+          .dropdown-title{
+            font-size: 12px;
+          }
+        }
+        .submenu a {
+          text-decoration: none;
+        }
 
+        .submenu a:hover {
+          text-decoration: none;
+        }
         .submenu {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
+          // display: grid;
+          // grid-template-columns: 1fr 1fr;
           gap: 8px;
           list-style: none;
           padding: 0;

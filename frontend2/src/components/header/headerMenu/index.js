@@ -94,7 +94,39 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
 
   // Mobile click toggle is currently not wired in markup.
   // Keeping old handler commented-out to avoid dead code warnings.
-
+  const priceRanges = [
+    {
+      label: "Dưới 2,5 triệu",
+      query: { price_lte: 2500000 },
+    },
+    {
+      label: "Từ 2,5 - 5 triệu",
+      query: { price_gte: 2500000, price_lte: 5000000 },
+    },
+    {
+      label: "Từ 5 - 7 triệu",
+      query: { price_gte: 5000000, price_lte: 7000000 },
+    },
+    {
+      label: "Trên 7 triệu",
+      query: { price_gte: 7000000 },
+    },
+  ];
+  const materials = [
+    {
+      label: "Bạc",
+      query: { material:"bac" },
+    },
+    {
+      label: "Mạ vàng 14k",
+      query: { material:"ma-vang" },
+    },
+    {
+      label: "Vàng hồng 14k",
+      query: { material:"vang-hong" },
+    },
+   
+  ];
   return (
     <>
       <div
@@ -102,7 +134,9 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
         onClick={onClose}
       ></div>
 
-      <nav ref={menuRef} className={`header-menu ${isOpen ? "is-open" : ""}`}>
+      <nav ref={menuRef} className={`header-menu ${isOpen ? "is-open" : ""}`}
+        onMouseLeave={closeWithDelay}
+        >
         <div className="container">
           <ul className="menu-list">
             {roots.map((item) => (
@@ -110,7 +144,7 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                 key={item?._id}
                 className={`menu-item has-dropdown ${openSub === item?._id ? "submenu-open" : ""}`}
                 onMouseEnter={() => openWithDelay(item?._id)}
-                onMouseLeave={() => closeWithDelay()}
+                // onMouseLeave={() => closeWithDelay()}
               >
                 <div className="menu-top">
                   <Link
@@ -166,16 +200,57 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                         <span className="dropdown-title">THEO CHỦ ĐỀ</span>
                         <ul className="submenu">
                           <li>
-                            <button type="button">Đang cập nhật</button>
+                            <Link
+                              to={`/products?categorySlug=${encodeURIComponent(safeStr(active?.slug))}`}
+                            >
+                              Demo
+                            </Link>
                           </li>
+                          <li>
+                            <Link
+                              to={`/products?categorySlug=${encodeURIComponent(safeStr(active?.slug))}`}
+                            >
+                              Demo
+                            </Link>
+                          </li>
+                        </ul>
+                      </div>
+                      <div className="dropdown-col">
+                        <span className="dropdown-title">Chất liệu</span>
+                        <ul className="submenu">
+                          {materials.map((item, index) => {
+                            const params = new URLSearchParams({
+                              categorySlug: safeStr(active?.slug),
+                              ...item.query,
+                            }).toString();
+
+                            return (
+                              <li key={index}>
+                                <Link to={`/products?${params}`}>
+                                  {item.label}
+                                </Link>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                       <div className="dropdown-col">
                         <span className="dropdown-title">THEO MỨC GIÁ</span>
                         <ul className="submenu">
-                          <li>
-                            <button type="button">Đang cập nhật</button>
-                          </li>
+                          {priceRanges.map((item, index) => {
+                            const params = new URLSearchParams({
+                              categorySlug: safeStr(active?.slug),
+                              ...item.query,
+                            }).toString();
+
+                            return (
+                              <li key={index}>
+                                <Link to={`/products?${params}`}>
+                                  {item.label}
+                                </Link>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     </>
