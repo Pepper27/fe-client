@@ -45,14 +45,18 @@ export const Categories = () => {
   }, []);
 
   return (
-    <div className="categories-wrapper">
-      <div data-aos="fade-up" className="categories-grid">
-        {items.map((item, i) => (
-          <div key={item.id || i} data-aos="fade-up" data-aos-delay={i * 200}>
-            <CategoryCard image={item.image} name={item.name} />
-          </div>
-        ))}
+    <section className="container">
+      <div className="categories-wrapper">
+        <div data-aos="fade-up" className="categories-grid">
+          {items
+            .filter((it) => String(it?.name || "").trim().toLowerCase() !== "trang sức")
+            .map((item, i) => (
+              <div key={item.id || i} data-aos="fade-up" data-aos-delay={i * 200}>
+                <CategoryCard image={item.image} name={item.name} />
+              </div>
+            ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 };

@@ -40,7 +40,7 @@
 
 /* layout wrapper */
 .products-inner {
-  padding-top: 24px;
+  padding-top: 8px; /* reduce top gap so sidebar and product grid align */
   padding-bottom: 40px;
 }
 
@@ -75,7 +75,7 @@
 /* layout */
 .products-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 300px 1fr;
   gap: 40px;
 }
 
@@ -100,6 +100,7 @@
 
 /* Make product thumbs circular like reference */
 .products-page .product-item-container .image-wrapper {
+  margin-top: 0;
   background: #f3f4f6;
 }
 
