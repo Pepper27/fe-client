@@ -7,8 +7,14 @@
   border: none;
   background: transparent;
   padding: 0;
-  // display: block;
-  // width: 100%;
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+.product-item-link:focus {
+  outline: 2px solid rgba(0,0,0,0.08);
+  outline-offset: 4px;
 }
 
 /* CARD */
@@ -25,6 +31,7 @@
 }
 
 /* button reset: avoid native button styles affecting layout */
+/* keep backward compatibility if element is a button */
 button.product-item-link {
   appearance: none;
   -webkit-appearance: none;
