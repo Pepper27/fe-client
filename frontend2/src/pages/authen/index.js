@@ -79,11 +79,29 @@ export default function Authentication() {
       await api.authLogin({ email, password });
       const resMe = await api.authMe();
       setMe(resMe?.data || null);
-      // Sync server wishlist (if logged in) into local store.
+      // Merge local wishlist into server wishlist (preserve local items saved before login)
       try {
-        await syncWishlistFromServer();
-      } catch {
-        // ignore
+        const local = (await import("../../utils/wishlist")).getWishlist();
+        // fetch server list
+        const serverRes = await api.wishlistList().catch(() => null);
+        const serverRows = Array.isArray(serverRes?.data) ? serverRes.data : [];
+        const serverIds = new Set(serverRows.map((r) => String(r?.productId || "")));
+        const toAdd = (local || []).filter((it) => it && it.id && !serverIds.has(String(it.id)));
+        for (const item of toAdd) {
+          try {
+            await api.wishlistAdd({ productId: String(item.id), variantCode: "" });
+          } catch (e) {
+            // ignore per-item failures
+          }
+        }
+        // Refresh local wishlist from server
+        try {
+          await syncWishlistFromServer();
+        } catch {
+          // ignore
+        }
+      } catch (e) {
+        // ignore merge errors
       }
       setToast({ type: "success", message: "Đăng nhập thành công" });
       window.dispatchEvent(new Event("auth:changed"));

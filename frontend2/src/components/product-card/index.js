@@ -39,12 +39,17 @@ export const ProductCard = ({ id, slug, name, price, images, isSquare }) => {
   }, [productPayload.id]);
 
   return (
-    <button
-      type="button"
+    <div
       className="product-item-link"
-      onClick={() =>
-        navigate(`/product/${encodeURIComponent(String(slug || id))}`)
-      }
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/product/${encodeURIComponent(String(slug || id))}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigate(`/product/${encodeURIComponent(String(slug || id))}`);
+        }
+      }}
     >
       <div className={`product-item-container ${isSquare ? 'is-square' : ''}`}>
         <button
@@ -103,6 +108,6 @@ export const ProductCard = ({ id, slug, name, price, images, isSquare }) => {
         <p className="product-name-card">{name}</p>
         <p className="product-price">{formatPrice(price)}</p>
       </div>
-    </button>
+    </div>
   );
 };

@@ -1,16 +1,10 @@
 import { useEffect, useState } from "react";
 import { ProductCard } from "../../components/product-card";
-import {
-  getWishlist,
-  setWishlist,
-  subscribeWishlist,
-  syncWishlistFromServer,
-} from "../../utils/wishlist";
+import { getWishlist, subscribeWishlist, syncWishlistFromServer } from "../../utils/wishlist";
 import "./index.scss";
 
 export default function Wishlist() {
   const [wishlistItems, setWishlistItems] = useState(() => getWishlist());
-  const [serverItems, setServerItems] = useState(null);
 
   useEffect(() => {
     return subscribeWishlist((items) => {
@@ -20,43 +14,19 @@ export default function Wishlist() {
 
   useEffect(() => {
     let cancelled = false;
-    syncWishlistFromServer()
-      .then((mapped) => {
-        if (cancelled) return;
-        // Keep rendering logic intact but also update local wishlist store.
-        setWishlist(mapped);
-        setServerItems(
-          mapped.map((it) => ({
-            productId: it.id,
-            variantCode: "",
-            product: {
-              name: it.name,
-              slug: it.slug,
-              image: it.images,
-              price: it.price,
-            },
-          })),
-        );
-      })
-      .catch(() => {
-        if (cancelled) return;
-        // Not logged in or endpoint unavailable: fallback to local wishlist.
-        setServerItems(null);
-      });
+    // Attempt to load server wishlist (if logged in) and copy it into local store.
+    // We don't keep a separate serverItems state; local store (getWishlist())
+    // is the single source of truth for rendering.
+    syncWishlistFromServer().catch(() => {
+      if (cancelled) return;
+      // Not logged in or endpoint unavailable: do nothing, keep local wishlist.
+    });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const effective = Array.isArray(serverItems)
-    ? serverItems.map((it) => ({
-        id: it?.productId,
-        slug: it?.product?.slug,
-        name: it?.product?.name,
-        price: it?.product?.price ?? 0,
-        images: it?.product?.image || "",
-      }))
-    : wishlistItems;
+  const effective = wishlistItems;
 
   return (
     <div className="container wishlist-page">
