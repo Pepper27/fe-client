@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
+import { formatPrice } from "../../utils/format";
 
 const TYPES = [
   { code: "vong-tay-mem", label: "Vòng tay mềm" },
@@ -11,10 +12,7 @@ const TYPES = [
 
 const SIZES = [16, 17, 18, 19, 20];
 
-const currencyVND = (value) => {
-  const n = Number(value) || 0;
-  return n.toLocaleString("vi-VN") + "₫";
-};
+// currency formatting handled by utils/format.formatPrice
 
 const readEditPayload = () => {
   try {
@@ -964,7 +962,7 @@ export default function DesignBuilder() {
           )}
         </div>
         <div className="mixcharm-miniName">{product?.name}</div>
-        <div className="mixcharm-miniPrice">{currencyVND(price)}</div>
+        <div className="mixcharm-miniPrice">{formatPrice(price)}</div>
       </button>
     );
   };
@@ -1155,7 +1153,7 @@ export default function DesignBuilder() {
                   <div className="mixcharm-muted">
                     Vòng: {bracelet?.name || typeCode}{braceletVariantCode ? ` (${braceletVariantCode})` : ""}
                   </div>
-                  <div style={{ fontWeight: 900 }}>{currencyVND(braceletPriceShown)}</div>
+                   <div style={{ fontWeight: 900 }}>{formatPrice(braceletPriceShown)}</div>
                 </div>
               ) : null}
               <div style={{ marginTop: 10 }}>
@@ -1176,7 +1174,7 @@ export default function DesignBuilder() {
                               <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                 Slot {it.slotIndex}: {name}{it.charmVariantCode ? ` (${it.charmVariantCode})` : ""}
                               </div>
-                              <div style={{ fontWeight: 900, whiteSpace: "nowrap" }}>{currencyVND(price)}</div>
+                              <div style={{ fontWeight: 900, whiteSpace: "nowrap" }}>{formatPrice(price)}</div>
                             </div>
                           );
                         })()}
@@ -1198,15 +1196,15 @@ export default function DesignBuilder() {
               <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ fontWeight: 900 }}>Bracelet</div>
-                  <div style={{ fontWeight: 900 }}>{currencyVND(braceletPriceShown)}</div>
+                  <div style={{ fontWeight: 900 }}>{formatPrice(braceletPriceShown)}</div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <div style={{ fontWeight: 900 }}>Charms</div>
-                  <div style={{ fontWeight: 900 }}>{currencyVND(charmsPriceShown)}</div>
+                  <div style={{ fontWeight: 900 }}>{formatPrice(charmsPriceShown)}</div>
                 </div>
                 <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
                   <div style={{ fontWeight: 900 }}>Total</div>
-                  <div style={{ fontWeight: 900 }}>{currencyVND(totalPriceShown)}</div>
+                  <div style={{ fontWeight: 900 }}>{formatPrice(totalPriceShown)}</div>
                 </div>
               </div>
             </div>
@@ -1250,7 +1248,7 @@ export default function DesignBuilder() {
             >
               {braceletVariants.map((v) => (
                 <option key={v.code} value={v.code}>
-                  {v.code} ({currencyVND(v.price)})
+                  {v.code} ({formatPrice(v.price)})
                 </option>
               ))}
             </select>
@@ -1285,7 +1283,7 @@ export default function DesignBuilder() {
             >
               {charmVariants.map((v) => (
                 <option key={v.code} value={v.code}>
-                  {v.code} ({currencyVND(v.price)})
+                  {v.code} ({formatPrice(v.price)})
                 </option>
               ))}
             </select>

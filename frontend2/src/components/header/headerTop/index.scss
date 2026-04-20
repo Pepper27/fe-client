@@ -24,7 +24,7 @@ a svg {
 
   .top-content {
     @include flex-between;
-    padding: 20px 0;
+    padding: 15px 0;
 
     // Responsive cho Tablet & Mobile
     @media (max-width: 1024px) {

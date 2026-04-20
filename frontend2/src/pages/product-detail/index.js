@@ -9,6 +9,7 @@ import { api } from "../../utils/api";
 // import Breadcrumb from '@/components/Breadcrumb';
 import "./index.scss"; // Import file SCSS đẹp chuẩn
 import { InformationDetail } from "./info";
+import { formatPrice } from "../../utils/format";
 
 // keep previous signature expecting props.params (used in original project)
 export default function ProductDetailPage({ params }) {
@@ -94,7 +95,7 @@ export default function ProductDetailPage({ params }) {
         {/* BÊN PHẢI: THÔNG TIN SẢN PHẨM */}
         <div className="product-info">
           <h1 className="product-name">{product.name}</h1>
-          <p className="product-price">{price}</p>
+          <p className="product-price">{formatPrice(price)}</p>
 
           {/* CHỌN SIZE */}
           {product.sizes && (
