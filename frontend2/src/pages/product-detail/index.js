@@ -16,6 +16,7 @@ export default function ProductDetailPage({ params }) {
   const slug = params?.slug || "";
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
+  const [selectedColor, setSelectedColor] = useState(null);
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +57,27 @@ export default function ProductDetailPage({ params }) {
   // derive variants and attribute lists from product data
   const variants = Array.isArray(product?.variants) ? product.variants : [];
 
+  // Helper function to get material color
+  const getMaterialColor = (label) => {
+    const lowerLabel = label.toLowerCase();
+
+    if (lowerLabel.includes('vàng hồng') || lowerLabel.includes('vang hong') || lowerLabel.includes('rose gold')) {
+      return '#eec1ad';
+    }
+
+    // Gold materials
+    if (lowerLabel.includes('vàng') || lowerLabel.includes('gold') || lowerLabel.includes('yellow')) {
+      return '#f3d29a';
+    }
+
+    // Silver materials
+    if (lowerLabel.includes('bạc') || lowerLabel.includes('silver')) {
+      return '#d6d6d6';
+    }
+    // Default color
+    return '#eee';
+  };
+
   const materials = useMemo(() => {
     if (Array.isArray(product?.materials) && product.materials.length) {
       return product.materials.map((m) => {
@@ -67,7 +89,7 @@ export default function ProductDetailPage({ params }) {
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-+|-+$/g, '');
-          const color = label.toLowerCase().includes('vàng') ? '#f3d29a' : label.toLowerCase().includes('bạc') ? '#d6d6d6' : '#eee';
+          const color = getMaterialColor(label);
           return { id, label, color };
         }
         const label = m.label || m.name || '';
@@ -77,7 +99,7 @@ export default function ProductDetailPage({ params }) {
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '');
-        return { id, label, color: m.color || '#eee' };
+        return { id, label, color: m.color || getMaterialColor(label) };
       });
     }
     const found = [];
@@ -92,7 +114,7 @@ export default function ProductDetailPage({ params }) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
-      return { id, label, color: label.toLowerCase().includes('vàng') ? '#f3d29a' : label.toLowerCase().includes('bạc') ? '#d6d6d6' : '#eee' };
+      return { id, label, color: getMaterialColor(label) };
     });
   }, [product, variants]);
 
@@ -106,6 +128,53 @@ export default function ProductDetailPage({ params }) {
     return found.length ? found : ['16', '17', '18', '19'];
   }, [product, variants]);
 
+  const colors = useMemo(() => {
+    const found = [];
+    for (const v of variants) {
+      const color = v?.color || null;
+      if (color && !found.includes(color)) found.push(color);
+    }
+
+    if (found.length === 0) {
+      const materialColors = materials.map(m => m.label);
+      return materialColors.filter((color, index, self) => self.indexOf(color) === index);
+    }
+
+    return found.map((label) => {
+      const id = String(label)
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      // Bảng màu mapping trực tiếp với giá trị KHÔNG DẤU từ API
+      const colorMap = {
+        'do': '#e74c3c',    // Màu đỏ
+        'vang': '#f3d29a',  // Màu vàng
+        'hong': '#ff9db5',  // Màu hồng
+        'bac': '#d6d6d6',   // Màu bạc
+        'trang': '#ffffff', // Màu trắng
+        'den': '#000000',   // Màu đen
+        'xanh': '#3498db',  // Màu xanh
+        'tim': '#9b59b6',   // Màu tím
+      };
+
+      const lowerLabel = label.toLowerCase();
+      let displayColor = '#eee'; // Màu mặc định nếu không khớp
+
+      // Duyệt qua map để tìm màu khớp
+      for (const [key, value] of Object.entries(colorMap)) {
+        if (lowerLabel.includes(key)) {
+          displayColor = value;
+          break;
+        }
+      }
+
+      return { id, label, color: displayColor };
+    });
+  }, [product, variants, materials]);
+
   const disabledSizes = product?.disabledSizes || [];
 
   // defaults when product loads
@@ -113,11 +182,12 @@ export default function ProductDetailPage({ params }) {
     if (!product) return;
     if (!selectedMaterial && materials.length) setSelectedMaterial(materials[0].id);
     if (!selectedSize && sizes.length) setSelectedSize(String(sizes[0]));
-  }, [product, materials, sizes]);
+    if (!selectedColor && colors.length) setSelectedColor(colors[0].id);
+  }, [product, materials, sizes, colors]);
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
-    // try exact match on normalized material id and size
+    // try exact match on normalized material id, size, and color
     const byExact = variants.find((v) => {
       const variantMat = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
       const variantMatId = variantMat
@@ -127,11 +197,41 @@ export default function ProductDetailPage({ params }) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
       const variantSize = (v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') + '';
+      const variantColor = String(v?.color || '');
+      const variantColorId = variantColor
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
       const matchesMat = selectedMaterial ? variantMatId === String(selectedMaterial) : true;
       const matchesSize = selectedSize ? String(variantSize) === String(selectedSize) : true;
-      return matchesMat && matchesSize;
+      const matchesColor = selectedColor && colors.length ? variantColorId === String(selectedColor) : true;
+      return matchesMat && matchesSize && matchesColor;
     });
     if (byExact) return byExact;
+
+    // fallback: match material and color (exact id)
+    if (selectedMaterial && selectedColor && colors.length) {
+      const byMatColor = variants.find((v) => {
+        const vm = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+        const vid = vm
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        const vc = String(v?.color || '');
+        const vidColor = vc
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        return vid === String(selectedMaterial) && vidColor === String(selectedColor);
+      });
+      if (byMatColor) return byMatColor;
+    }
 
     // fallback: match material only (exact id)
     if (selectedMaterial) {
@@ -155,7 +255,7 @@ export default function ProductDetailPage({ params }) {
     }
 
     return variants[0];
-  }, [variants, selectedMaterial, selectedSize]);
+  }, [variants, selectedMaterial, selectedSize, selectedColor, colors]);
 
   const images = useMemo(() => {
     if (Array.isArray(selectedVariant?.images) && selectedVariant.images.length) return selectedVariant.images;
@@ -208,7 +308,7 @@ export default function ProductDetailPage({ params }) {
           {/* RATING */}
           <div className="product-rating">
             <div className="stars" aria-hidden>
-              {[1,2,3,4,5].map((n)=> (
+              {[1, 2, 3, 4, 5].map((n) => (
                 <span key={n} className="star">★</span>
               ))}
             </div>
@@ -217,13 +317,36 @@ export default function ProductDetailPage({ params }) {
 
           {/* MATERIALS */}
           <div className="option-section">
-            <h3 className="option-label">Chất liệu: <span style={{fontWeight:700, marginLeft:8}}>{materials.find(m=>m.id===selectedMaterial)?.label || materials[0].label}</span></h3>
+            <h3 className="option-label">
+              {colors.length > 0
+                ? `Chất liệu: ${materials.find(m => m.id === selectedMaterial)?.label || materials[0].label} - Màu: ${colors.find(c => c.id === selectedColor)?.label || colors[0].label}`
+                : `Chất liệu: ${materials.find(m => m.id === selectedMaterial)?.label || materials[0].label}`
+              }
+            </h3>
             <div className="material-list">
-              {materials.map((m)=> (
-                <button key={m.id} className={`material-swatch ${selectedMaterial===m.id? 'selected':''}`} onClick={()=>setSelectedMaterial(m.id)} style={{background: m.color}} aria-label={m.label}></button>
+              {materials.map((m) => (
+                <button key={m.id} className={`material-swatch ${selectedMaterial === m.id ? 'selected' : ''}`} onClick={() => setSelectedMaterial(m.id)} style={{ background: m.color }} aria-label={m.label}></button>
               ))}
             </div>
           </div>
+
+          {/* COLORS - Only show if colors exist */}
+          {colors.length > 0 && (
+            <div className="option-section">
+              <h3 className="option-label">Màu sắc</h3>
+              <div className="color-list">
+                {colors.map((c) => (
+                  <button
+                    key={c.id}
+                    className={`color-swatch ${selectedColor === c.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedColor(c.id)}
+                    style={{ background: c.color }}
+                    aria-label={c.label}
+                  ></button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* CHỌN SIZE */}
           <div className="option-section">
@@ -235,7 +358,7 @@ export default function ProductDetailPage({ params }) {
                   <button
                     key={size}
                     onClick={() => !disabled && setSelectedSize(size)}
-                    className={`size-btn ${selectedSize === size ? "active" : ""} ${disabled? 'disabled':''}`}
+                    className={`size-btn ${selectedSize === size ? "active" : ""} ${disabled ? 'disabled' : ''}`}
                     disabled={disabled}
                   >
                     {size}
