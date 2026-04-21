@@ -60,20 +60,40 @@ export default function ProductDetailPage({ params }) {
     if (Array.isArray(product?.materials) && product.materials.length) {
       return product.materials.map((m) => {
         if (typeof m === 'string') {
-          const id = String(m).toLowerCase().replace(/[^a-z0-9]+/g, '-');
           const label = m;
+          const id = String(label)
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
           const color = label.toLowerCase().includes('vàng') ? '#f3d29a' : label.toLowerCase().includes('bạc') ? '#d6d6d6' : '#eee';
           return { id, label, color };
         }
-        return { id: m.id || String(m.label || m.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'), label: m.label || m.name || '', color: m.color || '#eee' };
+        const label = m.label || m.name || '';
+        const id = m.id || String(label)
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        return { id, label, color: m.color || '#eee' };
       });
     }
     const found = [];
     for (const v of variants) {
-      const mat = v?.material || v?.materialLabel || null;
+      const mat = v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : null) || null;
       if (mat && typeof mat === 'string' && !found.includes(mat)) found.push(mat);
     }
-    return found.map((label) => ({ id: String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-'), label, color: label.toLowerCase().includes('vàng') ? '#f3d29a' : label.toLowerCase().includes('bạc') ? '#d6d6d6' : '#eee' }));
+    return found.map((label) => {
+      const id = String(label)
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      return { id, label, color: label.toLowerCase().includes('vàng') ? '#f3d29a' : label.toLowerCase().includes('bạc') ? '#d6d6d6' : '#eee' };
+    });
   }, [product, variants]);
 
   const sizes = useMemo(() => {
@@ -97,14 +117,44 @@ export default function ProductDetailPage({ params }) {
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
-    const byMatch = variants.find((v) => {
-      const mat = (v?.material || v?.materialLabel || '') + '';
-      const size = (v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') + '';
-      const matchesMat = selectedMaterial ? mat.toLowerCase().includes(String(selectedMaterial).replace(/-/g, '')) : true;
-      const matchesSize = selectedSize ? String(size) === String(selectedSize) : true;
+    // try exact match on normalized material id and size
+    const byExact = variants.find((v) => {
+      const variantMat = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+      const variantMatId = variantMat
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      const variantSize = (v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') + '';
+      const matchesMat = selectedMaterial ? variantMatId === String(selectedMaterial) : true;
+      const matchesSize = selectedSize ? String(variantSize) === String(selectedSize) : true;
       return matchesMat && matchesSize;
     });
-    return byMatch || variants[0];
+    if (byExact) return byExact;
+
+    // fallback: match material only (exact id)
+    if (selectedMaterial) {
+      const byMat = variants.find((v) => {
+        const vm = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+        const vid = vm
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        return vid === String(selectedMaterial);
+      });
+      if (byMat) return byMat;
+    }
+
+    // fallback: match size only
+    if (selectedSize) {
+      const bySize = variants.find((v) => String(v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') === String(selectedSize));
+      if (bySize) return bySize;
+    }
+
+    return variants[0];
   }, [variants, selectedMaterial, selectedSize]);
 
   const images = useMemo(() => {
