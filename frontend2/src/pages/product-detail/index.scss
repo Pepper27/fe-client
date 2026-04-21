@@ -79,8 +79,35 @@
 
 /* Material swatches */
 .material-list { display:flex; gap:12px; margin-top:8px }
-.material-swatch { width:34px; height:34px; border-radius:50%; border:2px solid #ddd; cursor:pointer; outline: none }
-.material-swatch.selected { box-shadow: 0 0 0 3px rgba(215,0,24,0.08); border-color:#eee }
+.material-swatch { 
+  width:34px; 
+  height:34px; 
+  border-radius:50%; 
+  border:2px solid #999; 
+  cursor:pointer; 
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.material-swatch.selected { 
+  box-shadow: 0 0 0 3px rgba(215,0,24,0.08), 0 1px 3px rgba(0,0,0,0.1); 
+  border-color:#d70018; 
+}
+
+/* Color swatches */
+.color-list { display:flex; gap:12px; margin-top:8px }
+.color-swatch { 
+  width:34px; 
+  height:34px; 
+  border-radius:50%; 
+  border:2px solid #999; 
+  cursor:pointer; 
+  outline: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.color-swatch.selected { 
+  box-shadow: 0 0 0 3px rgba(215,0,24,0.08), 0 1px 3px rgba(0,0,0,0.1); 
+  border-color:#d70018; 
+}
 
 /* Square size buttons like design */
 .sizes-square .size-btn { width:64px; height:56px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; border-radius:6px }
