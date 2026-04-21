@@ -31,18 +31,21 @@ function ProductsPage() {
           filtersParam = undefined;
         }
 
-        // Fetch products
+        // If a categorySlug is present, pass it directly to the API
+        // The backend will handle category resolution and filtering
         let merged = [];
         try {
-          const v1 = await api.getProducts({
+          let v1 = await api.getProducts({
             page: 1,
             limit: 60,
             q,
-            categorySlug,
+            categorySlug: categorySlug,
             filters: filtersParam,
           });
           merged = v1?.data || [];
         } catch (err) {
+          console.error('Error fetching products:', err);
+          // Fallback to getting bracelets and charms if products endpoint fails
           const [braceletsRes, charmsRes] = await Promise.all([
             api.getBracelets({}),
             api.getCharms({}),
@@ -101,8 +104,21 @@ function ProductsPage() {
     const matchesFilters = (p) => {
       // category filter (product.category or product.type)
       if (Array.isArray(f.category) && f.category.length) {
-        const cat = p.category || p.type || "";
-        if (!f.category.includes(cat)) return false;
+        const prodCat = p.category || {};
+        const prodCatCandidates = [];
+        if (prodCat) {
+          if (prodCat.name) prodCatCandidates.push(String(prodCat.name).trim());
+          if (prodCat.slug) prodCatCandidates.push(String(prodCat.slug).trim());
+          if (prodCat._id) prodCatCandidates.push(String(prodCat._id).trim());
+        }
+        // also include p.type as a fallback string
+        if (p.type) prodCatCandidates.push(String(p.type).trim());
+
+        const matchesCategory = f.category.some((val) => {
+          const sval = String(val || "").trim();
+          return prodCatCandidates.some((c) => String(c || "").trim().toLowerCase() === sval.toLowerCase());
+        });
+        if (!matchesCategory) return false;
       }
       // material, theme, size, color: match if product.tags contains the value
       const tags = Array.isArray(p.tags) ? p.tags.map(String) : [];

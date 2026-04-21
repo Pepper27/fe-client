@@ -4,7 +4,7 @@
 function getApiBase() {
   if (typeof window !== 'undefined' && window.__API_BASE) return window.__API_BASE;
   if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_BASE) return process.env.REACT_APP_API_BASE;
-  return "http://localhost:3879";
+  return "http://localhost:3866";
 }
 
 // Prefer v1 endpoints for new work.
@@ -12,7 +12,18 @@ const V1_PUBLIC = "/api/v1/public";
 const V1_CLIENT = "/api/v1/client";
 
 const request = async (path, options = {}) => {
-  const res = await fetch(`${getApiBase()}${path}`, {
+  // Add cache-busting parameter to GET requests
+  let finalPath = path;
+  if (!options.method || options.method === "GET") {
+    const timestamp = Date.now().toString();
+    if (path.includes('?')) {
+      finalPath = `${path}&_=${timestamp}`;
+    } else {
+      finalPath = `${path}?_=${timestamp}`;
+    }
+  }
+  
+  const res = await fetch(`${getApiBase()}${finalPath}`, {
     credentials: "include",
     ...options,
     headers: {
@@ -58,7 +69,7 @@ export const api = {
     return request(`${V1_PUBLIC}/categories${suffix}`);
   },
   // filters: optional object that will be JSON.stringify'd and placed in `filters` query param
-  getProducts: ({ page, limit, q, categorySlug, filters } = {}) => {
+  getProducts: ({ page, limit, q, categorySlug, filters, _ } = {}) => {
     const qs = new URLSearchParams();
     if (page !== undefined) qs.set("page", String(page));
     if (limit !== undefined) qs.set("limit", String(limit));
@@ -71,6 +82,7 @@ export const api = {
         // ignore invalid filters
       }
     }
+    if (_) qs.set("_", String(_)); // Cache-busting parameter
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`${V1_PUBLIC}/products${suffix}`);
   },
@@ -88,15 +100,17 @@ export const api = {
   getSizes: () => request(`${V1_PUBLIC}/sizes`),
   getThemes: () => request(`${V1_PUBLIC}/themes`),
   getCollections: () => request(`${V1_PUBLIC}/collections`),
-  getBracelets: ({ typeCode, sizeCm }) => {
+  getBracelets: ({ typeCode, sizeCm, _ } = {}) => {
     const qs = new URLSearchParams();
     if (typeCode) qs.set("typeCode", typeCode);
     if (sizeCm) qs.set("sizeCm", String(sizeCm));
+    if (_) qs.set("_", String(_)); // Cache-busting parameter
     return request(`/api/public/bracelets?${qs.toString()}`);
   },
-  getCharms: ({ kind } = {}) => {
+  getCharms: ({ kind, _ } = {}) => {
     const qs = new URLSearchParams();
     if (kind) qs.set("kind", kind);
+    if (_) qs.set("_", String(_)); // Cache-busting parameter
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`/api/public/charms${suffix}`);
   },

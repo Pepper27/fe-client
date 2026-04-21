@@ -52,6 +52,7 @@ button.product-item-link {
   object-fit: cover; // ảnh phủ kín khung
   display: block;
   transition: transform 0.3s ease;
+  background: $color-gray-card;
 }
 
 .product-item-container:hover .product-image {
