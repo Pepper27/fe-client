@@ -3,6 +3,7 @@ import { FaAngleDown } from "react-icons/fa6";
 import { Link } from "react-router-dom";
 import "./index.scss";
 import { api } from "../../../utils/api";
+import { buildProductsUrl, mapQueryToFilters } from "../../../utils/productsUrl";
 
 const safeStr = (v) => String(v ?? "").trim();
 const isBlank = (v) => !safeStr(v);
@@ -148,10 +149,7 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                 // onMouseLeave={() => closeWithDelay()}
               >
                 <div className="menu-top">
-                  <Link
-                    to={`/products?categorySlug=${encodeURIComponent(safeStr(item?.slug))}`}
-                    className="menu-link"
-                  >
+                  <Link to={buildProductsUrl({ categorySlug: safeStr(item?.slug) })} className="menu-link">
                     {item?.name}
                   </Link>
                   <FaAngleDown className="icon-down" />
@@ -181,17 +179,13 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                         <span className="dropdown-title">DANH MỤC</span>
                         <ul className="submenu">
                           <li>
-                            <Link
-                              to={`/products?categorySlug=${encodeURIComponent(safeStr(active?.slug))}`}
-                            >
+                            <Link to={buildProductsUrl({ categorySlug: safeStr(active?.slug) })}>
                               Xem tất cả
                             </Link>
                           </li>
                           {children.map((c) => (
                             <li key={c._id}>
-                              <Link
-                                to={`/products?categorySlug=${encodeURIComponent(safeStr(c?.slug))}`}
-                              >
+                              <Link to={buildProductsUrl({ categorySlug: safeStr(c?.slug) })}>
                                 {c?.name}
                               </Link>
                             </li>
@@ -203,14 +197,12 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                           <span className="dropdown-title">Theo chủ đề</span>
                           <ul className="submenu">
                             {(active.collections || []).map((col) => {
-                              const params = new URLSearchParams({
-                                categorySlug: safeStr(active?.slug),
-                                collection: safeStr(col?.slug),
-                              }).toString();
+                              const filters = mapQueryToFilters({ collection: safeStr(col?.slug) });
+                              const url = buildProductsUrl({ categorySlug: safeStr(active?.slug), filters });
 
                               return (
                                 <li key={col._id}>
-                                  <Link to={`/products?${params}`}>
+                                  <Link to={url}>
                                     {col?.name}
                                   </Link>
                                 </li>
@@ -222,39 +214,35 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                       <div className="dropdown-col">
                         <span className="dropdown-title">Chất liệu</span>
                         <ul className="submenu">
-                          {materials.map((item, index) => {
-                            const params = new URLSearchParams({
-                              categorySlug: safeStr(active?.slug),
-                              ...item.query,
-                            }).toString();
+                            {materials.map((item, index) => {
+                              const filters = mapQueryToFilters(item.query || {});
+                              const url = buildProductsUrl({ categorySlug: safeStr(active?.slug), filters });
 
-                            return (
-                              <li key={index}>
-                                <Link to={`/products?${params}`}>
-                                  {item.label}
-                                </Link>
-                              </li>
-                            );
-                          })}
+                              return (
+                                <li key={index}>
+                                  <Link to={url}>
+                                    {item.label}
+                                  </Link>
+                                </li>
+                              );
+                            })}
                         </ul>
                       </div>
                       <div className="dropdown-col">
                         <span className="dropdown-title">THEO MỨC GIÁ</span>
                         <ul className="submenu">
-                          {priceRanges.map((item, index) => {
-                            const params = new URLSearchParams({
-                              categorySlug: safeStr(active?.slug),
-                              ...item.query,
-                            }).toString();
+                           {priceRanges.map((item, index) => {
+                             const filters = mapQueryToFilters(item.query || {});
+                             const url = buildProductsUrl({ categorySlug: safeStr(active?.slug), filters });
 
-                            return (
-                              <li key={index}>
-                                <Link to={`/products?${params}`}>
-                                  {item.label}
-                                </Link>
-                              </li>
-                            );
-                          })}
+                             return (
+                               <li key={index}>
+                                 <Link to={url}>
+                                   {item.label}
+                                 </Link>
+                               </li>
+                             );
+                           })}
                         </ul>
                       </div>
                     </>

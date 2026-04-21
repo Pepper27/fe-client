@@ -9,9 +9,17 @@ import { RiFileList2Line } from "react-icons/ri";
 import "./index.scss";
 import { Link } from "react-router-dom";
 import { api } from "../../../utils/api";
+import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
 
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   const [me, setMe] = useState(null);
+  const [wishlistCount, setWishlistCount] = useState(() => {
+    try {
+      return Array.isArray(getWishlist()) ? getWishlist().length : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +46,18 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
       cancelled = true;
       window.removeEventListener("auth:changed", onAuthChanged);
     };
+  }, []);
+
+  useEffect(() => {
+    // subscribe to wishlist updates and keep badge count in sync
+    const unsub = subscribeWishlist((items) => {
+      try {
+        setWishlistCount(Array.isArray(items) ? items.length : 0);
+      } catch {
+        setWishlistCount(0);
+      }
+    });
+    return unsub;
   }, []);
 
   const onLogout = async () => {
@@ -90,7 +110,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                   <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
                 </svg>
               </button> */}
-              <Link to="/wishlist" className="icon-btn heart-btn">
+              <Link to="/wishlist" className="icon-btn heart-btn" aria-label="Yêu thích">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -99,6 +119,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                 >
                   <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
                 </svg>
+                {wishlistCount > 0 ? (
+                  <span className="wishlist-badge" aria-hidden="true">{wishlistCount}</span>
+                ) : null}
               </Link>
               <Link
                 to="/design"

@@ -1,5 +1,6 @@
 import "./index.scss";
 import { useNavigate } from "react-router-dom";
+import { buildProductsUrl } from "../../../../utils/productsUrl";
 
 export const CategoryCard = ({ image, name, slug }) => {
   const navigate = useNavigate();
@@ -9,7 +10,8 @@ export const CategoryCard = ({ image, name, slug }) => {
       className="category-card-container"
       onClick={() => {
         if (!slug) return;
-        navigate(`/products?categorySlug=${encodeURIComponent(String(slug))}`);
+        // Use canonical products URL builder so ProductsPage receives `filters` JSON
+        navigate(buildProductsUrl({ categorySlug: String(slug) }));
       }}
     >
       <img
