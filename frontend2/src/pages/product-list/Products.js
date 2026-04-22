@@ -12,6 +12,9 @@ function ProductsPage() {
   const [filteredItems, setFilteredItems] = useState([]);
   const [activeFilters, setActiveFilters] = useState({});
   const [activeSort, setActiveSort] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
@@ -33,16 +36,29 @@ function ProductsPage() {
 
         // If a categorySlug is present, pass it directly to the API
         // The backend will handle category resolution and filtering
-        let merged = [];
+        let productsData = [];
         try {
-          let v1 = await api.getProducts({
+          // Fetch first page only with limit 24
+          const res = await api.getProducts({
             page: 1,
-            limit: 60,
+            limit: 24,
             q,
             categorySlug: categorySlug,
             filters: filtersParam,
           });
-          merged = v1?.data || [];
+          productsData = res?.data || [];
+          const total = res?.meta?.total || 0;
+          
+          // Debug - log values
+          console.log('First load:', {
+            productsLength: productsData.length,
+            total: total,
+            hasMore: productsData.length === 24 && productsData.length < total
+          });
+          
+          // Set hasMore to check if there are more products to load
+          const totalPages = res?.meta?.totalPages || 1;
+          setHasMore(productsData.length === 24 && page < totalPages);
         } catch (err) {
           console.error('Error fetching products:', err);
           // Fallback to getting bracelets and charms if products endpoint fails
@@ -50,11 +66,12 @@ function ProductsPage() {
             api.getBracelets({}),
             api.getCharms({}),
           ]);
-          merged = [...(braceletsRes?.data || []), ...(charmsRes?.data || [])];
+          productsData = [...(braceletsRes?.data || []), ...(charmsRes?.data || [])];
+          setHasMore(false); // No more products if fallback is used
         }
         if (cancelled) return;
-        setItems(merged);
-        setFilteredItems(merged);
+        setItems(productsData);
+        setFilteredItems(productsData);
 
         // Fetch category info for banner
         if (categorySlug) {
@@ -93,6 +110,12 @@ function ProductsPage() {
     return () => {
       cancelled = true;
     };
+  }, [location.search]);
+
+  // Reset page and hasMore when filters change
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
   }, [location.search]);
 
   // Update filteredItems when items, filters or sort change
@@ -187,6 +210,54 @@ function ProductsPage() {
     setActiveSort(sort || null);
   }, []);
 
+  const handleLoadMore = async () => {
+    if (!hasMore || loadingMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const qs = new URLSearchParams(location.search || "");
+      const q = qs.get("q") || "";
+      const categorySlug = qs.get("categorySlug") || "";
+      let filtersParam = undefined;
+      try {
+        const raw = qs.get('filters');
+        if (raw) filtersParam = JSON.parse(raw);
+      } catch (e) {
+        filtersParam = undefined;
+      }
+
+      const res = await api.getProducts({
+        page: nextPage,
+        limit: 24,
+        q,
+        categorySlug,
+        filters: filtersParam,
+      });
+
+      const newItems = res?.data || [];
+      setItems(prev => [...prev, ...newItems]);  // Append new items
+      setPage(nextPage);
+      
+      // Update hasMore - kiểm tra nếu có còn page tiếp theo không
+      const totalPages = res?.meta?.totalPages || 1;
+      
+      // Debug - log values
+      console.log('Load more:', {
+        currentPage: nextPage,
+        newItemsLength: newItems.length,
+        totalPages: totalPages,
+        hasMore: nextPage < totalPages
+      });
+      
+      setHasMore(nextPage < totalPages);
+    } catch (error) {
+      console.error('Error loading more products:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   // Determine banner image
   const bannerUrl =
     category?.banner || category?.avatar || "/client/image/vongtay.jpg";
@@ -247,8 +318,8 @@ function ProductsPage() {
           {/* Product List */}
           <main className="products-content">
             <div className="products-grid">
-                {loading ? (
-                 <div>Đang tải sản phẩm...</div>
+                {loading && page === 1 ? (
+                 <div className="loading-initial">Đang tải sản phẩm...</div>
                ) : (
                   filteredItems.map((p) => {
                   const firstVariant = (p?.variants || [])[0] || null;
@@ -271,6 +342,32 @@ function ProductsPage() {
                   );
                  })
                )}
+              
+              {/* Load More Button */}
+              {hasMore && !loading && (
+                <div className="load-more-container">
+                  <button 
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="load-more-button"
+                  >
+                    {loadingMore ? 'Đang tải...' : 'Xem thêm'}
+                  </button>
+                </div>
+              )}
+
+              {!hasMore && filteredItems.length > 0 && (
+                <div className="no-more-products">
+                  <p>Đã hiển thị tất cả {filteredItems.length} sản phẩm</p>
+                </div>
+              )}
+
+              {loadingMore && (
+                <div className="loading-more">
+                  <div className="spinner"></div>
+                  <p>Đang tải thêm sản phẩm...</p>
+                </div>
+              )}
             </div>
           </main>
         </div>
