@@ -78,6 +78,14 @@ export default function ProductDetailPage({ params }) {
     return '#eee';
   };
 
+  // unicode-safe id normalizer
+  const normalizeId = (s) => String(s || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
   const materials = useMemo(() => {
     if (Array.isArray(product?.materials) && product.materials.length) {
       return product.materials.map((m) => {
@@ -128,18 +136,77 @@ export default function ProductDetailPage({ params }) {
     return found.length ? found : ['16', '17', '18', '19'];
   }, [product, variants]);
 
+  // const colors = useMemo(() => {
+  //   const found = [];
+  //   for (const v of variants) {
+  //     const color = v?.color || null;
+  //     if (color && !found.includes(color)) found.push(color);
+  //   }
+
+  //   if (found.length === 0) {
+  //     const materialColors = materials.map(m => m.label);
+  //     return materialColors.filter((color, index, self) => self.indexOf(color) === index);
+  //   }
+
+  //   return found.map((label) => {
+  //     const id = String(label)
+  //       .normalize('NFD')
+  //       .replace(/\p{Diacritic}/gu, '')
+  //       .toLowerCase()
+  //       .replace(/[^a-z0-9]+/g, '-')
+  //       .replace(/^-+|-+$/g, '');
+
+  //     // Bảng màu mapping trực tiếp với giá trị KHÔNG DẤU từ API
+  //     const colorMap = {
+  //       'do': '#e74c3c',    // Màu đỏ
+  //       'vang': '#f3d29a',  // Màu vàng
+  //       'hong': '#ff9db5',  // Màu hồng
+  //       'bac': '#d6d6d6',   // Màu bạc
+  //       'trang': '#ffffff', // Màu trắng
+  //       'den': '#000000',   // Màu đen
+  //       'xanh': '#3498db',  // Màu xanh
+  //       'tim': '#9b59b6',   // Màu tím
+  //     };
+
+  //     const lowerLabel = label.toLowerCase();
+  //     let displayColor = '#eee'; // Màu mặc định nếu không khớp
+
+  //     // Duyệt qua map để tìm màu khớp
+  //     for (const [key, value] of Object.entries(colorMap)) {
+  //       if (lowerLabel.includes(key)) {
+  //         displayColor = value;
+  //         break;
+  //       }
+  //     }
+
+  //     return { id, label, color: displayColor };
+  //   });
+  // }, [product, variants, materials]);
+
   const colors = useMemo(() => {
+    if (!selectedMaterial) return [];
+
     const found = [];
-    for (const v of variants) {
+    // 1. Chỉ lọc những variant có chất liệu trùng với selectedMaterial
+    const relevantVariants = variants.filter((v) => {
+      const variantMat = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+      const variantMatId = variantMat
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+      return variantMatId === String(selectedMaterial);
+    });
+
+    // 2. Lấy danh sách màu từ các variant đã lọc
+    for (const v of relevantVariants) {
       const color = v?.color || null;
       if (color && !found.includes(color)) found.push(color);
     }
 
-    if (found.length === 0) {
-      const materialColors = materials.map(m => m.label);
-      return materialColors.filter((color, index, self) => self.indexOf(color) === index);
-    }
-
+    // 3. Mapping màu sắc với bảng màu đầy đủ hơn
     return found.map((label) => {
       const id = String(label)
         .normalize('NFD')
@@ -148,21 +215,39 @@ export default function ProductDetailPage({ params }) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '');
 
-      // Bảng màu mapping trực tiếp với giá trị KHÔNG DẤU từ API
       const colorMap = {
-        'do': '#e74c3c',    // Màu đỏ
-        'vang': '#f3d29a',  // Màu vàng
-        'hong': '#ff9db5',  // Màu hồng
-        'bac': '#d6d6d6',   // Màu bạc
-        'trang': '#ffffff', // Màu trắng
-        'den': '#000000',   // Màu đen
-        'xanh': '#3498db',  // Màu xanh
-        'tim': '#9b59b6',   // Màu tím
+        'do': '#e74c3c',        // Màu đỏ
+        'vang': '#f3d29a',      // Màu vàng
+        'hong': '#ff9db5',      // Màu hồng
+        'bac': '#d6d6d6',       // Màu bạc
+        'trang': '#ffffff',     // Màu trắng
+        'den': '#000000',       // Màu đen
+        'xanh': '#3498db',      // Màu xanh
+        'tim': '#9b59b6',       // Màu tím
+        'cam': '#f39c12',       // Màu cam
+        'xanhlá': '#27ae60',    // Màu xanh lá
+        'nau': '#8b4513',       // Màu nâu
+        'xám': '#808080',       // Màu xám
+        'vànghồng': '#eec1ad',  // Màu vàng hồng (rose gold)
+        'rosegold': '#eec1ad',  // Rose gold
+        'white': '#ffffff',     // White (English)
+        'black': '#000000',     // Black (English)
+        'red': '#e74c3c',       // Red (English)
+        'blue': '#3498db',      // Blue (English)
+        'green': '#27ae60',     // Green (English)
+        'pink': '#ff9db5',      // Pink (English)
+        'purple': '#9b59b6',    // Purple (English)
+        'orange': '#f39c12',    // Orange (English)
+        'yellow': '#f3d29a',    // Yellow (English)
+        'silver': '#d6d6d6',    // Silver (English)
+        'gold': '#f3d29a',      // Gold (English)
+        'gray': '#808080',      // Gray (English)
+        'brown': '#8b4513',     // Brown (English)
       };
 
-      const lowerLabel = label.toLowerCase();
       let displayColor = '#eee'; // Màu mặc định nếu không khớp
-
+      const lowerLabel = label.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      
       // Duyệt qua map để tìm màu khớp
       for (const [key, value] of Object.entries(colorMap)) {
         if (lowerLabel.includes(key)) {
@@ -173,8 +258,7 @@ export default function ProductDetailPage({ params }) {
 
       return { id, label, color: displayColor };
     });
-  }, [product, variants, materials]);
-
+  }, [product, variants, selectedMaterial]); // Thêm selectedMaterial vào dependency
   const disabledSizes = product?.disabledSizes || [];
 
   // defaults when product loads
@@ -182,8 +266,25 @@ export default function ProductDetailPage({ params }) {
     if (!product) return;
     if (!selectedMaterial && materials.length) setSelectedMaterial(materials[0].id);
     if (!selectedSize && sizes.length) setSelectedSize(String(sizes[0]));
-    if (!selectedColor && colors.length) setSelectedColor(colors[0].id);
-  }, [product, materials, sizes, colors]);
+
+    // derive default color id (slug) from variants for the selected material (or first variant)
+    if (!selectedColor) {
+      const relevant = variants.filter((v) => {
+        if (!selectedMaterial) return true;
+        const vm = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+        return normalizeId(vm) === String(selectedMaterial);
+      });
+      const availableIds = relevant.map((v) => normalizeId(v?.color || v?.colorLabel || (Array.isArray(v?.colors) ? v.colors[0] : '') || '')).filter(Boolean);
+      if (availableIds.length) setSelectedColor(availableIds[0]);
+    }
+
+    if (colors.length > 0) {
+      const isSelectedColorValid = colors.some(c => c.id === selectedColor);
+      if (!isSelectedColorValid) {
+        setSelectedColor(colors[0].id); // auto-select first color of the material
+      }
+    }
+  }, [product, materials, colors, selectedMaterial, selectedColor, sizes, variants]);
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -319,8 +420,8 @@ export default function ProductDetailPage({ params }) {
           <div className="option-section">
             <h3 className="option-label">
               {colors.length > 0
-                ? `Chất liệu: ${materials.find(m => m.id === selectedMaterial)?.label || materials[0].label} - Màu: ${colors.find(c => c.id === selectedColor)?.label || colors[0].label}`
-                : `Chất liệu: ${materials.find(m => m.id === selectedMaterial)?.label || materials[0].label}`
+                ? `Chất liệu: ${materials.find(m => m.id === selectedMaterial)?.label || (materials[0] && materials[0].label) || ''} - Màu: ${colors.find(c => c.id === selectedColor)?.label || (colors[0] && colors[0].label) || ''}`
+                : `Chất liệu: ${materials.find(m => m.id === selectedMaterial)?.label || (materials[0] && materials[0].label) || ''}`
               }
             </h3>
             <div className="material-list">
@@ -389,12 +490,12 @@ export default function ProductDetailPage({ params }) {
           <div className="product-description">
             <h2 className="description-title">Chi tiết sản phẩm</h2>
             <p className="description-text">
-              <span className="bold">{product.name}</span> {product.description}
+              <p className="bold">{product.description}</p> 
             </p>
             <ul className="spec-list">
               <li>
                 <span className="label">Mã sản phẩm:</span>{" "}
-                {product.slug || product._id}
+                {product._id}
               </li>
               <li>
                 <span className="label">Phân loại:</span>{" "}
