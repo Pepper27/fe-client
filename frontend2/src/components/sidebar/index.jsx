@@ -75,7 +75,7 @@ const DEFAULT_FILTER_OPTIONS = {
 const colors = DEFAULT_FILTER_OPTIONS.color;
 const sizes = DEFAULT_FILTER_OPTIONS.size;
 
-export default function Sidebar({ category: categoryProp, onFiltersChange, onSortChange }) {
+export default function Sidebar({ category: categoryProp, availableFilters, onFiltersChange, onSortChange }) {
   // Sidebar UI state: use maps so adding/removing sections is easy
   const [openSections, setOpenSections] = useState(() => {
     const init = {};
@@ -84,8 +84,65 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
   });
   const [sortOpen, setSortOpen] = useState(false);
   const [selectedSort, setSelectedSort] = useState(sortOptions[0]);
-  const [selectedFilters, setSelectedFilters] = useState({});
-  const [attrOptions, setAttrOptions] = useState({ materials: [], colors: [], sizes: [], themes: [], collections: [] });
+  const [selectedFilters, setSelectedFilters] = useState(() => {
+    // Initialize filters from URL parameters
+    try {
+      const qs = new URLSearchParams(window.location.search || "");
+      const filtersParam = qs.get('filters');
+      if (filtersParam) {
+        const parsed = JSON.parse(filtersParam);
+        const normalized = {};
+        
+        // Normalize backend format to frontend format
+        if (parsed.categories) {
+          normalized.category = parsed.categories.map(String);
+        }
+        if (parsed.materials) {
+          normalized.material = parsed.materials.map(String);
+        }
+        if (parsed.colors) {
+          normalized.color = parsed.colors.map(String);
+        }
+        if (parsed.sizes) {
+          normalized.size = parsed.sizes.map(String);
+        }
+        if (parsed.themes) {
+          normalized.theme = parsed.themes.map(String);
+        }
+        if (parsed.collections) {
+          normalized.collection = parsed.collections.map(String);
+        }
+        if (parsed.price) {
+          // Convert price object back to label
+          const { min, max } = parsed.price;
+          let priceLabel = "";
+          
+          if (min === 0) {
+            priceLabel = `Dưới ${max.toLocaleString('vi-VN')}đ`;
+          } else if (max === Number.MAX_SAFE_INTEGER) {
+            priceLabel = `Trên ${min.toLocaleString('vi-VN')}đ`;
+          } else {
+            priceLabel = `${min.toLocaleString('vi-VN')}đ - ${max.toLocaleString('vi-VN')}đ`;
+          }
+          
+          normalized.price = [priceLabel];
+        }
+        
+        return normalized;
+      }
+    } catch (e) {
+      // Ignore URL parse errors
+    }
+    return {};
+  });
+  const [attrOptions, setAttrOptions] = useState({
+  materials: availableFilters?.materials || [],
+  colors: availableFilters?.colors || [],
+  sizes: availableFilters?.sizes || [],
+  themes: availableFilters?.themes || [],
+  collections: availableFilters?.collections || [],
+  categories: availableFilters?.categories || []
+});
 
   const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -102,36 +159,42 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
     setSortOpen(false);
   };
 
-  // Load attribute options from server on mount
+// Update attrOptions when availableFilters prop changes
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [matRes, colorRes, sizeRes, themeRes, collRes] = await Promise.all([
-          api.getMaterials().catch(() => ({ data: [] })),
-          api.getColors().catch(() => ({ data: [] })),
-          api.getSizes().catch(() => ({ data: [] })),
-          api.getThemes().catch(() => ({ data: [] })),
-          api.getCollections().catch(() => ({ data: [] })),
-        ]);
-        if (cancelled) return;
-        setAttrOptions({
-          materials: Array.isArray(matRes?.data) ? matRes.data : [],
-          colors: Array.isArray(colorRes?.data) ? colorRes.data : [],
-          sizes: Array.isArray(sizeRes?.data) ? sizeRes.data : [],
-          themes: Array.isArray(themeRes?.data) ? themeRes.data : [],
-          collections: Array.isArray(collRes?.data) ? collRes.data : [],
-        });
-      } catch (e) {
-        // ignore
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    if (availableFilters) {
+      const attrData = {
+        materials: availableFilters.materials || [],
+        colors: availableFilters.colors || [],
+        sizes: availableFilters.sizes || [],
+        themes: availableFilters.themes || [],
+        collections: availableFilters.collections || [],
+        categories: availableFilters.categories || []
+      };
+      
+      console.log("Updated filters from props:", {
+        materials: attrData.materials,
+        colors: attrData.colors,
+        sizes: attrData.sizes,
+        themes: attrData.themes,
+        collections: attrData.collections,
+        categories: attrData.categories
+      });
+      
+      setAttrOptions(attrData);
+    }
+  }, [availableFilters]);
 
   // notify parent about filters/sort changes (map to backend shape and sync to URL)
   useEffect(() => {
     if (typeof onFiltersChange !== "function") return;
+    
+    // Process filters
+    
+    // Find category slug for selected categories
+    const findCategorySlug = (categoryId) => {
+      const category = attrOptions.categories.find(cat => String(cat._id) === String(categoryId));
+      return category ? category.slug : null;
+    };
 
     // Map selectedFilters (which currently hold labels or ids) to backend shape.
     const mapToBackend = () => {
@@ -139,7 +202,12 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
       const mapArray = (key) => {
         const vals = selectedFilters[key] || [];
         if (!vals || !vals.length) return undefined;
-        const list = attrOptions[key === 'material' ? 'materials' : key === 'collection' ? 'collections' : `${key}s`] || [];
+        let listKey;
+        if (key === 'material') listKey = 'materials';
+        else if (key === 'theme') listKey = 'themes';
+        else if (key === 'collection') listKey = 'collections';
+        else listKey = `${key}s`;
+        const list = attrOptions[listKey] || [];
         return vals.map((v) => {
           const found = list.find((it) => String(it._id) === String(v) || String(it.name || it).toLowerCase() === String(v).toLowerCase());
           return found ? String(found._id || found.id) : String(v);
@@ -151,6 +219,7 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
       const sz = mapArray('size'); if (sz) out.sizes = sz;
       const th = mapArray('theme'); if (th) out.themes = th;
       const coll = mapArray('collection'); if (coll) out.collections = coll;
+      const cat = mapArray('category'); if (cat) out.categories = cat;
 
       if (Array.isArray(selectedFilters.price) && selectedFilters.price.length) {
         const label = selectedFilters.price[0];
@@ -170,6 +239,16 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
     };
 
     const backendFilters = mapToBackend();
+    
+    // Keep both categories and categorySlug for backend compatibility
+    if (Array.isArray(selectedFilters.category) && selectedFilters.category.length > 0) {
+      const categoryId = selectedFilters.category[0]; // Get first selected category
+      const category = attrOptions.categories.find(cat => String(cat._id) === String(categoryId));
+      if (category && category.slug) {
+        backendFilters.categorySlug = category.slug;
+        // Keep categories as well for fallback
+      }
+    }
 
     // Avoid calling parent if filters did not change (prevent infinite loops)
     try {
@@ -177,16 +256,6 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
       // store last serialized filters in a ref so it persists across renders
       if (!Sidebar._lastFilters) Sidebar._lastFilters = serialized;
       if (Sidebar._lastFilters === serialized) {
-        // still same, but ensure URL is consistent — only replace when it differs
-        try {
-          const qs = new URLSearchParams(window.location.search || "");
-          if (backendFilters && Object.keys(backendFilters).length) qs.set('filters', serialized);
-          else qs.delete('filters');
-          const newSearch = qs.toString() ? `?${qs.toString()}` : '';
-          if (newSearch !== window.location.search) window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`);
-        } catch (e) {
-          // ignore URL errors
-        }
         return; // nothing changed
       }
 
@@ -196,7 +265,7 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
       // fallback: continue
     }
 
-    // Sync to URL but only when it changes
+    // Sync to URL
     try {
       const qs = new URLSearchParams(window.location.search || "");
       if (backendFilters && Object.keys(backendFilters).length) {
@@ -210,6 +279,8 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
       // ignore
     }
 
+    // Apply filters
+    
     onFiltersChange(backendFilters);
   }, [selectedFilters, attrOptions, onFiltersChange]);
 
@@ -256,14 +327,23 @@ export default function Sidebar({ category: categoryProp, onFiltersChange, onSor
         const getOptions = (key) => {
           const fromCategory = categoryProp?.filterOptions?.[key];
           if (Array.isArray(fromCategory)) return fromCategory;
-          // If we have server-provided attribute lists, use them for accurate ids/names
+          
+          // Use availableFilters from props instead of API calls
           switch (key) {
-            case 'material': return attrOptions.materials.length ? attrOptions.materials : (DEFAULT_FILTER_OPTIONS.material || []);
-            case 'color': return attrOptions.colors.length ? attrOptions.colors : (DEFAULT_FILTER_OPTIONS.color || []);
-            case 'size': return attrOptions.sizes.length ? attrOptions.sizes : (DEFAULT_FILTER_OPTIONS.size || []);
-            case 'theme': return attrOptions.themes.length ? attrOptions.themes : (DEFAULT_FILTER_OPTIONS.theme || []);
-            case 'collection': return attrOptions.collections.length ? attrOptions.collections : (DEFAULT_FILTER_OPTIONS.collection || []);
-            default: return DEFAULT_FILTER_OPTIONS[key] || [];
+            case 'material': 
+              return availableFilters?.materials?.length ? availableFilters.materials : (DEFAULT_FILTER_OPTIONS.material || []);
+            case 'color': 
+              return availableFilters?.colors?.length ? availableFilters.colors : (DEFAULT_FILTER_OPTIONS.color || []);
+            case 'size': 
+              return availableFilters?.sizes?.length ? availableFilters.sizes : (DEFAULT_FILTER_OPTIONS.size || []);
+            case 'theme': 
+              return availableFilters?.themes?.length ? availableFilters.themes : (DEFAULT_FILTER_OPTIONS.theme || []);
+            case 'collection': 
+              return availableFilters?.collections?.length ? availableFilters.collections : (DEFAULT_FILTER_OPTIONS.collection || []);
+            case 'category': 
+              return availableFilters?.categories?.length ? availableFilters.categories : (DEFAULT_FILTER_OPTIONS.category || []);
+            default: 
+              return DEFAULT_FILTER_OPTIONS[key] || [];
           }
         };
 

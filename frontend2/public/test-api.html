@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Test</title>
+</head>
+<body>
+  <h1>API Test</h1>
+  <div id="result">Testing...</div>
+  
+  <script>
+    // Test if the frontend can make requests to the backend
+    async function testAPI() {
+      const resultDiv = document.getElementById('result');
+      
+      try {
+        console.log('Testing API call...');
+        
+        const response = await fetch('http://localhost:3866/api/v1/public/products?limit=5&page=1', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          resultDiv.innerHTML = `<p>Success! Found ${data.data ? data.data.length : 0} products</p>`;
+          console.log('API Response:', data);
+        } else {
+          resultDiv.innerHTML = `<p>Error: ${response.status} ${response.statusText}</p>`;
+          console.error('API Error:', response.statusText);
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+        console.error('Fetch Error:', error);
+      }
+    }
+    
+    // Run the test
+    testAPI();
+  </script>
+</body>
+</html>
