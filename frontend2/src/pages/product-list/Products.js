@@ -15,6 +15,7 @@ function ProductsPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [availableFilters, setAvailableFilters] = useState({});
   const location = useLocation();
 
   useEffect(() => {
@@ -48,13 +49,18 @@ function ProductsPage() {
           });
           productsData = res?.data || [];
           const total = res?.meta?.total || 0;
+          const filtersData = res?.filters || {};
           
           // Debug - log values
           console.log('First load:', {
             productsLength: productsData.length,
             total: total,
-            hasMore: productsData.length === 24 && productsData.length < total
+            hasMore: productsData.length === 24 && productsData.length < total,
+            filters: filtersData
           });
+          
+          // Store filters data for sidebar
+          setAvailableFilters(filtersData);
           
           // Set hasMore to check if there are more products to load
           const totalPages = res?.meta?.totalPages || 1;
@@ -70,14 +76,23 @@ function ProductsPage() {
           setHasMore(false); // No more products if fallback is used
         }
         if (cancelled) return;
+        // Debug: Log product structure
+        console.log('Loaded products:', productsData.slice(0, 2).map(p => ({
+          id: p._id,
+          name: p.name,
+          category: p.category,
+          type: p.type
+        })));
+        
         setItems(productsData);
         setFilteredItems(productsData);
 
-        // Fetch category info for banner
+        // Fetch category info for banner and hierarchical filtering
+        let allCats = [];
         if (categorySlug) {
           try {
             const catRes = await api.getCategories({ root: 0 });
-            const allCats = Array.isArray(catRes?.data) ? catRes.data : [];
+            allCats = Array.isArray(catRes?.data) ? catRes.data : [];
             // Find category by slug
             let found = allCats.find((c) => c.slug === categorySlug);
             if (found) {
@@ -98,6 +113,9 @@ function ProductsPage() {
         } else {
           setCategory(null);
         }
+        
+        // Store all categories for hierarchical filtering
+        window._allCategories = allCats;
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -125,34 +143,73 @@ function ProductsPage() {
     // Apply filters from Sidebar (category, material, color, size, price, theme)
     const f = activeFilters || {};
     const matchesFilters = (p) => {
-      // category filter (product.category or product.type)
-      if (Array.isArray(f.category) && f.category.length) {
-        const prodCat = p.category || {};
-        const prodCatCandidates = [];
-        if (prodCat) {
-          if (prodCat.name) prodCatCandidates.push(String(prodCat.name).trim());
-          if (prodCat.slug) prodCatCandidates.push(String(prodCat.slug).trim());
-          if (prodCat._id) prodCatCandidates.push(String(prodCat._id).trim());
+      // Category filtering logic with hierarchical support
+      if (Array.isArray(f.categories) && f.categories.length > 0) {
+        const prodCatId = p.category?._id || p.category || null;
+        
+        if (!prodCatId) {
+          // Product has no category, exclude it
+          return false;
         }
-        // also include p.type as a fallback string
-        if (p.type) prodCatCandidates.push(String(p.type).trim());
-
-        const matchesCategory = f.category.some((val) => {
-          const sval = String(val || "").trim();
-          return prodCatCandidates.some((c) => String(c || "").trim().toLowerCase() === sval.toLowerCase());
+        
+        // Check if product category matches any selected category or their children
+        const allCats = window._allCategories || [];
+        const isProductInSelectedCategory = f.categories.some(selectedCatId => {
+          const selectedCatIdStr = String(selectedCatId);
+          const prodCatIdStr = String(prodCatId);
+          
+          // Direct match
+          if (selectedCatIdStr === prodCatIdStr) {
+            return true;
+          }
+          
+          // Check if selected category is parent of product category
+          const isParent = allCats.some(cat => {
+            if (String(cat._id) === prodCatIdStr) {
+              const parentIds = [cat.parent, cat.parentId, cat.parent_id, cat.parentIdString];
+              return parentIds.some(pid => pid && String(pid) === selectedCatIdStr);
+            }
+            return false;
+          });
+          
+          return isParent;
         });
-        if (!matchesCategory) return false;
+        
+        if (!isProductInSelectedCategory) {
+          return false;
+        }
       }
-      // material, theme, size, color: match if product.tags contains the value
-      const tags = Array.isArray(p.tags) ? p.tags.map(String) : [];
-      const checkTagKey = (key) => {
-        if (!Array.isArray(f[key]) || !f[key].length) return true;
-        return f[key].some((val) => tags.some((t) => String(t).toLowerCase().includes(String(val).toLowerCase())));
+      // material, theme, size, color: match if product has the attribute
+      const checkAttribute = (attrKey, backendKey) => {
+        const values = f[backendKey] || f[attrKey];
+        if (!Array.isArray(values) || !values.length) return true;
+        
+        // Check product attributes
+        const productValues = [];
+        
+        // Try to get from product attributes
+        if (p[attrKey]) {
+          if (p[attrKey]._id) productValues.push(String(p[attrKey]._id));
+          if (p[attrKey].name) productValues.push(String(p[attrKey].name));
+        }
+        
+        // Try to get from tags as fallback
+        if (Array.isArray(p.tags)) {
+          p.tags.forEach(tag => {
+            if (typeof tag === 'string') productValues.push(String(tag));
+          });
+        }
+        
+        return values.some(val => {
+          const sval = String(val).trim().toLowerCase();
+          return productValues.some(pv => pv.toLowerCase().includes(sval));
+        });
       };
-      if (!checkTagKey("material")) return false;
-      if (!checkTagKey("theme")) return false;
-      if (!checkTagKey("size")) return false;
-      if (!checkTagKey("color")) return false;
+      
+      if (!checkAttribute("material", "materials")) return false;
+      if (!checkAttribute("theme", "themes")) return false;
+      if (!checkAttribute("size", "sizes")) return false;
+      if (!checkAttribute("color", "colors")) return false;
 
       // price: simple range parsing based on the labels used in sidebar
       if (Array.isArray(f.price) && f.price.length) {
@@ -180,7 +237,23 @@ function ProductsPage() {
       return true;
     };
 
-    next = next.filter(matchesFilters);
+    const beforeFilter = next.length;
+      
+      // Debug each product filtering
+      const filterResults = next.map(p => {
+        const result = matchesFilters(p);
+        return {
+          name: p.name,
+          included: result
+        };
+      });
+      
+      next = next.filter(matchesFilters);
+      const afterFilter = next.length;
+      
+      // Debug: Log filter results and first few products
+      console.log(`Filter results: ${beforeFilter} -> ${afterFilter} products`);
+      console.log("First 5 products filter results:", filterResults.slice(0, 5));
 
     // Apply sort
     if (activeSort && activeSort.value) {
@@ -203,6 +276,7 @@ function ProductsPage() {
   }, [items, activeFilters, activeSort]);
 
   const handleFiltersChange = useCallback((filters) => {
+    console.log('Filters changed:', filters);
     setActiveFilters(filters || {});
   }, []);
 
@@ -313,7 +387,12 @@ function ProductsPage() {
         <div className="products-layout">
           {/* Sidebar */}
           <aside className="sidebar">
-            <Sidebar category={category} onFiltersChange={handleFiltersChange} onSortChange={handleSortChange} />
+            <Sidebar 
+  category={category} 
+  availableFilters={availableFilters}
+  onFiltersChange={handleFiltersChange} 
+  onSortChange={handleSortChange} 
+/>
           </aside>
           {/* Product List */}
           <main className="products-content">

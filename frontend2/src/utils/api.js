@@ -1,10 +1,13 @@
 // Determine API base at request-time so runtime-injected window.__API_BASE
 // (set by index.js after fetching /config.json) is honored even when
 // modules import this file before bootstrap runs.
-function getApiBase() {
+export function getApiBase() {
   if (typeof window !== 'undefined' && window.__API_BASE) return window.__API_BASE;
   if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_BASE) return process.env.REACT_APP_API_BASE;
-  return "http://localhost:3866";
+  
+  // For development, use the hardcoded URL
+  // In production, this should be set via environment variable or config.json
+  return process.env.NODE_ENV === 'development' ? "http://localhost:3866" : "http://localhost:3866";
 }
 
 // Prefer v1 endpoints for new work.
