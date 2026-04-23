@@ -1,6 +1,6 @@
 import "./index.scss";
 import { useNavigate } from "react-router-dom";
-import { buildProductsUrl } from "../../../../utils/productsUrl";
+import { buildProductsUrl } from "../../../../utils/productsUrl"
 
 export const CategoryCard = ({ image, name, slug }) => {
   const navigate = useNavigate();

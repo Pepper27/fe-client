@@ -1,19 +1,102 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { api } from '../utils/api';
 import './HomePage.css';
 
 const HomePage = () => {
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`${api.getApiBase ? api.getApiBase() : 'http://localhost:3866'}/api/v1/admin/account/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginData),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Store token in localStorage
+        localStorage.setItem('adminToken', data.token);
+        localStorage.setItem('adminUser', JSON.stringify(data.admin));
+        setLoginError('');
+        alert('Đăng nhập admin thành công!');
+        // Redirect to admin dashboard or reload
+        window.location.href = '/admin/tao-san-pham';
+      } else {
+        setLoginError(data.message || 'Đăng nhập thất bại');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setLoginError('Không thể kết nối đến server');
+    }
+  };
+
   return (
     <div className="home-page">
       <section className="hero">
         <div className="container">
           <h1>Chào mừng đến với Charm Jewelry</h1>
           <p>Khám phá bộ sưu tập trang sức độc đáo của chúng tôi</p>
-          <Link to="/san-pham" className="cta-button">
-            Xem sản phẩm
-          </Link>
+          <div className="button-group">
+            <Link to="/san-pham" className="cta-button">
+              Xem sản phẩm
+            </Link>
+            <button 
+              onClick={() => setShowAdminLogin(!showAdminLogin)} 
+              className="admin-button"
+            >
+              Admin Login
+            </button>
+          </div>
         </div>
       </section>
+
+      {showAdminLogin && (
+        <div className="admin-login-modal">
+          <div className="admin-login-form">
+            <h3>Admin Login</h3>
+            <form onSubmit={handleLoginSubmit}>
+              <div className="form-group">
+                <label>Username:</label>
+                <input
+                  type="text"
+                  value={loginData.username}
+                  onChange={(e) => setLoginData({...loginData, username: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Password:</label>
+                <input
+                  type="password"
+                  value={loginData.password}
+                  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                  required
+                />
+              </div>
+              {loginError && <div className="error-message">{loginError}</div>}
+              <div className="form-actions">
+                <button type="submit">Đăng nhập</button>
+                <button type="button" onClick={() => setShowAdminLogin(false)}>
+                  Đóng
+                </button>
+              </div>
+            </form>
+            <div className="admin-info">
+              <p><strong>Default credentials:</strong></p>
+              <p>Username: admin</p>
+              <p>Password: admin123</p>
+            </div>
+          </div>
+        </div>
+      )}
       
       <section className="featured-products">
         <div className="container">

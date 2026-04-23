@@ -2,7 +2,7 @@ import { Categories } from "./product-category-list";
 import { ProductSignature } from "./product-signature";
 import "./index.scss";
 import { Navigation } from "swiper/modules";
-import { ProductCard } from "../product-card";
+import { ProductCard } from "../../components/product-card";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { AiOutlineLeft, AiOutlineRight } from "react-icons/ai";
 import { COMMITMENTS_DATA } from "../../data/commitment";

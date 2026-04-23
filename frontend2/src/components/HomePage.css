@@ -29,10 +29,15 @@
   opacity: 0.9;
 }
 
-.cta-button {
+.button-group {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.cta-button, .admin-button {
   display: inline-block;
-  background: #e74c3c;
-  color: white;
   padding: 15px 30px;
   border-radius: 30px;
   text-decoration: none;
@@ -40,10 +45,28 @@
   transition: all 0.3s ease;
 }
 
+.cta-button {
+  background: #e74c3c;
+  color: white;
+}
+
 .cta-button:hover {
   background: #c0392b;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.admin-button {
+  background: #6c757d;
+  color: white;
+  border: 2px solid #6c757d;
+}
+
+.admin-button:hover {
+  background: white;
+  color: #6c757d;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
 }
 
 /* Featured Products Section */
