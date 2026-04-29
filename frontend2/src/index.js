@@ -26,7 +26,7 @@ async function loadRuntimeConfig() {
   try {
     // For development, directly set the API base URL
     // This bypasses any issues with config.json loading
-    window.__API_BASE = "http://localhost:3866";
+    window.__API_BASE = "http://localhost:3861";
     
     // In production, you can still try to load from config.json
     if (process.env.NODE_ENV !== 'development') {

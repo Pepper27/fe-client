@@ -7,7 +7,7 @@ export function getApiBase() {
   
   // For development, use the hardcoded URL
   // In production, this should be set via environment variable or config.json
-  return process.env.NODE_ENV === 'development' ? "http://localhost:3866" : "http://localhost:3866";
+  return process.env.NODE_ENV === 'development' ? "http://localhost:3000" : "http://localhost:3000";
 }
 
 // Prefer v1 endpoints for new work.
@@ -72,7 +72,7 @@ export const api = {
     return request(`${V1_PUBLIC}/categories${suffix}`);
   },
   // filters: optional object that will be JSON.stringify'd and placed in `filters` query param
-  getProducts: ({ page, limit, q, categorySlug, filters, _ } = {}) => {
+  getProducts: ({ page, limit, q, categorySlug, filters, includeFilters = true, _ } = {}) => {
     const qs = new URLSearchParams();
     if (page !== undefined) qs.set("page", String(page));
     if (limit !== undefined) qs.set("limit", String(limit));
@@ -85,6 +85,7 @@ export const api = {
         // ignore invalid filters
       }
     }
+    if (includeFilters) qs.set('includeFilters', 'true');
     if (_) qs.set("_", String(_)); // Cache-busting parameter
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`${V1_PUBLIC}/products${suffix}`);

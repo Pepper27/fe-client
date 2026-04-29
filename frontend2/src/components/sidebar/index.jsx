@@ -23,7 +23,7 @@ const DEFAULT_VISIBLE_FILTERS = [
 ];
 
 const DEFAULT_FILTER_OPTIONS = {
-  material: ["Mạ vàng 14k", "Bạc", "Twotone"],
+  material: ["Mạ vàng 14k", "Mạ vàng hồng 14k", "Bạc"],
   color: [
     { name: "Đen", code: "#000000" },
     { name: "Không màu", code: "#FFFFFF", border: true },
@@ -92,7 +92,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       if (filtersParam) {
         const parsed = JSON.parse(filtersParam);
         const normalized = {};
-        
+
         // Normalize backend format to frontend format
         if (parsed.categories) {
           normalized.category = parsed.categories.map(String);
@@ -116,7 +116,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           // Convert price object back to label
           const { min, max } = parsed.price;
           let priceLabel = "";
-          
+
           if (min === 0) {
             priceLabel = `Dưới ${max.toLocaleString('vi-VN')}đ`;
           } else if (max === Number.MAX_SAFE_INTEGER) {
@@ -124,10 +124,10 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           } else {
             priceLabel = `${min.toLocaleString('vi-VN')}đ - ${max.toLocaleString('vi-VN')}đ`;
           }
-          
+
           normalized.price = [priceLabel];
         }
-        
+
         return normalized;
       }
     } catch (e) {
@@ -136,13 +136,13 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     return {};
   });
   const [attrOptions, setAttrOptions] = useState({
-  materials: availableFilters?.materials || [],
-  colors: availableFilters?.colors || [],
-  sizes: availableFilters?.sizes || [],
-  themes: availableFilters?.themes || [],
-  collections: availableFilters?.collections || [],
-  categories: availableFilters?.categories || []
-});
+    materials: availableFilters?.materials || [],
+    colors: availableFilters?.colors || [],
+    sizes: availableFilters?.sizes || [],
+    themes: availableFilters?.themes || [],
+    collections: availableFilters?.collections || [],
+    categories: availableFilters?.categories || []
+  });
 
   const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -159,7 +159,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     setSortOpen(false);
   };
 
-// Update attrOptions when availableFilters prop changes
+  // Update attrOptions when availableFilters prop changes
   useEffect(() => {
     if (availableFilters) {
       const attrData = {
@@ -170,7 +170,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
         collections: availableFilters.collections || [],
         categories: availableFilters.categories || []
       };
-      
+
       console.log("Updated filters from props:", {
         materials: attrData.materials,
         colors: attrData.colors,
@@ -179,7 +179,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
         collections: attrData.collections,
         categories: attrData.categories
       });
-      
+
       setAttrOptions(attrData);
     }
   }, [availableFilters]);
@@ -187,9 +187,9 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
   // notify parent about filters/sort changes (map to backend shape and sync to URL)
   useEffect(() => {
     if (typeof onFiltersChange !== "function") return;
-    
+
     // Process filters
-    
+
     // Find category slug for selected categories
     const findCategorySlug = (categoryId) => {
       const category = attrOptions.categories.find(cat => String(cat._id) === String(categoryId));
@@ -239,7 +239,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     };
 
     const backendFilters = mapToBackend();
-    
+
     // Keep both categories and categorySlug for backend compatibility
     if (Array.isArray(selectedFilters.category) && selectedFilters.category.length > 0) {
       const categoryId = selectedFilters.category[0]; // Get first selected category
@@ -280,13 +280,23 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     }
 
     // Apply filters
-    
+
     onFiltersChange(backendFilters);
   }, [selectedFilters, attrOptions, onFiltersChange]);
 
   useEffect(() => {
     if (typeof onSortChange === "function") onSortChange(selectedSort);
   }, [selectedSort, onSortChange]);
+
+  // Add this inside the main component function, after the useState declarations
+  // Log the final counts for debugging
+  useEffect(() => {
+    if (availableFilters) {
+      console.log('Final materials count:', availableFilters.materials?.length || 0);
+      console.log('Final colors count:', availableFilters.colors?.length || 0);
+      console.log('Final sizes count:', availableFilters.sizes?.length || 0);
+    }
+  }, [availableFilters]);
 
   return (
     <div className="sidebar-panel">
@@ -325,29 +335,105 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           : DEFAULT_VISIBLE_FILTERS;
 
         const getOptions = (key) => {
+          // For materials, always show our fixed list
+          if (key === 'material') {
+            return DEFAULT_FILTER_OPTIONS.material || [];
+          }
+
+          // For other filters, prioritize availableFilters from backend over category filterOptions
+          if (availableFilters && availableFilters[key]?.length > 0) {
+            return availableFilters[key];
+          }
+
           const fromCategory = categoryProp?.filterOptions?.[key];
           if (Array.isArray(fromCategory)) return fromCategory;
-          
-          // Use availableFilters from props instead of API calls
+
+          // Fallback to default options
           switch (key) {
-            case 'material': 
-              return availableFilters?.materials?.length ? availableFilters.materials : (DEFAULT_FILTER_OPTIONS.material || []);
-            case 'color': 
-              return availableFilters?.colors?.length ? availableFilters.colors : (DEFAULT_FILTER_OPTIONS.color || []);
-            case 'size': 
-              return availableFilters?.sizes?.length ? availableFilters.sizes : (DEFAULT_FILTER_OPTIONS.size || []);
-            case 'theme': 
-              return availableFilters?.themes?.length ? availableFilters.themes : (DEFAULT_FILTER_OPTIONS.theme || []);
-            case 'collection': 
-              return availableFilters?.collections?.length ? availableFilters.collections : (DEFAULT_FILTER_OPTIONS.collection || []);
-            case 'category': 
-              return availableFilters?.categories?.length ? availableFilters.categories : (DEFAULT_FILTER_OPTIONS.category || []);
-            default: 
+            case 'color':
+              return DEFAULT_FILTER_OPTIONS.color || [];
+            case 'size':
+              return DEFAULT_FILTER_OPTIONS.size || [];
+            case 'theme':
+              return DEFAULT_FILTER_OPTIONS.theme || [];
+            case 'collection':
+              return DEFAULT_FILTER_OPTIONS.collection || [];
+            case 'category':
+              return DEFAULT_FILTER_OPTIONS.category || [];
+            case 'price':
+              return DEFAULT_FILTER_OPTIONS.price || [];
+            default:
               return DEFAULT_FILTER_OPTIONS[key] || [];
           }
         };
 
         const isSelected = (key, value) => (selectedFilters[key] || []).includes(value);
+
+        // Calculate product count for a filter option
+        const getOptionCount = (key, value) => {
+          // If no products data available, return null
+          if (!availableFilters) {
+            return 1; // Temporarily show 1 instead of 0 to enable selection
+          }
+
+          // Debug: Log what we're looking for
+          console.log(`Getting count for ${key}:`, {
+            value: value,
+            availableFilters: availableFilters
+          });
+
+          // Find the filter option in the available filters
+          const findOption = (filterArray, searchValue) => {
+            if (!filterArray) return null;
+            const sv = String(searchValue || '').trim();
+
+            // First try to find by _id (for ObjectId)
+            let option = filterArray.find(item => String(item._id) === sv);
+
+            // If not found, try to find by name (case-insensitive)
+            if (!option) {
+              option = filterArray.find(item => String(item.name || '').trim().toLowerCase() === sv.toLowerCase());
+            }
+
+            return option || null;
+          };
+
+          switch (key) {
+            case 'material':
+              // For materials, find the count by name
+              if (!availableFilters) return null;
+              if (availableFilters?.materials) {
+                const materialOption = findOption(availableFilters.materials, value);
+                return materialOption?.count ?? 0;
+              }
+              return 0;
+            case 'color':
+              if (!availableFilters) return null;
+              const colorOption = findOption(availableFilters.colors, value);
+              return colorOption?.count ?? 0;
+            case 'size':
+              if (!availableFilters) return null;
+              const sizeOption = findOption(availableFilters.sizes, value);
+              return sizeOption?.count ?? 0;
+            case 'theme':
+              if (!availableFilters) return null;
+              const themeOption = findOption(availableFilters.themes, value);
+              return themeOption?.count ?? 0;
+            case 'collection':
+              if (!availableFilters) return null;
+              const collectionOption = findOption(availableFilters.collections, value);
+              return collectionOption?.count ?? 0;
+            case 'category':
+              if (!availableFilters) return null;
+              const categoryOption = findOption(availableFilters.categories, value);
+              return categoryOption?.count ?? 0;
+            case 'price':
+              // For price ranges, we don't have individual counts, just return 1
+              return null;
+            default:
+              return null;
+          }
+        };
 
         const renderSection = (key) => {
           const opts = getOptions(key);
@@ -369,12 +455,32 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                     <div className="filter-section__body">
                       {(opts || []).map((label) => {
                         // label may be object { _id, name } or string
-                        const value = (label && (label._id || label.id)) ? String(label._id || label.id) : String(label);
-                        const display = (label && (label.name || label.title)) ? (label.name || label.title) : String(label);
+                        let value, display;
+
+                        if (key === 'price') {
+                          // Special handling for price ranges
+                          value = JSON.stringify(label);
+                          display = label.label || String(label);
+                        } else {
+                          // Standard handling for other filter types
+                          value = (label && (label._id || label.id)) ? String(label._id || label.id) : String(label);
+                          display = (label && (label.name || label.title)) ? (label.name || label.title) : String(label);
+                        }
+
+                        const count = getOptionCount(key, value);
+
                         return (
-                          <label className="filter-checkbox" key={value}>
-                            <input type="checkbox" checked={isSelected(key, value)} onChange={() => toggleOption(key, value)} />
+                          <label className={`filter-checkbox ${count === 0 ? 'disabled' : ''}`} key={value}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected(key, value)}
+                              onChange={() => toggleOption(key, value)}
+                              disabled={count === 0}
+                            />
                             <span>{display}</span>
+                            {count !== null && count > 0 && (
+                              <span className="filter-count">({count})</span>
+                            )}
                           </label>
                         );
                       })}
@@ -395,12 +501,25 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                         const value = (color && (color._id || color.id)) ? String(color._id || color.id) : String(color.name || color);
                         const name = color.name || color;
                         const selected = isSelected(key, value);
+                        const count = getOptionCount(key, value);
+
                         return (
-                          <button type="button" className="color-option" key={value} onClick={() => toggleOption(key, value)}>
+                          <button
+                            type="button"
+                            className={`color-option ${count === 0 ? 'disabled' : ''}`}
+                            key={value}
+                            onClick={() => toggleOption(key, value)}
+                            disabled={count === 0}
+                          >
                             <span className={`color-swatch ${selected ? 'is-selected' : ''}`}>
                               <span className="color-swatch__fill" style={{ background: color.gradient ? color.gradient : color.code }} />
                             </span>
-                            <span>{name}</span>
+                            <div className="color-info">
+                              <span>{name}</span>
+                              {count !== null && count > 0 && (
+                                <span className="color-count">({count})</span>
+                              )}
+                            </div>
                           </button>
                         );
                       })}
@@ -421,9 +540,20 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                         const value = (s && (s._id || s.id)) ? String(s._id || s.id) : String(s.name || s);
                         const name = s.name || s;
                         const selected = isSelected(key, value);
+                        const count = getOptionCount(key, value);
+
                         return (
-                          <button type="button" key={value} className={`size-pill ${selected ? 'is-selected' : ''}`} onClick={() => toggleOption(key, value)}>
+                          <button
+                            type="button"
+                            key={value}
+                            className={`size-pill ${selected ? 'is-selected' : ''} ${count === 0 ? 'disabled' : ''}`}
+                            onClick={() => toggleOption(key, value)}
+                            disabled={count === 0}
+                          >
                             {name}
+                            {count !== null && count > 0 && (
+                              <span className="size-count">({count})</span>
+                            )}
                           </button>
                         );
                       })}

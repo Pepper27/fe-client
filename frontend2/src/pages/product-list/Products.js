@@ -18,6 +18,8 @@ function ProductsPage() {
   const [availableFilters, setAvailableFilters] = useState({});
   const location = useLocation();
 
+  
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -46,10 +48,17 @@ function ProductsPage() {
             q,
             categorySlug: categorySlug,
             filters: filtersParam,
+            includeFilters: true,
           });
           productsData = res?.data || [];
           const total = res?.meta?.total || 0;
           const filtersData = res?.filters || {};
+          // Normalize backend filter keys to the shape Sidebar expects
+          const normalizedFilters = {
+            ...filtersData,
+            price: filtersData.price_ranges || filtersData.price || [],
+            // Sidebar expects availableFilters.* keys: materials, colors, sizes, themes, collections, categories
+          };
           
           // Debug - log values
           console.log('First load:', {
@@ -59,8 +68,15 @@ function ProductsPage() {
             filters: filtersData
           });
           
-          // Store filters data for sidebar
-          setAvailableFilters(filtersData);
+          // Store filters data for sidebar (backend already provides counts)
+          console.log('Setting availableFilters:', {
+            materials: normalizedFilters.materials?.length || 0,
+            colors: normalizedFilters.colors?.length || 0,
+            sizes: normalizedFilters.sizes?.length || 0,
+            priceRanges: normalizedFilters.price?.length || 0,
+          });
+          console.log('Full filters data from backend:', normalizedFilters);
+          setAvailableFilters(normalizedFilters);
           
           // Set hasMore to check if there are more products to load
           const totalPages = res?.meta?.totalPages || 1;
@@ -307,6 +323,7 @@ function ProductsPage() {
         q,
         categorySlug,
         filters: filtersParam,
+        includeFilters: true,
       });
 
       const newItems = res?.data || [];
@@ -401,9 +418,12 @@ function ProductsPage() {
                  <div className="loading-initial">Đang tải sản phẩm...</div>
                ) : (
                   filteredItems.map((p) => {
-                  const firstVariant = (p?.variants || [])[0] || null;
-                  const image = (firstVariant?.images || [])[0] || "";
-                  const price = firstVariant?.price ?? 0;
+                   const variants = p?.variants || [];
+                   const firstVariant = variants[0] || null;
+                   const image = (firstVariant?.images || [])[0] || "";
+                   // Use lowest variant price as representative price
+                   const prices = variants.map(v => Number(v?.price || 0)).filter(n => Number.isFinite(n));
+                   const price = prices.length ? Math.min(...prices) : 0;
                   // Determine whether product cards on this page should be square.
                   const catName = category?.name || "";
                   const slug = (category && category.slug) || "";
