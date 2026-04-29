@@ -12,6 +12,10 @@ function ProductsPage() {
   const [filteredItems, setFilteredItems] = useState([]);
   const [activeFilters, setActiveFilters] = useState({});
   const [activeSort, setActiveSort] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [availableFilters, setAvailableFilters] = useState({});
   const location = useLocation();
 
   useEffect(() => {
@@ -31,33 +35,64 @@ function ProductsPage() {
           filtersParam = undefined;
         }
 
-        // Fetch products
-        let merged = [];
+        // If a categorySlug is present, pass it directly to the API
+        // The backend will handle category resolution and filtering
+        let productsData = [];
         try {
-          const v1 = await api.getProducts({
+          // Fetch first page only with limit 24
+          const res = await api.getProducts({
             page: 1,
-            limit: 60,
+            limit: 24,
             q,
-            categorySlug,
+            categorySlug: categorySlug,
             filters: filtersParam,
           });
-          merged = v1?.data || [];
+          productsData = res?.data || [];
+          const total = res?.meta?.total || 0;
+          const filtersData = res?.filters || {};
+          
+          // Debug - log values
+          console.log('First load:', {
+            productsLength: productsData.length,
+            total: total,
+            hasMore: productsData.length === 24 && productsData.length < total,
+            filters: filtersData
+          });
+          
+          // Store filters data for sidebar
+          setAvailableFilters(filtersData);
+          
+          // Set hasMore to check if there are more products to load
+          const totalPages = res?.meta?.totalPages || 1;
+          setHasMore(productsData.length === 24 && page < totalPages);
         } catch (err) {
+          console.error('Error fetching products:', err);
+          // Fallback to getting bracelets and charms if products endpoint fails
           const [braceletsRes, charmsRes] = await Promise.all([
             api.getBracelets({}),
             api.getCharms({}),
           ]);
-          merged = [...(braceletsRes?.data || []), ...(charmsRes?.data || [])];
+          productsData = [...(braceletsRes?.data || []), ...(charmsRes?.data || [])];
+          setHasMore(false); // No more products if fallback is used
         }
         if (cancelled) return;
-        setItems(merged);
-        setFilteredItems(merged);
+        // Debug: Log product structure
+        console.log('Loaded products:', productsData.slice(0, 2).map(p => ({
+          id: p._id,
+          name: p.name,
+          category: p.category,
+          type: p.type
+        })));
+        
+        setItems(productsData);
+        setFilteredItems(productsData);
 
-        // Fetch category info for banner
+        // Fetch category info for banner and hierarchical filtering
+        let allCats = [];
         if (categorySlug) {
           try {
             const catRes = await api.getCategories({ root: 0 });
-            const allCats = Array.isArray(catRes?.data) ? catRes.data : [];
+            allCats = Array.isArray(catRes?.data) ? catRes.data : [];
             // Find category by slug
             let found = allCats.find((c) => c.slug === categorySlug);
             if (found) {
@@ -78,6 +113,9 @@ function ProductsPage() {
         } else {
           setCategory(null);
         }
+        
+        // Store all categories for hierarchical filtering
+        window._allCategories = allCats;
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -92,6 +130,12 @@ function ProductsPage() {
     };
   }, [location.search]);
 
+  // Reset page and hasMore when filters change
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+  }, [location.search]);
+
   // Update filteredItems when items, filters or sort change
   useEffect(() => {
     let next = Array.isArray(items) ? items.slice() : [];
@@ -99,21 +143,73 @@ function ProductsPage() {
     // Apply filters from Sidebar (category, material, color, size, price, theme)
     const f = activeFilters || {};
     const matchesFilters = (p) => {
-      // category filter (product.category or product.type)
-      if (Array.isArray(f.category) && f.category.length) {
-        const cat = p.category || p.type || "";
-        if (!f.category.includes(cat)) return false;
+      // Category filtering logic with hierarchical support
+      if (Array.isArray(f.categories) && f.categories.length > 0) {
+        const prodCatId = p.category?._id || p.category || null;
+        
+        if (!prodCatId) {
+          // Product has no category, exclude it
+          return false;
+        }
+        
+        // Check if product category matches any selected category or their children
+        const allCats = window._allCategories || [];
+        const isProductInSelectedCategory = f.categories.some(selectedCatId => {
+          const selectedCatIdStr = String(selectedCatId);
+          const prodCatIdStr = String(prodCatId);
+          
+          // Direct match
+          if (selectedCatIdStr === prodCatIdStr) {
+            return true;
+          }
+          
+          // Check if selected category is parent of product category
+          const isParent = allCats.some(cat => {
+            if (String(cat._id) === prodCatIdStr) {
+              const parentIds = [cat.parent, cat.parentId, cat.parent_id, cat.parentIdString];
+              return parentIds.some(pid => pid && String(pid) === selectedCatIdStr);
+            }
+            return false;
+          });
+          
+          return isParent;
+        });
+        
+        if (!isProductInSelectedCategory) {
+          return false;
+        }
       }
-      // material, theme, size, color: match if product.tags contains the value
-      const tags = Array.isArray(p.tags) ? p.tags.map(String) : [];
-      const checkTagKey = (key) => {
-        if (!Array.isArray(f[key]) || !f[key].length) return true;
-        return f[key].some((val) => tags.some((t) => String(t).toLowerCase().includes(String(val).toLowerCase())));
+      // material, theme, size, color: match if product has the attribute
+      const checkAttribute = (attrKey, backendKey) => {
+        const values = f[backendKey] || f[attrKey];
+        if (!Array.isArray(values) || !values.length) return true;
+        
+        // Check product attributes
+        const productValues = [];
+        
+        // Try to get from product attributes
+        if (p[attrKey]) {
+          if (p[attrKey]._id) productValues.push(String(p[attrKey]._id));
+          if (p[attrKey].name) productValues.push(String(p[attrKey].name));
+        }
+        
+        // Try to get from tags as fallback
+        if (Array.isArray(p.tags)) {
+          p.tags.forEach(tag => {
+            if (typeof tag === 'string') productValues.push(String(tag));
+          });
+        }
+        
+        return values.some(val => {
+          const sval = String(val).trim().toLowerCase();
+          return productValues.some(pv => pv.toLowerCase().includes(sval));
+        });
       };
-      if (!checkTagKey("material")) return false;
-      if (!checkTagKey("theme")) return false;
-      if (!checkTagKey("size")) return false;
-      if (!checkTagKey("color")) return false;
+      
+      if (!checkAttribute("material", "materials")) return false;
+      if (!checkAttribute("theme", "themes")) return false;
+      if (!checkAttribute("size", "sizes")) return false;
+      if (!checkAttribute("color", "colors")) return false;
 
       // price: simple range parsing based on the labels used in sidebar
       if (Array.isArray(f.price) && f.price.length) {
@@ -141,7 +237,23 @@ function ProductsPage() {
       return true;
     };
 
-    next = next.filter(matchesFilters);
+    const beforeFilter = next.length;
+      
+      // Debug each product filtering
+      const filterResults = next.map(p => {
+        const result = matchesFilters(p);
+        return {
+          name: p.name,
+          included: result
+        };
+      });
+      
+      next = next.filter(matchesFilters);
+      const afterFilter = next.length;
+      
+      // Debug: Log filter results and first few products
+      console.log(`Filter results: ${beforeFilter} -> ${afterFilter} products`);
+      console.log("First 5 products filter results:", filterResults.slice(0, 5));
 
     // Apply sort
     if (activeSort && activeSort.value) {
@@ -164,12 +276,61 @@ function ProductsPage() {
   }, [items, activeFilters, activeSort]);
 
   const handleFiltersChange = useCallback((filters) => {
+    console.log('Filters changed:', filters);
     setActiveFilters(filters || {});
   }, []);
 
   const handleSortChange = useCallback((sort) => {
     setActiveSort(sort || null);
   }, []);
+
+  const handleLoadMore = async () => {
+    if (!hasMore || loadingMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const qs = new URLSearchParams(location.search || "");
+      const q = qs.get("q") || "";
+      const categorySlug = qs.get("categorySlug") || "";
+      let filtersParam = undefined;
+      try {
+        const raw = qs.get('filters');
+        if (raw) filtersParam = JSON.parse(raw);
+      } catch (e) {
+        filtersParam = undefined;
+      }
+
+      const res = await api.getProducts({
+        page: nextPage,
+        limit: 24,
+        q,
+        categorySlug,
+        filters: filtersParam,
+      });
+
+      const newItems = res?.data || [];
+      setItems(prev => [...prev, ...newItems]);  // Append new items
+      setPage(nextPage);
+      
+      // Update hasMore - kiểm tra nếu có còn page tiếp theo không
+      const totalPages = res?.meta?.totalPages || 1;
+      
+      // Debug - log values
+      console.log('Load more:', {
+        currentPage: nextPage,
+        newItemsLength: newItems.length,
+        totalPages: totalPages,
+        hasMore: nextPage < totalPages
+      });
+      
+      setHasMore(nextPage < totalPages);
+    } catch (error) {
+      console.error('Error loading more products:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Determine banner image
   const bannerUrl =
@@ -199,9 +360,9 @@ function ProductsPage() {
                 className="w-full h-full object-cover"
               />
             )}
-            {category.name && (
+            {/* {category.name && (
               <div className="products-banner-title">{category.name}</div>
-            )}
+            )} */}
           </>
         ) : (
           <img
@@ -226,13 +387,18 @@ function ProductsPage() {
         <div className="products-layout">
           {/* Sidebar */}
           <aside className="sidebar">
-            <Sidebar category={category} onFiltersChange={handleFiltersChange} onSortChange={handleSortChange} />
+            <Sidebar 
+  category={category} 
+  availableFilters={availableFilters}
+  onFiltersChange={handleFiltersChange} 
+  onSortChange={handleSortChange} 
+/>
           </aside>
           {/* Product List */}
           <main className="products-content">
             <div className="products-grid">
-                {loading ? (
-                 <div>Đang tải sản phẩm...</div>
+                {loading && page === 1 ? (
+                 <div className="loading-initial">Đang tải sản phẩm...</div>
                ) : (
                   filteredItems.map((p) => {
                   const firstVariant = (p?.variants || [])[0] || null;
@@ -255,6 +421,32 @@ function ProductsPage() {
                   );
                  })
                )}
+              
+              {/* Load More Button */}
+              {hasMore && !loading && (
+                <div className="load-more-container">
+                  <button 
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    className="load-more-button"
+                  >
+                    {loadingMore ? 'Đang tải...' : 'Xem thêm'}
+                  </button>
+                </div>
+              )}
+
+              {!hasMore && filteredItems.length > 0 && (
+                <div className="no-more-products">
+                  <p>Đã hiển thị tất cả {filteredItems.length} sản phẩm</p>
+                </div>
+              )}
+
+              {loadingMore && (
+                <div className="loading-more">
+                  <div className="spinner"></div>
+                  <p>Đang tải thêm sản phẩm...</p>
+                </div>
+              )}
             </div>
           </main>
         </div>

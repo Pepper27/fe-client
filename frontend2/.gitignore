@@ -1,23 +1,65 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+# 1. Dependencies (Thư viện - Tuyệt đối không đẩy lên)
+node_modules/
+jspm_packages/
+.pnp
 .pnp.js
 
-# testing
-/coverage
+# 2. Production (Sản phẩm sau khi build)
+build/
+dist/
+out/
+.next/
+server/build/
 
-# production
-/build
-
-# misc
-.DS_Store
+# 3. Environment Variables (Bảo mật - Quan trọng nhất)
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.sample
+!.env.example
 
+# 4. Logs (Nhật ký lỗi)
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+logs/
+*.log
+pnpm-debug.log*
+
+# 5. Editor & IDE (File rác từ công cụ lập trình)
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+
+# 6. OS Metadata (File hệ thống của máy tính)
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# 7. Testing & Coverage (Dành cho kiểm thử)
+coverage/
+*.lcov
+
+# 8. Temporary Files (File tạm)
+temp/
+tmp/
+.cache/
+.eslintcache
+.stylelintcache
+
+# 9. Frontend Specific (Các file phát sinh khi chạy React)
+.parcel-cache
+.turbo

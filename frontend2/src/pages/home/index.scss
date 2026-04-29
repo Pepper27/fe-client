@@ -1,0 +1,345 @@
+// video
+.video-section-wrapper {
+  margin: 40px 0;
+  width: 100%;
+}
+
+.video-responsive-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.video-iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+@media (max-width: 768px) {
+  .video-container {
+    aspect-ratio: 16 / 9;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+}
+
+//pandora gợi ý
+.product-slider-wrapper {
+  margin-top: 40px;
+  overflow: hidden;
+  position: relative;
+}
+
+.slider-title {
+  display: block;
+  text-transform: uppercase;
+  font-size: 22px;
+  font-weight: bold;
+  color: #000;
+  margin-left: 75px; 
+  margin-bottom: 20px;
+}
+
+.pandoraSwiper {
+  position: relative;
+}
+
+/* Style cho nút điều hướng tùy chỉnh */
+.swiper-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background: white;
+  border: 1px solid #ddd;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+
+  &:hover {
+    background-color: #f8f8f8;
+    color: #ffb6c1;
+  }
+
+  &.custom-prev {
+    left: 0;
+  }
+
+  &.custom-next {
+    right: 0;
+  }
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .slider-title {
+    margin-left: 0;
+    font-size: 18px;
+    padding-left: 20px;
+  }
+}
+
+//CHẠM YÊU THƯƠNG - KHẮC CẢM XÚC
+
+.collection-promo-wrapper {
+  // Sử dụng flexbox để chia 2 cột
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 100px;
+  margin-top: 100px;
+  margin-bottom: 100px;
+}
+
+.promo-video {
+  width: 100%;
+  max-width: 802px; 
+  height: 500px;
+  aspect-ratio: 802 / 766; 
+  object-fit: cover;
+}
+
+.promo-content {
+  width: 100%;
+  max-width: 350px; 
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .promo-title {
+    font-size: 38px;
+    font-weight: bold;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: black;
+  }
+
+  .promo-description {
+    font-size: 14px;
+    font-weight: 700; // Khớp với font-700 của bạn
+    line-height: 1.6;
+    color: #333;
+  }
+
+  .promo-button {
+    background-color: #000;
+    border: none;
+    width: fit-content;
+    padding: 12px 24px;
+    margin-top: 10px;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+
+    &:hover {
+      opacity: 0.8;
+    }
+
+    span {
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+  }
+}
+
+/* Responsive cho máy tính bảng và điện thoại */
+@media (max-width: 1024px) {
+  .collection-promo-wrapper {
+    flex-direction: column; // Xếp chồng lên nhau trên màn hình nhỏ
+    gap: 40px;
+    margin-top: 50px;
+  }
+
+  .promo-content {
+    max-width: 100%;
+    text-align: center;
+    align-items: center;
+  }
+  
+  .promo-video {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+//DiscoverySection.
+.discovery-wrapper {
+  margin-top: 100px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 0 92px;
+}
+.discovery-bg-text {
+  position: absolute;
+  top: -60px;
+  z-index: 10;
+  color: #242216;
+  font-weight: bold;
+  font-size: 75px;
+}
+
+.discovery-logo {
+  width: 750px;
+  height: 158px;
+  z-index: 0;
+}
+
+.discovery-grid {
+  margin-top: 44px; // mt-11
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.discovery-item {
+  position: relative;
+  overflow: hidden;
+  flex: 1; // Chia đều các cột
+
+  .image-box {
+    overflow: hidden;
+    margin-bottom: 10px;
+    
+    img {
+      width: 100%;
+      height: auto;
+      transition: transform 0.3s ease;
+    }
+  }
+
+  &:hover {
+    .image-box img {
+      transform: scale(1.05);
+    }
+  }
+
+  .item-title {
+    font-weight: bold;
+    font-size: 20px;
+    color: #27251f;
+    display: block;
+    text-transform: uppercase;
+  }
+
+  .btn-link {
+    margin-top: 8px;
+    background: none;
+    border: none;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    font-weight: 500;
+    
+    &:hover {
+      color: #777;
+    }
+  }
+}
+
+/* Tablet & Mobile */
+@media (max-width: 1280px) {
+  .discovery-wrapper {
+    padding: 0 40px;
+  }
+  .discovery-bg-text {
+    font-size: 50px;
+    top: -40px;
+  }
+  .discovery-logo {
+    width: 100%;
+    height: auto;
+  }
+}
+@media (max-width: 768px) {
+  .discovery-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+//commitment
+.commit-wrapper {
+  margin-top: 50px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  color: #fff;
+
+  @media (max-width: 1280px) {
+    padding: 0 40px;
+  }
+}
+
+.commit-item {
+  background-color: #242216;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 30px;
+  text-align: center;
+  border-bottom: 1px dotted rgba(255, 255, 255, 0.5);
+  border-right: 1px dotted rgba(255, 255, 255, 0.5);
+
+  &:first-child {
+    border-left: 1px dotted rgba(255, 255, 255, 0.5);
+  }
+
+  .icon-box {
+    width: 90px;
+    height: 90px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-contain: contain;
+      filter: invert(1); // Chuyển icon màu đen thành trắng
+    }
+  }
+
+  .commit-title {
+    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+  }
+
+  .commit-desc {
+    text-transform: uppercase;
+    font-size: 10px;
+    line-height: 1.4;
+    opacity: 0.8;
+  }
+}
+
+/* Responsive cho Mobile */
+@media (max-width: 768px) {
+  .commit-wrapper {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 0 15px;
+  }
+  .commit-item:nth-child(odd) {
+    border-left: 1px dotted rgba(255, 255, 255, 0.5);
+  }
+}

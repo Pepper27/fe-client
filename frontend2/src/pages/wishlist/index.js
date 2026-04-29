@@ -50,12 +50,12 @@ export default function Wishlist() {
 
   const effective = Array.isArray(serverItems)
     ? serverItems.map((it) => ({
-        id: it?.productId,
-        slug: it?.product?.slug,
-        name: it?.product?.name,
-        price: it?.product?.price ?? 0,
-        images: it?.product?.image || "",
-      }))
+      id: it?.productId,
+      slug: it?.product?.slug,
+      name: it?.product?.name,
+      price: it?.product?.price ?? 0,
+      images: it?.product?.image || "",
+    }))
     : wishlistItems;
 
   return (
@@ -63,7 +63,9 @@ export default function Wishlist() {
       {effective.length === 0 ? (
         <p className="wishlist-empty">Bạn chưa thêm sản phẩm yêu thích nào.</p>
       ) : (
-        <div className="products-grid">
+        <div
+          className="products-grid"
+          style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           {effective.map((item) => (
             <ProductCard
               key={item.id}
