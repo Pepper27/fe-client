@@ -2,11 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
-
-const currencyVND = (value) => {
-  const n = Number(value) || 0;
-  return n.toLocaleString("vi-VN") + "₫";
-};
+import { formatPrice } from "../../utils/format";
 
 const statusKey = (s) => {
   const v = String(s || "");
@@ -157,7 +153,7 @@ export default function OrderDetailPage() {
                   <div className="orders-itemRight">
                     <div className="orders-itemQty">x{it?.quantity || 1}</div>
                     <div className="orders-itemPrice">
-                      {currencyVND(it?.price)}
+                      {formatPrice(it?.price)}
                     </div>
                   </div>
                 </div>
@@ -165,7 +161,7 @@ export default function OrderDetailPage() {
             </div>
 
             <div className="orders-orderTotal">
-              Tổng số tiền: <strong>{currencyVND(order.totalPrice)}</strong>
+              Tổng số tiền: <strong>{formatPrice(order.totalPrice)}</strong>
             </div>
           </div>
         ) : (

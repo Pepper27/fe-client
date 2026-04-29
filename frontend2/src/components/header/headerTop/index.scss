@@ -24,7 +24,7 @@ a svg {
 
   .top-content {
     @include flex-between;
-    padding: 20px 0;
+    padding: 15px 0;
 
     // Responsive cho Tablet & Mobile
     @media (max-width: 1024px) {
@@ -109,7 +109,7 @@ a svg {
     display: flex;
     gap: 5px; /* more spacing for larger icons */
 
-    .icon-btn {
+      .icon-btn {
       background: transparent;
       border: none;
       padding: 0;
@@ -130,12 +130,33 @@ a svg {
 
       svg { width: 28px; height: 28px; display: block; }
 
-      &.heart-btn svg {
-        /* larger heart graphic */
-        width: 32px;
-        height: 32px;
-        color: #fca5a5;
-      }
+        &.heart-btn svg {
+          /* larger heart graphic */
+          width: 32px;
+          height: 32px;
+          color: #fca5a5;
+        }
+
+        &.heart-btn {
+          position: relative;
+        }
+
+        &.heart-btn .wishlist-badge {
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          min-width: 14px;
+          height: 14px;
+          padding: 0 4px;
+          background: $color-main;
+          color: #fff;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 700;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
 
       &.has-popover {
         position: relative;

@@ -60,10 +60,8 @@ export const toggleWishlistItem = (product) => {
     ? current.filter((item) => String(item.id) !== productId)
     : [...current, { ...normalized, id: productId }];
 
-  localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
-  window.dispatchEvent(
-    new CustomEvent(WISHLIST_UPDATED_EVENT, { detail: next }),
-  );
+  // Use setWishlist which enforces filtering and dispatches the update event.
+  setWishlist(next);
 
   return !exists;
 };
@@ -107,9 +105,39 @@ export const toggleWishlistItemApi = async (product) => {
     await api.wishlistAdd({ productId: normalized.id, variantCode: "" });
     return true;
   } catch (err) {
-    // Not logged in or request failed: revert and keep local-only behavior.
-    setWishlist(before);
+    // If the API request fails (e.g. user not logged in or network error),
+    // keep the optimistic local change so anonymous users still see their
+    // wishlist persisted locally. We will attempt to merge local -> server on
+    // next login.
+    // Log the error for debugging but do not revert.
+    // console.warn('wishlist API failed, keeping local state', err);
     return optimisticLiked;
+  }
+};
+
+// Merge local wishlist into server-side wishlist for the logged-in user.
+// This adds any locally-saved items that are missing on the server.
+export const mergeLocalToServer = async () => {
+  try {
+    const local = getWishlist();
+    if (!Array.isArray(local) || !local.length) return [];
+    const res = await api.wishlistList().catch(() => null);
+    const serverRows = Array.isArray(res?.data) ? res.data : [];
+    const serverIds = new Set(serverRows.map((r) => String(r?.productId || "")));
+    const toAdd = local.filter((it) => it && it.id && !serverIds.has(String(it.id)));
+    for (const item of toAdd) {
+      try {
+        await api.wishlistAdd({ productId: String(item.id), variantCode: "" });
+      } catch (e) {
+        // ignore per-item failures
+      }
+    }
+    // Return updated server list (best-effort)
+    const refreshed = await api.wishlistList().catch(() => null);
+    const rows = Array.isArray(refreshed?.data) ? refreshed.data : [];
+    return rows;
+  } catch (e) {
+    return [];
   }
 };
 

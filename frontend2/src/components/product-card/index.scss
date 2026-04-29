@@ -9,13 +9,19 @@
   padding: 0;
   display: block;
   width: 100%;
+  cursor: pointer;
+}
+
+.product-item-link:focus {
+  outline: 2px solid rgba(0,0,0,0.08);
+  outline-offset: 4px;
 }
 
 /* CARD */
 .product-item-container {
   background: #fff;
   position: relative;
-  width: 100%;
+  // width: 100%;
 }
 
 /* square modifier: force no rounding and clip overflow */
@@ -25,6 +31,7 @@
 }
 
 /* button reset: avoid native button styles affecting layout */
+/* keep backward compatibility if element is a button */
 button.product-item-link {
   appearance: none;
   -webkit-appearance: none;
@@ -45,6 +52,7 @@ button.product-item-link {
   object-fit: cover; // ảnh phủ kín khung
   display: block;
   transition: transform 0.3s ease;
+  background: $color-gray-card;
 }
 
 .product-item-container:hover .product-image {
@@ -130,6 +138,7 @@ button.product-item-link {
   color: $color-main;
   font-weight: 700;
   text-align: left;
-  padding-left: 2px;
+  padding: 3px 0 0 2px;
   font-size: 14px;
+  margin: 0;
 }

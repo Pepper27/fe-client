@@ -2,11 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
 import "./Cart.scss";
-
-const currencyVND = (value) => {
-  const n = Number(value) || 0;
-  return n.toLocaleString("vi-VN") + "₫";
-};
+import { formatPrice } from "../utils/format";
 
 const findVariantByCode = (product, code) => {
   const variants = Array.isArray(product?.variants) ? product.variants : [];
@@ -259,7 +255,7 @@ export default function Cart() {
                               </div>
                             </div>
                             <div className="cart2-bundlePrice">
-                              {currencyVND(
+                              {formatPrice(
                                 (Number(b?.priceSnapshot?.total) || 0) *
                                   (Number(b?.quantity) || 1),
                               )}
@@ -314,9 +310,9 @@ export default function Cart() {
                                               {vCode ? ` (${vCode})` : ""}
                                             </span>
                                           </div>
-                                          <div className="cart2-itemPrice">
-                                            {currencyVND(price)}
-                                          </div>
+                                           <div className="cart2-itemPrice">
+                                             {formatPrice(price)}
+                                           </div>
                                         </div>
                                       );
                                     })}
@@ -349,13 +345,13 @@ export default function Cart() {
                               ) : null}
 
                               {b?.priceSnapshot ? (
-                                <div className="cart2-itemsHint">
-                                  Vòng:{" "}
-                                  {currencyVND(b?.priceSnapshot?.braceletPrice)}{" "}
-                                  | Charms:{" "}
-                                  {currencyVND(b?.priceSnapshot?.charmsPrice)}
-                                  {loadingCharms ? "" : ""}
-                                </div>
+                                  <div className="cart2-itemsHint">
+                                    Vòng:{" "}
+                                    {formatPrice(b?.priceSnapshot?.braceletPrice)}{" "}
+                                    | Charms:{" "}
+                                    {formatPrice(b?.priceSnapshot?.charmsPrice)}
+                                    {loadingCharms ? "" : ""}
+                                  </div>
                               ) : null}
 
                               <div className="cart2-actions">
@@ -422,7 +418,7 @@ export default function Cart() {
                 </div>
                 <div className="cart2-row">
                   <div>Tạm tính</div>
-                  <strong>{currencyVND(total)}</strong>
+                  <strong>{formatPrice(total)}</strong>
                 </div>
                 <div className="cart2-row">
                   <div>Vận chuyển</div>
@@ -431,7 +427,7 @@ export default function Cart() {
                 <div className="cart2-divider" />
                 <div className="cart2-total">
                   <div>Tổng</div>
-                  <div>{currencyVND(total)}</div>
+                  <div>{formatPrice(total)}</div>
                 </div>
                 <button
                   type="button"
