@@ -18,6 +18,7 @@ const DEFAULT_VISIBLE_FILTERS = [
   "material",
   "color",
   "theme",
+  "collection",
   "size",
   "price",
 ];
@@ -162,14 +163,57 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
   // Update attrOptions when availableFilters prop changes
   useEffect(() => {
     if (availableFilters) {
-      const attrData = {
-        materials: availableFilters.materials || [],
-        colors: availableFilters.colors || [],
-        sizes: availableFilters.sizes || [],
-        themes: availableFilters.themes || [],
-        collections: availableFilters.collections || [],
-        categories: availableFilters.categories || []
+      // Normalize lists so each option is an object { _id, name }
+      const normalizeList = (list) => {
+        if (!Array.isArray(list)) return [];
+        return list.map(item => {
+          if (item === null || item === undefined) return null;
+          if (typeof item === 'string') return { _id: item, name: item };
+          // item may already be an object; ensure it has _id and name
+          const id = item._id ?? item.id ?? item.value ?? item.name ?? null;
+          const name = item.name ?? item.title ?? String(id);
+          return { _id: id, name };
+        }).filter(Boolean);
       };
+
+      const attrData = {
+        materials: normalizeList(availableFilters.materials),
+        colors: normalizeList(availableFilters.colors),
+        sizes: normalizeList(availableFilters.sizes),
+        themes: normalizeList(availableFilters.themes),
+        collections: normalizeList(availableFilters.collections),
+        categories: normalizeList(availableFilters.categories)
+      };
+
+      // Annotate each normalized option with a `count` value taken from availableFilters
+      // Match by _id first, then by name (case-insensitive). If no matching source is
+      // available, default count to 0 so the UI can display an explicit 0.
+      const findCountInRaw = (rawList, normItem) => {
+        if (!Array.isArray(rawList) || !normItem) return null;
+        const sv = String(normItem._id ?? normItem.name ?? '').trim();
+
+        // Try to find by id-like fields
+        const byId = rawList.find(it => it && (String(it._id) === sv || String(it.id) === sv || String(it.value) === sv));
+        if (byId && (typeof byId.count === 'number')) return byId.count;
+
+        // Try to find by name (case-insensitive)
+        const byName = rawList.find(it => {
+          if (!it) return false;
+          if (typeof it === 'string') return String(it).trim().toLowerCase() === String(normItem.name || '').trim().toLowerCase();
+          const name = it.name ?? it.title ?? '';
+          return String(name).trim().toLowerCase() === String(normItem.name || '').trim().toLowerCase();
+        });
+        if (byName && (typeof byName.count === 'number')) return byName.count;
+
+        // No explicit count available
+        return null;
+      };
+
+      Object.keys(attrData).forEach((k) => {
+        const rawKey = k; // same key names from availableFilters
+        const rawList = availableFilters[rawKey];
+        attrData[k] = (attrData[k] || []).map(item => ({ ...item, count: findCountInRaw(rawList, item) }));
+      });
 
       console.log("Updated filters from props:", {
         materials: attrData.materials,
@@ -183,6 +227,9 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       setAttrOptions(attrData);
     }
   }, [availableFilters]);
+
+  // Debug UI toggle
+  const [showDebug, setShowDebug] = useState(false);
 
   // notify parent about filters/sort changes (map to backend shape and sync to URL)
   useEffect(() => {
@@ -335,21 +382,28 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           : DEFAULT_VISIBLE_FILTERS;
 
         const getOptions = (key) => {
-          // For materials, always show our fixed list
-          if (key === 'material') {
-            return DEFAULT_FILTER_OPTIONS.material || [];
+          // Determine candidate keys in availableFilters: support both singular and plural keys
+          const pluralKey = key === 'category' ? 'categories' : key === 'material' ? 'materials' : `${key}s`;
+          const candidates = [];
+          if (availableFilters) {
+            if (availableFilters[key]) candidates.push(availableFilters[key]);
+            if (availableFilters[pluralKey]) candidates.push(availableFilters[pluralKey]);
           }
 
-          // For other filters, prioritize availableFilters from backend over category filterOptions
-          if (availableFilters && availableFilters[key]?.length > 0) {
-            return availableFilters[key];
+          // If availableFilters explicitly provided the key (even empty array), respect it
+          if (availableFilters) {
+            if (Object.prototype.hasOwnProperty.call(availableFilters, key)) return availableFilters[key] || [];
+            if (Object.prototype.hasOwnProperty.call(availableFilters, pluralKey)) return availableFilters[pluralKey] || [];
           }
 
+          // Next, check category-specific filterOptions
           const fromCategory = categoryProp?.filterOptions?.[key];
-          if (Array.isArray(fromCategory)) return fromCategory;
+          if (Array.isArray(fromCategory) && fromCategory.length) return fromCategory;
 
           // Fallback to default options
           switch (key) {
+            case 'material':
+              return DEFAULT_FILTER_OPTIONS.material || [];
             case 'color':
               return DEFAULT_FILTER_OPTIONS.color || [];
             case 'size':
@@ -369,71 +423,80 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
 
         const isSelected = (key, value) => (selectedFilters[key] || []).includes(value);
 
-        // Calculate product count for a filter option
-        const getOptionCount = (key, value) => {
-          // If no products data available, return null
-          if (!availableFilters) {
-            return 1; // Temporarily show 1 instead of 0 to enable selection
-          }
+          // Calculate product count for a filter option. Prefer the normalized
+          // attrOptions (which we annotated with counts) when available. If not
+          // present, fall back to availableFilters raw data. If neither exists,
+          // return null for unknown (e.g., price ranges).
+          const getOptionCount = (key, value) => {
+            // Price ranges or unknown keys
+            if (key === 'price') return null;
 
-          // Debug: Log what we're looking for
-          console.log(`Getting count for ${key}:`, {
-            value: value,
-            availableFilters: availableFilters
-          });
-
-          // Find the filter option in the available filters
-          const findOption = (filterArray, searchValue) => {
-            if (!filterArray) return null;
-            const sv = String(searchValue || '').trim();
-
-            // First try to find by _id (for ObjectId)
-            let option = filterArray.find(item => String(item._id) === sv);
-
-            // If not found, try to find by name (case-insensitive)
-            if (!option) {
-              option = filterArray.find(item => String(item.name || '').trim().toLowerCase() === sv.toLowerCase());
+            // Try to find in normalized attrOptions
+            const listKey = key === 'material' ? 'materials' : key === 'collection' ? 'collections' : key === 'category' ? 'categories' : `${key}s`;
+            const normList = attrOptions[listKey];
+            if (Array.isArray(normList) && normList.length) {
+              const found = normList.find(it => String(it._id) === String(value) || String(it.name || '').trim().toLowerCase() === String(value).trim().toLowerCase());
+              if (found) {
+                // If count is explicitly numeric, return it. If count is present but not numeric
+                // (null/undefined), treat as unknown (null) so UI doesn't show (0).
+                return (typeof found.count === 'number') ? found.count : null;
+              }
             }
 
-            return option || null;
-          };
+            // Fall back to availableFilters raw lists (older behavior)
+            if (!availableFilters) return 1; // optimistic default to enable selection while loading
 
-          switch (key) {
-            case 'material':
-              // For materials, find the count by name
-              if (!availableFilters) return null;
-              if (availableFilters?.materials) {
-                const materialOption = findOption(availableFilters.materials, value);
-                return materialOption?.count ?? 0;
+            const findOption = (filterArray, searchValue) => {
+              if (!filterArray) return null;
+              const sv = String(searchValue || '').trim();
+              let option = filterArray.find(item => String(item._id || item.id || item.value || item).toString() === sv);
+              if (!option) {
+                option = filterArray.find(item => String(item.name || item.title || item || '').trim().toLowerCase() === sv.toLowerCase());
               }
-              return 0;
-            case 'color':
-              if (!availableFilters) return null;
-              const colorOption = findOption(availableFilters.colors, value);
-              return colorOption?.count ?? 0;
-            case 'size':
-              if (!availableFilters) return null;
-              const sizeOption = findOption(availableFilters.sizes, value);
-              return sizeOption?.count ?? 0;
-            case 'theme':
-              if (!availableFilters) return null;
-              const themeOption = findOption(availableFilters.themes, value);
-              return themeOption?.count ?? 0;
-            case 'collection':
-              if (!availableFilters) return null;
-              const collectionOption = findOption(availableFilters.collections, value);
-              return collectionOption?.count ?? 0;
-            case 'category':
-              if (!availableFilters) return null;
-              const categoryOption = findOption(availableFilters.categories, value);
-              return categoryOption?.count ?? 0;
-            case 'price':
-              // For price ranges, we don't have individual counts, just return 1
-              return null;
-            default:
-              return null;
-          }
-        };
+              return option || null;
+            };
+
+            switch (key) {
+              case 'material':
+                if (availableFilters?.materials) {
+                  const materialOption = findOption(availableFilters.materials, value);
+                  return (materialOption && typeof materialOption.count === 'number') ? materialOption.count : null;
+                }
+                return null;
+              case 'color':
+                if (availableFilters?.colors) {
+                  const colorOption = findOption(availableFilters.colors, value);
+                  return (colorOption && typeof colorOption.count === 'number') ? colorOption.count : null;
+                }
+                return null;
+              case 'size':
+                if (availableFilters?.sizes) {
+                  const sizeOption = findOption(availableFilters.sizes, value);
+                  return (sizeOption && typeof sizeOption.count === 'number') ? sizeOption.count : null;
+                }
+                return null;
+              case 'theme':
+                if (availableFilters?.themes) {
+                  const themeOption = findOption(availableFilters.themes, value);
+                  return (themeOption && typeof themeOption.count === 'number') ? themeOption.count : null;
+                }
+                return null;
+              case 'collection':
+                if (availableFilters?.collections) {
+                  const collectionOption = findOption(availableFilters.collections, value);
+                  return (collectionOption && typeof collectionOption.count === 'number') ? collectionOption.count : null;
+                }
+                return null;
+              case 'category':
+                if (availableFilters?.categories) {
+                  const categoryOption = findOption(availableFilters.categories, value);
+                  return (categoryOption && typeof categoryOption.count === 'number') ? categoryOption.count : null;
+                }
+                return null;
+              default:
+                return null;
+            }
+          };
 
         const renderSection = (key) => {
           const opts = getOptions(key);
@@ -468,17 +531,18 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                         }
 
                         const count = getOptionCount(key, value);
+                        const isDisabled = (typeof count === 'number' && count === 0 && key !== 'collection');
 
                         return (
-                          <label className={`filter-checkbox ${count === 0 ? 'disabled' : ''}`} key={value}>
+                          <label className={`filter-checkbox ${isDisabled ? 'disabled' : ''}`} key={value}>
                             <input
                               type="checkbox"
                               checked={isSelected(key, value)}
                               onChange={() => toggleOption(key, value)}
-                              disabled={count === 0}
+                              disabled={isDisabled}
                             />
                             <span>{display}</span>
-                            {count !== null && count > 0 && (
+                            {typeof count === 'number' && (
                               <span className="filter-count">({count})</span>
                             )}
                           </label>
@@ -509,14 +573,14 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                             className={`color-option ${count === 0 ? 'disabled' : ''}`}
                             key={value}
                             onClick={() => toggleOption(key, value)}
-                            disabled={count === 0}
+                            disabled={typeof count === 'number' ? count === 0 : false}
                           >
                             <span className={`color-swatch ${selected ? 'is-selected' : ''}`}>
                               <span className="color-swatch__fill" style={{ background: color.gradient ? color.gradient : color.code }} />
                             </span>
                             <div className="color-info">
                               <span>{name}</span>
-                              {count !== null && count > 0 && (
+                              {typeof count === 'number' && (
                                 <span className="color-count">({count})</span>
                               )}
                             </div>
@@ -548,10 +612,10 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                             key={value}
                             className={`size-pill ${selected ? 'is-selected' : ''} ${count === 0 ? 'disabled' : ''}`}
                             onClick={() => toggleOption(key, value)}
-                            disabled={count === 0}
+                            disabled={typeof count === 'number' ? count === 0 : false}
                           >
                             {name}
-                            {count !== null && count > 0 && (
+                            {typeof count === 'number' && (
                               <span className="size-count">({count})</span>
                             )}
                           </button>
@@ -568,6 +632,20 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
 
         return visible.map((k) => renderSection(k));
       })()}
+      {/* Debug toggle - enable to inspect raw and normalized filter data */}
+      <div style={{ marginTop: 12 }}>
+        <button type="button" onClick={() => setShowDebug(s => !s)} className="debug-toggle">{showDebug ? 'Hide Debug' : 'Debug Filters'}</button>
+        {showDebug && (
+          <div className="debug-panel" style={{ marginTop: 8, background: '#fff', padding: 8, border: '1px solid #eee', fontSize: 12 }}>
+            <div style={{ marginBottom: 6 }}><strong>availableFilters (raw from backend):</strong></div>
+            <pre style={{ maxHeight: 160, overflow: 'auto' }}>{JSON.stringify(availableFilters, null, 2)}</pre>
+            <div style={{ marginTop: 8, marginBottom: 6 }}><strong>attrOptions (normalized):</strong></div>
+            <pre style={{ maxHeight: 160, overflow: 'auto' }}>{JSON.stringify(attrOptions, null, 2)}</pre>
+            <div style={{ marginTop: 8, marginBottom: 6 }}><strong>selectedFilters (client):</strong></div>
+            <pre style={{ maxHeight: 160, overflow: 'auto' }}>{JSON.stringify(selectedFilters, null, 2)}</pre>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
