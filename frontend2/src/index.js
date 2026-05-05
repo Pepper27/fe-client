@@ -26,6 +26,8 @@ async function loadRuntimeConfig() {
   try {
     // For development, directly set the API base URL
     // This bypasses any issues with config.json loading
+    // Use the backend default port for local development
+    // Backend in this workspace defaults to port 3861
     window.__API_BASE = "http://localhost:3861";
     
     // In production, you can still try to load from config.json

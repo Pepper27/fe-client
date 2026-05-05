@@ -20,6 +20,9 @@ export default function ProductDetailPage({ params }) {
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
+  const [addingBuyNow, setAddingBuyNow] = useState(false);
+  const [addingCart, setAddingCart] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +58,8 @@ export default function ProductDetailPage({ params }) {
   }, [slug]);
 
   // derive variants and attribute lists from product data
-  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  // Memoize variants so it is stable for useMemo/useEffect dependencies
+  const variants = useMemo(() => (Array.isArray(product?.variants) ? product.variants : []), [product?.variants]);
 
   // Helper function to get material color
   const getMaterialColor = (label) => {
@@ -284,7 +288,7 @@ export default function ProductDetailPage({ params }) {
         setSelectedColor(colors[0].id); // auto-select first color of the material
       }
     }
-  }, [product, materials, colors, selectedMaterial, selectedColor, sizes, variants]);
+  }, [product, materials, colors, selectedMaterial, selectedColor, sizes, variants, selectedSize]);
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -358,6 +362,13 @@ export default function ProductDetailPage({ params }) {
     return variants[0];
   }, [variants, selectedMaterial, selectedSize, selectedColor, colors]);
 
+  // remove debug logging after QA
+
+  useEffect(() => {
+    // no-op capture listener removed
+    return () => {};
+  }, []);
+
   const images = useMemo(() => {
     if (Array.isArray(selectedVariant?.images) && selectedVariant.images.length) return selectedVariant.images;
     if (Array.isArray(variants[0]?.images) && variants[0].images.length) return variants[0].images;
@@ -382,6 +393,132 @@ export default function ProductDetailPage({ params }) {
   if (!product) {
     return <div className="error-message">Sản phẩm không tồn tại</div>;
   }
+
+  // Helper: build minimal bundle and call api.addBundleToCart
+  const addSingleProductToCart = async ({ buyNow = false } = {}) => {
+    // selectedVariant expected to be resolved
+    if (!selectedVariant) {
+      setToast({ type: 'error', message: 'Vui lòng chọn biến thể sản phẩm' });
+      return null;
+    }
+
+    // Decide whether to send as a "bracelet" bundle or as items-only (charms)
+    const slugLower = String(slug || '').toLowerCase();
+    const isCharm = slugLower.includes('charm') || (product?.category?.slug && String(product.category.slug).toLowerCase().includes('charm'));
+
+    const payload = isCharm
+      ? {
+          bracelet: null,
+          items: [
+            {
+              slotIndex: 0,
+              charmProductId: product._id,
+              charmVariantCode: selectedVariant.code || selectedVariant.variantCode || selectedVariant.code || '',
+            },
+          ],
+        }
+      : {
+          bracelet: { productId: product._id, variantCode: selectedVariant.code || selectedVariant.variantCode || selectedVariant.code || '', sizeCm: selectedSize },
+          items: [],
+        };
+
+    try {
+      // proceed without debug logs
+      let res = await api.addBundleToCart(payload);
+      // proceed without debug logs
+      if (!res || !res.valid) {
+        // Prefer structured errors from backend if available
+        const backendError = (res && res.errors && res.errors.length && res.errors[0] && (res.errors[0].message || res.errors[0].msg))
+          || (res && res.data && res.data.message)
+          || res?.message;
+        // Auto-retry: if backend complains about missing bracelet.typeCode, try sending as an item (charm)
+        const errMsg = String(backendError || '');
+        if (errMsg.toLowerCase().includes('unable to infer bracelet typecode') || errMsg.toLowerCase().includes('infer bracelet typecode')) {
+          // build charm-style payload and retry once
+          const charmPayload = {
+            bracelet: null,
+            items: [
+              {
+                slotIndex: 0,
+                charmProductId: product._id,
+                charmVariantCode: selectedVariant.code || selectedVariant.variantCode || selectedVariant.code || '',
+                offsetN: { x: 0, y: 0 },
+              },
+            ],
+          };
+          // retry charm payload (no debug log)
+          const res2 = await api.addBundleToCart(charmPayload);
+          // no debug log
+        if (res2 && res2.valid) {
+            const bundleId2 = res2?.data?.bundleId || res2?.data?._id || null;
+            setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
+            // notify header and other listeners that cart changed
+            try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+            return bundleId2;
+          }
+          // replace res with res2 for further handling
+          res = res2;
+        }
+
+        // FALLBACK: try legacy product add API (adds to cart.products) so non-bundle products can be added
+        try {
+          // Prefer variant._id as authoritative identifier; fallback to id/code if missing
+          const variantIdentifier = selectedVariant?._id || selectedVariant?.id || selectedVariant?.variantCode || selectedVariant?.code || null;
+          // fallback attempt
+          // call addProductToCart; this API returns the updated cart and lineId on success
+          const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1 });
+          try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+
+          // Try to extract returned line id from multiple possible shapes
+          const lineId = prodRes?.data?.lineId || prodRes?.data?._id || prodRes?.lineId || null;
+
+          // Small debug: log server response so we can verify variant/line mapping
+          // eslint-disable-next-line no-console
+          console.log('addProductToCart response', { payload: { productId: product._id, variantId: variantIdentifier }, prodRes });
+
+          // If buyNow requested and we have a lineId, persist it for checkout and navigate
+          if (buyNow && lineId) {
+            try {
+              sessionStorage.setItem(
+                'checkout:productLineIds',
+                JSON.stringify({ productLineIds: [String(lineId)], at: Date.now() }),
+              );
+            } catch (e) {
+              // ignore sessionStorage errors
+            }
+            setToast({ type: 'success', message: 'Đã thêm và chuyển tới thanh toán' });
+            return { type: 'product', id: String(lineId) };
+          }
+
+          // Non-buyNow: show success toast and return product line info for callers if needed
+          setToast({ type: 'success', message: buyNow ? 'Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng' : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ''})` });
+          return { type: 'product', id: lineId };
+        } catch (eProd) {
+          // If fallback failed as well, show combined error info
+          // eslint-disable-next-line no-console
+          console.error('Fallback addProductToCart failed', eProd);
+          const msg = backendError || eProd?.message || 'Thêm vào giỏ hàng thất bại';
+          try {
+            // eslint-disable-next-line no-alert
+            alert('Add to cart failed:\n' + JSON.stringify(res || eProd || {}, null, 2));
+          } catch (e) {
+            // ignore
+          }
+          setToast({ type: 'error', message: msg });
+          return null;
+        }
+      }
+      const bundleId = res?.data?.bundleId || res?.data?._id || null;
+      setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
+      return { type: 'bundle', id: bundleId };
+    } catch (e) {
+      // Debug: log error
+      // eslint-disable-next-line no-console
+      console.error('addSingleProductToCart error', e);
+      setToast({ type: 'error', message: e.message || 'Lỗi khi thêm giỏ hàng' });
+      return null;
+    }
+  };
 
   return (
     <div className="product-page-container container">
@@ -482,26 +619,89 @@ export default function ProductDetailPage({ params }) {
 
           {/* NHÓM NÚT MUA HÀNG */}
           <div className="action-buttons">
-            <button className="btn btn-buy">MUA NGAY</button>
-            <button className="btn btn-cart">THÊM GIỎ HÀNG</button>
+            <button className="btn btn-buy" aria-disabled={addingBuyNow} onClick={async () => {
+              // MUA NGAY: add to cart then navigate to checkout
+              try {
+                setAddingBuyNow(true);
+                const result = await addSingleProductToCart({ buyNow: true });
+                // result may be { type: 'bundle'|'product', id } or null
+                if (result && result.type === 'bundle' && result.id) {
+                  try {
+                    sessionStorage.setItem(
+                      'checkout:bundleIds',
+                      JSON.stringify({ bundleIds: [String(result.id)], at: Date.now() }),
+                    );
+                  } catch {}
+                  window.location.href = '/checkout';
+                } else if (result && result.type === 'product' && result.id) {
+                  // productLineIds already persisted inside addSingleProductToCart for buyNow
+                  window.location.href = '/checkout';
+                } else {
+                  // fallback: navigate to cart
+                  window.location.href = '/cart';
+                }
+              } catch (e) {
+                // error handled in addSingleProductToCart
+              } finally {
+                setAddingBuyNow(false);
+              }
+            }}>MUA NGAY</button>
+            <button
+              className="btn btn-cart"
+              aria-disabled={addingCart}
+              tabIndex={0}
+              style={{ pointerEvents: 'auto', zIndex: 10 }}
+              onMouseDown={() => {
+               // mousedown
+              }}
+              onMouseUp={() => {
+               // mouseup
+              }}
+              onClick={async (ev) => {
+                // click
+                // Prevent clicks from being swallowed by parent handlers
+                try { ev.stopPropagation(); } catch (e) {}
+                if (addingCart) return;
+                try {
+                  setAddingCart(true);
+                  await addSingleProductToCart({ buyNow: false });
+                } finally {
+                  setAddingCart(false);
+                }
+              }}
+            >THÊM GIỎ HÀNG</button>
           </div>
 
           {/* CHI TIẾT SẢN PHẨM */}
           <div className="product-description">
             <h2 className="description-title">Chi tiết sản phẩm</h2>
-            <p className="description-text">
-              <p className="bold">{product.description}</p> 
-            </p>
+            <div className="description-text">
+              <div className="bold">{product.description}</div>
+            </div>
             <ul className="spec-list">
               <li>
-                <span className="label">Mã sản phẩm:</span>{" "}
-                {product._id}
+                <span className="label">Bộ sưu tập:</span>{" "}
+                {Array.isArray(product?.collections) && product.collections.length
+                  ? product.collections[0].name
+                  : product?.collection?.name || product?.collection || "-"}
               </li>
               <li>
-                <span className="label">Phân loại:</span>{" "}
+                <span className="label">Mã sản phẩm:</span>{" "}
+                {product?.code || product?.sku || product?._id}
+              </li>
+              <li>
+                <span className="label">Phân loại sản phẩm:</span>{" "}
                 {typeof product?.category === "object"
                   ? product?.category?.name || product?.category?.slug || ""
                   : String(product?.category || "")}
+              </li>
+              <li>
+                <span className="label">Chất liệu:</span>{" "}
+                {materials.find(m => m.id === selectedMaterial)?.label || (materials[0] && materials[0].label) || "-"}
+              </li>
+              <li>
+                <span className="label">Màu sắc:</span>{" "}
+                {colors && colors.length ? (colors.find(c => c.id === selectedColor)?.label || colors[0].label) : "Không màu"}
               </li>
             </ul>
           </div>
@@ -510,6 +710,18 @@ export default function ProductDetailPage({ params }) {
           <InformationDetail />
         </div>
       </div>
+      {toast ? (
+        <div
+          className={
+            "fixed bottom-5 right-5 rounded-lg px-4 py-3 text-sm font-semibold shadow-lg " +
+            (toast.type === "error" ? "bg-red-600 text-white" : "bg-emerald-600 text-white")
+          }
+          role="status"
+          onClick={() => setToast(null)}
+        >
+          {toast.message}
+        </div>
+      ) : null}
     </div>
   );
 }

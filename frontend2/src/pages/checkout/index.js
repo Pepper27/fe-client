@@ -18,6 +18,20 @@ const readCheckoutBundleIds = () => {
   }
 };
 
+const readCheckoutProductLineIds = () => {
+  try {
+    const raw = sessionStorage.getItem("checkout:productLineIds");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const ids = Array.isArray(parsed?.productLineIds)
+      ? parsed.productLineIds.map(String)
+      : [];
+    return ids.filter(Boolean);
+  } catch {
+    return [];
+  }
+};
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
@@ -26,6 +40,7 @@ export default function CheckoutPage() {
   const [toast, setToast] = useState(null);
 
   const [bundleIds, setBundleIds] = useState(() => readCheckoutBundleIds());
+  const [productLineIds, setProductLineIds] = useState(() => readCheckoutProductLineIds());
 
   // Addresses are client-only for now.
   const [addresses, setAddresses] = useState(() => {
@@ -74,7 +89,11 @@ export default function CheckoutPage() {
     if (!bundleIds.length && (cart?.bundles || []).length) {
       setBundleIds((cart.bundles || []).map((b) => String(b.bundleId)));
     }
-  }, [bundleIds.length, cart?.bundles]);
+    // If productLineIds not provided, try to inherit from cart.products (select all)
+    if ((!productLineIds || !productLineIds.length) && (cart?.products || []).length) {
+      setProductLineIds((cart.products || []).map((p) => String(p._id)));
+    }
+  }, [bundleIds.length, cart?.bundles, cart?.products, productLineIds]);
 
   const selectedBundles = useMemo(() => {
     const bundles = cart?.bundles || [];
@@ -83,15 +102,21 @@ export default function CheckoutPage() {
   }, [cart?.bundles, bundleIds]);
 
   const total = useMemo(() => {
-    return (selectedBundles || []).reduce(
+    const bundlesTotal = (selectedBundles || []).reduce(
       (sum, b) =>
         sum +
         (Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1),
       0,
     );
-  }, [selectedBundles]);
 
-  const selectedCount = selectedBundles.length;
+    // include product lines
+    const products = cart?.products || [];
+    const selectedProducts = products.filter((p) => productLineIds && productLineIds.includes(String(p._id)));
+    const productsTotal = selectedProducts.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
+    return bundlesTotal + productsTotal;
+  }, [selectedBundles, productLineIds, cart?.products]);
+
+  const selectedCount = selectedBundles.length + (productLineIds ? productLineIds.length : 0);
 
   const selectedAddress = useMemo(() => {
     return (
@@ -154,6 +179,7 @@ export default function CheckoutPage() {
     try {
       const res = await api.checkoutBundles({
         bundleIds: selectedBundles.map((b) => String(b.bundleId)),
+        productLineIds: productLineIds && productLineIds.length ? productLineIds.map(String) : [],
         fullName: selectedAddress.fullName,
         phone: selectedAddress.phone,
         address: selectedAddress.address,
@@ -163,6 +189,7 @@ export default function CheckoutPage() {
       const code = res?.data?.orderCode;
       try {
         sessionStorage.removeItem("checkout:bundleIds");
+        sessionStorage.removeItem("checkout:productLineIds");
       } catch {
         // ignore
       }
@@ -307,7 +334,7 @@ export default function CheckoutPage() {
 
               {loading ? (
                 <div className="checkout-empty">Đang tải...</div>
-              ) : selectedBundles.length ? (
+              ) : selectedBundles.length || (productLineIds && productLineIds.length) ? (
                 <div className="checkout-lines">
                   {selectedBundles.map((b) => (
                     <div key={b.bundleId} className="checkout-line">
@@ -334,6 +361,22 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   ))}
+
+                  {/* Render selected product lines */}
+                  {(productLineIds || []).map((lineId) => {
+                    const pl = (cart?.products || []).find((p) => String(p._id) === String(lineId));
+                    if (!pl) return null;
+                    return (
+                      <div key={String(lineId)} className="checkout-line">
+                        <div>
+                          <div className="checkout-lineTitle">Sản phẩm</div>
+                          <div className="checkout-lineMeta">{pl?.variantId || ''}</div>
+                          <div className="checkout-lineQty">x{pl.quantity || 1}</div>
+                        </div>
+                        <div className="checkout-linePrice">{formatPrice((Number(pl.price) || 0) * (Number(pl.quantity) || 1))}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="checkout-empty">
