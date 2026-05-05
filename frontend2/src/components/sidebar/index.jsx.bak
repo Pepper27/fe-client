@@ -1,5 +1,5 @@
 // http://localhost:3000/client/product/product-list
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./index.scss";
 import { api } from "../../utils/api";
@@ -215,170 +215,181 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
         const rawKey = k; // same key names from availableFilters
         const rawList = availableFilters[rawKey];
         attrData[k] = (attrData[k] || []).map(item => ({ ...item, count: findCountInRaw(rawList, item) }));
-      });      setAttrOptions(attrData);
+      });
+
+      console.log("Updated filters from props:", {
+        materials: attrData.materials,
+        colors: attrData.colors,
+        sizes: attrData.sizes,
+        themes: attrData.themes,
+        collections: attrData.collections,
+        categories: attrData.categories
+      });
+
+      setAttrOptions(attrData);
     }
   }, [availableFilters]);
 
-  // debounce timer for applying filters to URL / parent
-  const debounceRef = useRef(null);
+  // Debug UI toggle
+  const [showDebug, setShowDebug] = useState(false);
 
   // notify parent about filters/sort changes (map to backend shape and sync to URL)
   useEffect(() => {
     if (typeof onFiltersChange !== "function") return;
 
-    (async () => {
-      // Find category slug for selected categories (sync helper)
-      const findCategorySlug = (categoryId) => {
-        const category = (attrOptions.categories || []).find(cat => String(cat._id) === String(categoryId));
-        return category ? category.slug : null;
-      };
+    // Process filters
 
-      // Map selectedFilters (which currently hold labels or ids) to backend shape.
-      const mapToBackend = async () => {
-        const out = {};
-        let derivedCategorySlug = null;
+    // Find category slug for selected categories
+    const findCategorySlug = (categoryId) => {
+      const category = attrOptions.categories.find(cat => String(cat._id) === String(categoryId));
+      return category ? category.slug : null;
+    };
 
-        const mapArray = async (key) => {
-          const vals = selectedFilters[key] || [];
-          if (!vals || !vals.length) return undefined;
-          let listKey;
-          if (key === 'material') listKey = 'materials';
-          else if (key === 'theme') listKey = 'themes';
-          else if (key === 'collection') listKey = 'collections';
-          else if (key === 'category') listKey = 'categories';
-          else listKey = `${key}s`;
-          const list = attrOptions[listKey] || [];
+    // Map selectedFilters (which currently hold labels or ids) to backend shape.
+        const mapToBackend = () => {
+          const out = {};
+          const mapArray = (key) => {
+            const vals = selectedFilters[key] || [];
+            if (!vals || !vals.length) return undefined;
+            let listKey;
+            if (key === 'material') listKey = 'materials';
+            else if (key === 'theme') listKey = 'themes';
+            else if (key === 'collection') listKey = 'collections';
+            else if (key === 'category') listKey = 'categories';
+            else listKey = `${key}s`;
+            const list = attrOptions[listKey] || [];
+            return vals.map((v) => {
+              const found = list.find((it) => String(it._id) === String(v) || String(it.name || it).toLowerCase() === String(v).toLowerCase());
+              return found ? String(found._id || found.id) : String(v);
+            });
+          };
 
-          // If category list is empty, attempt to fetch global categories as a fallback
-          let globalCats = Array.isArray(window._allCategories) ? window._allCategories : [];
-          if (key === 'category' && (!Array.isArray(list) || list.length === 0) && (!Array.isArray(globalCats) || globalCats.length === 0)) {
-            try {
-              const res = await api.getCategories({ root: 0 });
-              globalCats = Array.isArray(res?.data) ? res.data : [];
-              if (globalCats.length) window._allCategories = globalCats;
-            } catch (e) {
-              // ignore fetch errors
-            }
-          }
+      const mat = mapArray('material'); if (mat) out.materials = mat;
+      const col = mapArray('color'); if (col) out.colors = col;
+      const sz = mapArray('size'); if (sz) out.sizes = sz;
+      const th = mapArray('theme'); if (th) out.themes = th;
+      const coll = mapArray('collection'); if (coll) out.collections = coll;
+      const cat = mapArray('category'); if (cat) out.categories = cat;
 
-          const results = await Promise.all(vals.map(async (v) => {
-            // Try to find in normalized attrOptions first (match by id or name)
-            const found = (list || []).find((it) => String(it._id) === String(v) || String((it.name || it) || '').trim().toLowerCase() === String(v || '').trim().toLowerCase());
-            if (found) {
-              if (key === 'category' && found.slug) derivedCategorySlug = derivedCategorySlug || found.slug;
-              return String(found._id || found.id || found.name);
-            }
-
-            // Try global categories (from window._allCategories)
-            if (key === 'category' && Array.isArray(globalCats) && globalCats.length) {
-              const globalFound = globalCats.find(c => String(c._id) === String(v) || String((c.name || '')).trim().toLowerCase() === String(v || '').trim().toLowerCase() || String((c.slug || '')).trim().toLowerCase() === String(v || '').trim().toLowerCase());
-              if (globalFound) {
-                derivedCategorySlug = derivedCategorySlug || globalFound.slug || null;
-                return String(globalFound._id || globalFound.slug || globalFound.name || v);
-              }
-            }
-
-            // Otherwise return raw value (fallback)
-            return String(v);
-          }));
-
-          return results;
-        };
-
-        const mat = await mapArray('material'); if (mat) out.materials = mat;
-        const col = await mapArray('color'); if (col) out.colors = col;
-        const sz = await mapArray('size'); if (sz) out.sizes = sz;
-        const th = await mapArray('theme'); if (th) out.themes = th;
-        const coll = await mapArray('collection'); if (coll) out.collections = coll;
-        const cat = await mapArray('category'); if (cat) out.categories = cat;
-
-        if (Array.isArray(selectedFilters.price) && selectedFilters.price.length) {
-          const label = selectedFilters.price[0];
-          if (label.indexOf("Dưới") === 0) {
-            const n = Number(label.replace(/[^0-9]/g, "")) || 0;
-            out.price = { min: 0, max: n };
-          } else if (label.indexOf("Trên") === 0) {
-            const n = Number(label.replace(/[^0-9]/g, "")) || 0;
-            out.price = { min: n, max: Number.MAX_SAFE_INTEGER };
-          } else {
-            const parts = label.split("-").map((s) => Number(String(s).replace(/[^0-9]/g, "")));
-            if (parts.length === 2) out.price = { min: parts[0], max: parts[1] };
-          }
-        }
-
-        if (!out.categorySlug && typeof derivedCategorySlug === 'string' && derivedCategorySlug) {
-          out.categorySlug = derivedCategorySlug;
-        }
-
-        return out;
-      };
-
-      const backendFilters = await mapToBackend();
-
-      // Keep both categories and categorySlug for backend compatibility
-      if (Array.isArray(selectedFilters.category) && selectedFilters.category.length > 0) {
-        const categoryId = selectedFilters.category[0]; // Get first selected category
-        const category = (attrOptions.categories || []).find(cat => String(cat._id) === String(categoryId));
-        if (category && category.slug) {
-          backendFilters.categorySlug = category.slug;
-          // Keep categories as well for fallback
+      if (Array.isArray(selectedFilters.price) && selectedFilters.price.length) {
+        const label = selectedFilters.price[0];
+        if (label.indexOf("Dưới") === 0) {
+          const n = Number(label.replace(/[^0-9]/g, "")) || 0;
+          out.price = { min: 0, max: n };
+        } else if (label.indexOf("Trên") === 0) {
+          const n = Number(label.replace(/[^0-9]/g, "")) || 0;
+          out.price = { min: n, max: Number.MAX_SAFE_INTEGER };
+        } else {
+          const parts = label.split("-").map((s) => Number(String(s).replace(/[^0-9]/g, "")));
+          if (parts.length === 2) out.price = { min: parts[0], max: parts[1] };
         }
       }
 
-      // Avoid calling parent if filters did not change (prevent infinite loops)
+      return out;
+    };
+
+    const backendFilters = mapToBackend();
+
+    // Keep both categories and categorySlug for backend compatibility
+    if (Array.isArray(selectedFilters.category) && selectedFilters.category.length > 0) {
+      const categoryId = selectedFilters.category[0]; // Get first selected category
+      const category = attrOptions.categories.find(cat => String(cat._id) === String(categoryId));
+      if (category && category.slug) {
+        backendFilters.categorySlug = category.slug;
+        // Keep categories as well for fallback
+      }
+    }
+
+    // Avoid calling parent if filters did not change (prevent infinite loops)
+    try {
+      // Update the stored serialized filters for debugging/history purposes.
+      // We intentionally do NOT early-return here to ensure that toggling
+      // filters (including rapid toggles) always triggers onFiltersChange and
+      // URL sync. This avoids edge cases where the serialized representation
+      // could match while the application state (e.g., categorySlug) still
+      // needs to be updated.
+      Sidebar._lastFilters = JSON.stringify(backendFilters || {});
+    } catch (e) {
+      // ignore
+    }
+
+    // Sync to URL without causing scroll jump: save/restore scroll position
+    try {
+      const qs = new URLSearchParams(window.location.search || "");
+      if (backendFilters && Object.keys(backendFilters).length) {
+        qs.set('filters', JSON.stringify(backendFilters));
+      } else {
+        qs.delete('filters');
+      }
+      // Try to set categorySlug query param when the user picked a category by name
+      // so backend can apply category scoping. Look in attrOptions first, then
+      // fall back to global window._allCategories if present.
       try {
-        Sidebar._lastFilters = JSON.stringify(backendFilters || {});
-      } catch (e) {
+        let categorySlugCandidate = null;
+        const catVals = (backendFilters && Array.isArray(backendFilters.categories)) ? backendFilters.categories : undefined;
+        if (catVals && catVals.length) {
+          const v = String(catVals[0]);
+          const byAttr = (attrOptions.categories || []).find(c => String(c._id) === v || String(c.name || '').trim().toLowerCase() === v.trim().toLowerCase());
+          if (byAttr && byAttr.slug) categorySlugCandidate = byAttr.slug;
+          if (!categorySlugCandidate && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
+            const byGlobal = window._allCategories.find(c => String(c.name || '').trim().toLowerCase() === v.trim().toLowerCase());
+            if (byGlobal && byGlobal.slug) categorySlugCandidate = byGlobal.slug;
+          }
+        }
+
+        if (categorySlugCandidate) qs.set('categorySlug', categorySlugCandidate);
+        else qs.delete('categorySlug');
+
+        const newSearch = qs.toString() ? `?${qs.toString()}` : '';
+        const shouldNavigate = newSearch !== window.location.search;
+        const sx = window.scrollX || 0;
+        const sy = window.scrollY || 0;
+        try {
+          // Always call navigate to ensure Router and downstream effects run.
+          // If the URL is identical, replaceState will be effectively a no-op
+          // but navigation will still trigger route-level effects in some setups.
+          navigate(`${window.location.pathname}${newSearch}`, { replace: true });
+        } catch (e) {
+          window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`);
+        }
+        // Restore scroll (some browsers/platforms may jump on history change)
+        window.scrollTo(sx, sy);
+      } catch (err) {
         // ignore
       }
+    } catch (e) {
+      // ignore
+    }
 
-      try {
-        if (typeof onFiltersChange === 'function') {
-          if (debounceRef.current) clearTimeout(debounceRef.current);
-          debounceRef.current = setTimeout(() => {
-            try {
-              const qs = new URLSearchParams(window.location.search || "");
-              if (backendFilters && Object.keys(backendFilters).length) {
-                qs.set('filters', JSON.stringify(backendFilters));
-              } else {
-                qs.delete('filters');
-              }
-
-              // Try to set categorySlug query param when the user picked a category.
-              // Prefer any categorySlug discovered while mapping (backendFilters.categorySlug)
-              // then fall back to matching attrOptions or window._allCategories by name/id.
-              let categorySlugCandidate = null;
-              if (backendFilters && backendFilters.categorySlug) {
-                categorySlugCandidate = backendFilters.categorySlug;
-              } else {
-                const catVals = (backendFilters && Array.isArray(backendFilters.categories)) ? backendFilters.categories : undefined;
-                if (catVals && catVals.length) {
-                  const v = String(catVals[0]);
-                  const byAttr = (attrOptions.categories || []).find(c => String(c._id) === v || String((c.name || '')).trim().toLowerCase() === v.trim().toLowerCase());
-                  if (byAttr && byAttr.slug) categorySlugCandidate = byAttr.slug;
-                  if (!categorySlugCandidate && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-                    const byGlobal = window._allCategories.find(c => String((c.name || '')).trim().toLowerCase() === v.trim().toLowerCase());
-                    if (byGlobal && byGlobal.slug) categorySlugCandidate = byGlobal.slug;
-                  }
-                }
-              }
-              if (categorySlugCandidate) qs.set('categorySlug', categorySlugCandidate); else qs.delete('categorySlug');
-              const newSearch = qs.toString() ? `?${qs.toString()}` : '';
-              const sx = window.scrollX || 0; const sy = window.scrollY || 0;
-              try { navigate(`${window.location.pathname}${newSearch}`, { replace: true }); } catch(e) { window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`); }
-              window.scrollTo(sx, sy);
-            } catch(e) { /* ignore */ }
-          }, 200);
-        }
-      } catch (e) {
-        // ignore
+    // Apply filters
+    console.log('Sidebar: applying backendFilters ->', backendFilters);
+    // Navigation already updates URL; ProductsPage will read location.search
+    // and perform the server-side fetch. Avoid calling onFiltersChange here to
+    // prevent client-side filtering races.
+    try {
+      if (typeof onFiltersChange === 'function') {
+        // keep for backward compatibility but call asynchronously after a tick
+        setTimeout(() => onFiltersChange(backendFilters), 0);
       }
-    })();
+    } catch (e) {
+      // ignore
+    }
   }, [selectedFilters, attrOptions, onFiltersChange]);
 
   useEffect(() => {
     if (typeof onSortChange === "function") onSortChange(selectedSort);
   }, [selectedSort, onSortChange]);
+
+  // Add this inside the main component function, after the useState declarations
+  // Log the final counts for debugging
+  useEffect(() => {
+    if (availableFilters) {
+      console.log('Final materials count:', availableFilters.materials?.length || 0);
+      console.log('Final colors count:', availableFilters.colors?.length || 0);
+      console.log('Final sizes count:', availableFilters.sizes?.length || 0);
+    }
+  }, [availableFilters]);
+
   return (
     <div className="sidebar-panel">
       <div className={`sort-box ${sortOpen ? "is-open" : ""}`}>
@@ -666,6 +677,20 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
 
         return visible.map((k) => renderSection(k));
       })()}
+      {/* Debug toggle - enable to inspect raw and normalized filter data */}
+      <div style={{ marginTop: 12 }}>
+        <button type="button" onClick={() => setShowDebug(s => !s)} className="debug-toggle">{showDebug ? 'Hide Debug' : 'Debug Filters'}</button>
+        {showDebug && (
+          <div className="debug-panel" style={{ marginTop: 8, background: '#fff', padding: 8, border: '1px solid #eee', fontSize: 12 }}>
+            <div style={{ marginBottom: 6 }}><strong>availableFilters (raw from backend):</strong></div>
+            <pre style={{ maxHeight: 160, overflow: 'auto' }}>{JSON.stringify(availableFilters, null, 2)}</pre>
+            <div style={{ marginTop: 8, marginBottom: 6 }}><strong>attrOptions (normalized):</strong></div>
+            <pre style={{ maxHeight: 160, overflow: 'auto' }}>{JSON.stringify(attrOptions, null, 2)}</pre>
+            <div style={{ marginTop: 8, marginBottom: 6 }}><strong>selectedFilters (client):</strong></div>
+            <pre style={{ maxHeight: 160, overflow: 'auto' }}>{JSON.stringify(selectedFilters, null, 2)}</pre>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
