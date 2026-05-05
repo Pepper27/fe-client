@@ -61,9 +61,22 @@ function ProductsPage() {
           };
 
           // Debug - log values
+          console.log('First load:', {
+            productsLength: productsData.length,
+            total: total,
+            hasMore: productsData.length === 24 && productsData.length < total,
+            filters: filtersData
+          });
 
-           // Store filters data for sidebar (backend already provides counts)
-           setAvailableFilters(normalizedFilters);
+          // Store filters data for sidebar (backend already provides counts)
+          console.log('Setting availableFilters:', {
+            materials: normalizedFilters.materials?.length || 0,
+            colors: normalizedFilters.colors?.length || 0,
+            sizes: normalizedFilters.sizes?.length || 0,
+            priceRanges: normalizedFilters.price?.length || 0,
+          });
+          console.log('Full filters data from backend:', normalizedFilters);
+          setAvailableFilters(normalizedFilters);
 
           // Set hasMore to check if there are more products to load
           const totalPages = res?.meta?.totalPages || 1;
@@ -80,6 +93,13 @@ function ProductsPage() {
         }
         if (cancelled) return;
         // Debug: Log product structure
+        console.log('Loaded products:', productsData.slice(0, 2).map(p => ({
+          id: p._id,
+          name: p.name,
+          category: p.category,
+          type: p.type
+        })));
+
         setItems(productsData);
         setFilteredItems(productsData);
 
@@ -110,9 +130,8 @@ function ProductsPage() {
           setCategory(null);
         }
 
-        // Store all categories for hierarchical filtering so Sidebar can resolve
-        // category names -> slugs/ids when necessary. Keep defensive check.
-        if (Array.isArray(allCats)) window._allCategories = allCats;
+        // Store all categories for hierarchical filtering
+        window._allCategories = allCats;
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -142,11 +161,10 @@ function ProductsPage() {
     // mismatch with server-side paging/sorting.
     try {
       const qs = new URLSearchParams(location.search || "");
-      // If server-side filters are present in URL, the backend already returned
-      // filtered items and the fetch effect above set items/filteredItems. Skip
-      // additional client-side filtering but ensure filteredItems mirrors items
-      // to avoid stale UI.
-      if (qs.get('filters')) { setFilteredItems(items); return; }
+      // If server-side filters are present in URL, do not run client-side
+      // filtering here — the fetch effect will update items/filteredItems when
+      // the server response arrives.
+      if (qs.get('filters')) return;
     } catch (e) {
       // ignore and proceed with client-side filtering
     }
@@ -263,6 +281,9 @@ function ProductsPage() {
     const afterFilter = next.length;
 
     // Debug: Log filter results and first few products
+    console.log(`Filter results: ${beforeFilter} -> ${afterFilter} products`);
+    console.log("First 5 products filter results:", filterResults.slice(0, 5));
+
     // Apply sort
     if (activeSort && activeSort.value) {
       switch (activeSort.value) {
@@ -284,6 +305,7 @@ function ProductsPage() {
   }, [items, activeFilters, activeSort, location.search]);
 
   const handleFiltersChange = useCallback((filters) => {
+    console.log('Filters changed:', filters);
     setActiveFilters(filters || {});
   }, []);
 
@@ -325,6 +347,12 @@ function ProductsPage() {
       const totalPages = res?.meta?.totalPages || 1;
 
       // Debug - log values
+      console.log('Load more:', {
+        currentPage: nextPage,
+        newItemsLength: newItems.length,
+        totalPages: totalPages,
+        hasMore: nextPage < totalPages
+      });
 
       setHasMore(nextPage < totalPages);
     } catch (error) {
@@ -398,12 +426,14 @@ function ProductsPage() {
           </aside>
           {/* Product List */}
           <main className="products-content">
-            <div className="products-grid" >
+            <div className="products-grid" key={location.search}>
               {loading && page === 1 ? (
                 <div className="loading-initial">Đang tải sản phẩm...</div>
               ) : (
                 <>
                   {/* Log dữ liệu (đã bọc trong Fragment) */}
+                  {console.log('Rendering filteredItems', filteredItems.length, filteredItems.map(fi => fi._id))}
+
                   {/* Map danh sách sản phẩm */}
                   {filteredItems.map((p) => {
                     const variants = p?.variants || [];
