@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ProductCard } from "../../components/product-card";
 import Sidebar from "../../components/sidebar";
 import { api } from "../../utils/api";
+import { mapQueryToFilters } from "../../utils/productsUrl";
 import "./products.scss";
 
 function ProductsPage() {
@@ -27,14 +28,67 @@ function ProductsPage() {
       try {
         const qs = new URLSearchParams(location.search || "");
         const q = qs.get("q") || "";
-        const categorySlug = qs.get("categorySlug") || "";
-        // Parse filters param (JSON) if present
+        // Prefer explicit categorySlug param
+        let categorySlug = qs.get("categorySlug") || "";
+        // Parse filters param (JSON) if present; otherwise parse short params
         let filtersParam = undefined;
         try {
           const raw = qs.get('filters');
-          if (raw) filtersParam = JSON.parse(raw);
+          if (raw) {
+            filtersParam = JSON.parse(raw);
+            } else {
+             // Build object from short query params
+             const shortObj = Object.fromEntries(qs.entries());
+             filtersParam = mapQueryToFilters(shortObj);
+
+             // Resolve short category slugs/names into backend category ids and
+             // prefer setting categorySlug to the selected child slug when user
+             // selected a particular type (e.g., type=day-chuyen while current
+             // page categorySlug is the parent 'trang-suc'). This ensures the
+             // backend receives a precise categorySlug and category ids in
+             // filters.categories so server-side filtering works correctly.
+             try {
+               if (filtersParam && Array.isArray(filtersParam.categories) && filtersParam.categories.length) {
+                 // Ensure we have a global category list to resolve against
+                 if (!Array.isArray(window._allCategories) || !window._allCategories.length) {
+                   const catRes = await api.getCategories({ root: 0 });
+                   window._allCategories = Array.isArray(catRes?.data) ? catRes.data : [];
+                 }
+
+                 const allCats = Array.isArray(window._allCategories) ? window._allCategories : [];
+                 const resolved = [];
+                 let childSlug = null;
+                 for (const v of filtersParam.categories) {
+                   const sv = String(v || '').trim().toLowerCase();
+                   const found = allCats.find(c => String((c.slug || '')).trim().toLowerCase() === sv || String((c.name || '')).trim().toLowerCase() === sv || String((c._id || '')).trim() === sv);
+                   if (found) {
+                     resolved.push(String(found._id));
+                     childSlug = childSlug || (found.slug || null);
+                   } else {
+                     resolved.push(v);
+                   }
+                 }
+                 filtersParam.categories = resolved;
+                 if (childSlug) {
+                   // prefer child slug for accurate backend filtering
+                   categorySlug = childSlug;
+                 }
+               }
+             } catch (e) {
+               // ignore resolution errors and continue with original filtersParam
+             }
+           }
         } catch (e) {
           filtersParam = undefined;
+        }
+
+        // If we don't have explicit categorySlug but short param `type` exists, try to resolve it
+        if (!categorySlug) {
+          const shortType = qs.get('type');
+          if (shortType && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
+            const found = window._allCategories.find(c => String((c.slug || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase());
+            if (found) categorySlug = found.slug || '';
+          }
         }
 
         // If a categorySlug is present, pass it directly to the API
@@ -299,13 +353,25 @@ function ProductsPage() {
       const nextPage = page + 1;
       const qs = new URLSearchParams(location.search || "");
       const q = qs.get("q") || "";
-      const categorySlug = qs.get("categorySlug") || "";
+      let categorySlug = qs.get("categorySlug") || "";
       let filtersParam = undefined;
       try {
         const raw = qs.get('filters');
-        if (raw) filtersParam = JSON.parse(raw);
+        if (raw) {
+          filtersParam = JSON.parse(raw);
+        } else {
+          const shortObj = Object.fromEntries(qs.entries());
+          filtersParam = mapQueryToFilters(shortObj);
+        }
       } catch (e) {
         filtersParam = undefined;
+      }
+      if (!categorySlug) {
+        const shortType = qs.get('type');
+        if (shortType && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
+          const found = window._allCategories.find(c => String((c.slug || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase());
+          if (found) categorySlug = found.slug || '';
+        }
       }
 
       const res = await api.getProducts({
