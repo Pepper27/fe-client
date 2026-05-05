@@ -146,14 +146,34 @@ function ProductsPage() {
             // Find category by slug
             let found = allCats.find((c) => c.slug === categorySlug);
             if (found) {
-              // Determine whether this is a leaf category (no children). If it's a leaf,
-              // show only this category in the sidebar "Loại sản phẩm" filter.
-              const hasChild = allCats.some((c) => {
-                const parentIds = [c.parent, c.parentId, c.parent_id, c.parentIdString];
-                return parentIds.some((pid) => pid !== undefined && String(pid) === String(found._id));
+              // Find children of the current category
+              const children = allCats.filter((c) => {
+                const parents = [c.parent, c.parentId, c.parent_id, c.parentIdString];
+                return parents.some((pid) => pid !== undefined && String(pid) === String(found._id));
               });
-              if (!hasChild) {
-                found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
+
+              if (children.length) {
+                // If current category has children, show those children in the
+                // "Loại sản phẩm" filter (parent view -> its direct children).
+                found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: children.map(c => c.name) } };
+              } else {
+                // Leaf category: per UX B, show siblings (other children of the same parent)
+                const parentId = found.parent || found.parentId || found.parent_id || found.parentIdString || null;
+                if (parentId) {
+                  const siblings = allCats.filter((c) => {
+                    const parents = [c.parent, c.parentId, c.parent_id, c.parentIdString];
+                    return parents.some((pid) => pid !== undefined && String(pid) === String(parentId));
+                  });
+                  if (siblings.length) {
+                    found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: siblings.map(c => c.name) } };
+                  } else {
+                    // fallback: show itself
+                    found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
+                  }
+                } else {
+                  // No parent info: fallback to showing itself
+                  found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
+                }
               }
             }
             setCategory(found || null);
