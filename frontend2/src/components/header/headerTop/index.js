@@ -7,6 +7,7 @@ import { MdMenu } from "react-icons/md";
 import { RiSparkling2Line } from "react-icons/ri";
 import { RiFileList2Line } from "react-icons/ri";
 import "./index.scss";
+import "../cartBadge.scss";
 import { Link } from "react-router-dom";
 import { api } from "../../../utils/api";
 import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
@@ -42,11 +43,28 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     refresh();
     const onAuthChanged = () => refresh();
     window.addEventListener("auth:changed", onAuthChanged);
+    // listen to cart changes to update badge
+    const onCartChanged = async () => {
+      try {
+        const res = await api.getCart();
+        const cart = res?.data || null;
+        const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
+        setCartCount(qty);
+      } catch {
+        setCartCount(0);
+      }
+    };
+    // call once to populate initial badge
+    onCartChanged();
+    window.addEventListener('cart:changed', onCartChanged);
     return () => {
       cancelled = true;
       window.removeEventListener("auth:changed", onAuthChanged);
+      window.removeEventListener('cart:changed', onCartChanged);
     };
   }, []);
+
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
     // subscribe to wishlist updates and keep badge count in sync
@@ -252,6 +270,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
               </div>
               <Link to="/cart" className="icon-btn" aria-label="Giỏ hàng">
                 <CiShoppingCart />
+                {cartCount > 0 ? <span className="cart-badge" aria-hidden>{cartCount}</span> : null}
               </Link>
             </div>
           </div>

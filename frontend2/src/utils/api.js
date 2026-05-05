@@ -137,6 +137,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ bracelet, items }),
     }),
+  // Add a non-bundle product to cart (legacy products[])
+  addProductToCart: ({ productId, variantId, quantity } = {}) =>
+    request(`/api/public/cart/products`, {
+      method: "POST",
+      body: JSON.stringify({ productId, variantId, quantity }),
+    }),
   patchBundle: (bundleId, patch) =>
     request(`/api/public/cart/bundles/${encodeURIComponent(bundleId)}`, {
       method: "PATCH",
@@ -146,13 +152,24 @@ export const api = {
     request(`/api/public/cart/bundles/${encodeURIComponent(bundleId)}`, {
       method: "DELETE",
     }),
+  // Product-level cart operations
+  patchProduct: (lineId, patch) =>
+    request(`/api/public/cart/products/${encodeURIComponent(lineId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteProduct: (lineId) =>
+    request(`/api/public/cart/products/${encodeURIComponent(lineId)}`, {
+      method: "DELETE",
+    }),
 
   // Bundle-centric checkout + order tracking
-  checkoutBundles: ({ bundleIds, phone, fullName, address, email, method }) =>
+  checkoutBundles: ({ bundleIds, productLineIds, phone, fullName, address, email, method }) =>
     request(`/api/public/checkout`, {
       method: "POST",
       body: JSON.stringify({
         bundleIds,
+        productLineIds,
         phone,
         fullName,
         address,
