@@ -1,6 +1,6 @@
 // http://localhost:3000/client/product/product-list
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./index.scss";
 import { api } from "../../utils/api";
 import { FaMinus, FaPlus } from "react-icons/fa6";
@@ -79,6 +79,7 @@ const sizes = DEFAULT_FILTER_OPTIONS.size;
 
 export default function Sidebar({ category: categoryProp, availableFilters, onFiltersChange, onSortChange }) {
   const navigate = useNavigate();
+  const location = useLocation();
   // Sidebar UI state: use maps so adding/removing sections is easy
   const [openSections, setOpenSections] = useState(() => {
     const init = {};
@@ -147,7 +148,72 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     categories: availableFilters?.categories || []
   });
 
+  // Sync selectedFilters with URL so sidebar reflects current search params
+  useEffect(() => {
+    try {
+      const qs = new URLSearchParams(location.search || '');
+      const filtersParam = qs.get('filters');
+      if (filtersParam) {
+        const parsed = JSON.parse(filtersParam);
+        const normalized = {};
+
+        if (parsed.categories) normalized.category = parsed.categories.map(String);
+        if (parsed.materials) normalized.material = parsed.materials.map(String);
+        if (parsed.colors) normalized.color = parsed.colors.map(String);
+        if (parsed.sizes) normalized.size = parsed.sizes.map(String);
+        if (parsed.themes) normalized.theme = parsed.themes.map(String);
+        if (parsed.collections) normalized.collection = parsed.collections.map(String);
+        if (parsed.price) {
+          const { min, max } = parsed.price;
+          let priceLabel = '';
+          if (min === 0) priceLabel = `Dưới ${Number(max).toLocaleString('vi-VN')}đ`;
+          else if (max === Number.MAX_SAFE_INTEGER) priceLabel = `Trên ${Number(min).toLocaleString('vi-VN')}đ`;
+          else priceLabel = `${Number(min).toLocaleString('vi-VN')}đ - ${Number(max).toLocaleString('vi-VN')}đ`;
+          normalized.price = [priceLabel];
+        }
+        setSelectedFilters(normalized);
+        return;
+      }
+
+      // No legacy filters JSON — parse short params
+      const short = Object.fromEntries(qs.entries());
+      const newSel = {};
+      if (short.type) newSel.category = String(short.type).split(',').map(s => s.trim()).filter(Boolean);
+      if (short.material) newSel.material = String(short.material).split(',').map(s => s.trim()).filter(Boolean);
+      if (short.color) newSel.color = String(short.color).split(',').map(s => s.trim()).filter(Boolean);
+      if (short.size) newSel.size = String(short.size).split(',').map(s => s.trim()).filter(Boolean);
+      if (short.collection) newSel.collection = String(short.collection).split(',').map(s => s.trim()).filter(Boolean);
+      if (short.min || short.max) {
+        const min = Number(short.min || 0), max = short.max ? Number(short.max) : Number.MAX_SAFE_INTEGER;
+        if (min === 0) newSel.price = [`Dưới ${max.toLocaleString('vi-VN')}đ`];
+        else if (max === Number.MAX_SAFE_INTEGER) newSel.price = [`Trên ${min.toLocaleString('vi-VN')}đ`];
+        else newSel.price = [`${min.toLocaleString('vi-VN')}đ - ${max.toLocaleString('vi-VN')}đ`];
+      }
+      setSelectedFilters(newSel);
+    } catch (e) {
+      // ignore parse errors
+    }
+  }, [location.search]);
+
   const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Utility: produce a slug-like string from a label (ASCII-only, lowercased)
+  const toSlug = (s) => {
+    if (!s && s !== 0) return '';
+    try {
+      return String(s)
+        .normalize('NFD')
+        // remove diacritics
+        .replace(/\p{Diacritic}/gu, '')
+        // remove invalid chars
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-');
+    } catch (e) {
+      return String(s).trim().toLowerCase().replace(/\s+/g, '-');
+    }
+  };
 
   const toggleOption = (filterKey, value) => {
     setSelectedFilters((prev) => {
@@ -318,10 +384,17 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       // Keep both categories and categorySlug for backend compatibility
       if (Array.isArray(selectedFilters.category) && selectedFilters.category.length > 0) {
         const categoryId = selectedFilters.category[0]; // Get first selected category
-        const category = (attrOptions.categories || []).find(cat => String(cat._id) === String(categoryId));
-        if (category && category.slug) {
-          backendFilters.categorySlug = category.slug;
-          // Keep categories as well for fallback
+        let foundCat = null;
+        // Try attrOptions first (by id, slug or name)
+        if (Array.isArray(attrOptions.categories)) {
+          foundCat = (attrOptions.categories || []).find(cat => String(cat._id) === String(categoryId) || String((cat.slug || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase() || String((cat.name || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase());
+        }
+        // Fallback to global category list
+        if (!foundCat && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
+          foundCat = window._allCategories.find(c => String(c._id) === String(categoryId) || String((c.slug || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase());
+        }
+        if (foundCat && foundCat.slug) {
+          backendFilters.categorySlug = foundCat.slug;
         }
       }
 
@@ -337,36 +410,97 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           if (debounceRef.current) clearTimeout(debounceRef.current);
           debounceRef.current = setTimeout(() => {
             try {
-              const qs = new URLSearchParams(window.location.search || "");
-              if (backendFilters && Object.keys(backendFilters).length) {
-                qs.set('filters', JSON.stringify(backendFilters));
-              } else {
-                qs.delete('filters');
+              // Build short query params (type, material, color, size, collection, min, max)
+              const shortParams = new URLSearchParams();
+
+               // type (category): prefer slug form for user-facing short param
+               const catVals = (backendFilters && Array.isArray(backendFilters.categories)) ? backendFilters.categories : undefined;
+               let typeCandidate = null;
+               if (Array.isArray(selectedFilters.category) && selectedFilters.category.length) {
+                 const sel = selectedFilters.category[0];
+                 // Try to find category in attrOptions by id/name/slug
+                 const byAttr = (attrOptions.categories || []).find(c => String(c._id) === String(sel) || String((c.name || '')).trim().toLowerCase() === String(sel || '').trim().toLowerCase() || String((c.slug || '')).trim().toLowerCase() === String(sel || '').trim().toLowerCase());
+                 if (byAttr) typeCandidate = byAttr.slug || toSlug(byAttr.name) || String(sel);
+                 else if (catVals && catVals.length) {
+                   const v = String(catVals[0]);
+                   const byAttr2 = (attrOptions.categories || []).find(c => String(c._id) === v || String((c.slug || '')).trim().toLowerCase() === v.trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === v.trim().toLowerCase());
+                   if (byAttr2) typeCandidate = byAttr2.slug || String(v);
+                   else typeCandidate = toSlug(v);
+                 } else {
+                   typeCandidate = toSlug(sel);
+                 }
+               } else if (backendFilters && backendFilters.categorySlug) {
+                 // fallback: use slug as type if nothing else
+                 typeCandidate = backendFilters.categorySlug;
+               }
+                if (typeCandidate) {
+                  // Ensure we don't write a raw backend id into `type`. If it looks
+                  // like an object id (hex-like) try to convert to a slug-like
+                  // short identifier using any available name/slug. Otherwise
+                  // fallback to toSlug() of the candidate.
+                  const asStr = String(typeCandidate);
+                  const looksLikeId = /^[0-9a-fA-F]{8,24}$/.test(asStr);
+                  let outType = asStr;
+                  if (looksLikeId) {
+                    // Try to find corresponding category in global list
+                    if (typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
+                      const found = window._allCategories.find(c => String(c._id) === asStr || String(c.slug) === asStr);
+                      if (found && found.slug) outType = found.slug;
+                      else outType = toSlug(asStr);
+                    } else {
+                      outType = toSlug(asStr);
+                    }
+                  }
+                  shortParams.set('type', String(outType));
+                }
+
+              const writeCSV = (key, paramName) => {
+                const arr = selectedFilters[key] || [];
+                if (Array.isArray(arr) && arr.length) shortParams.set(paramName, arr.join(','));
+              };
+              writeCSV('material', 'material');
+              writeCSV('color', 'color');
+              writeCSV('size', 'size');
+              writeCSV('collection', 'collection');
+
+              if (backendFilters && backendFilters.price) {
+                if (backendFilters.price.min !== undefined && backendFilters.price.min !== null) shortParams.set('min', String(backendFilters.price.min));
+                if (backendFilters.price.max !== undefined && backendFilters.price.max !== null && backendFilters.price.max !== Number.MAX_SAFE_INTEGER) shortParams.set('max', String(backendFilters.price.max));
               }
 
-              // Try to set categorySlug query param when the user picked a category.
-              // Prefer any categorySlug discovered while mapping (backendFilters.categorySlug)
-              // then fall back to matching attrOptions or window._allCategories by name/id.
               let categorySlugCandidate = null;
               if (backendFilters && backendFilters.categorySlug) {
                 categorySlugCandidate = backendFilters.categorySlug;
-              } else {
-                const catVals = (backendFilters && Array.isArray(backendFilters.categories)) ? backendFilters.categories : undefined;
-                if (catVals && catVals.length) {
-                  const v = String(catVals[0]);
-                  const byAttr = (attrOptions.categories || []).find(c => String(c._id) === v || String((c.name || '')).trim().toLowerCase() === v.trim().toLowerCase());
-                  if (byAttr && byAttr.slug) categorySlugCandidate = byAttr.slug;
-                  if (!categorySlugCandidate && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-                    const byGlobal = window._allCategories.find(c => String((c.name || '')).trim().toLowerCase() === v.trim().toLowerCase());
-                    if (byGlobal && byGlobal.slug) categorySlugCandidate = byGlobal.slug;
-                  }
-                }
+              } else if (typeCandidate && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
+                const byGlobal = window._allCategories.find(c => String((c.name || '')).trim().toLowerCase() === String(typeCandidate || '').trim().toLowerCase() || String((c.slug || '')).trim().toLowerCase() === String(typeCandidate || '').trim().toLowerCase());
+                if (byGlobal && byGlobal.slug) categorySlugCandidate = byGlobal.slug;
               }
-              if (categorySlugCandidate) qs.set('categorySlug', categorySlugCandidate); else qs.delete('categorySlug');
-              const newSearch = qs.toString() ? `?${qs.toString()}` : '';
-              const sx = window.scrollX || 0; const sy = window.scrollY || 0;
-              try { navigate(`${window.location.pathname}${newSearch}`, { replace: true }); } catch(e) { window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`); }
-              window.scrollTo(sx, sy);
+              if (categorySlugCandidate) shortParams.set('categorySlug', categorySlugCandidate);
+
+              // Preserve unrelated existing params
+               const existing = new URLSearchParams(window.location.search || '');
+               // Preserve unrelated existing params. Note: do NOT strip existing
+               // categorySlug here — otherwise a header navigation that sets only
+               // categorySlug will be removed by Sidebar when no filters are
+               // selected. Keep categorySlug so short URLs from the header/menu
+               // remain stable.
+               existing.forEach((v, k) => {
+                 if (k === 'filters' || k === 'type' || k === 'material' || k === 'color' || k === 'size' || k === 'collection' || k === 'min' || k === 'max') return;
+                 shortParams.set(k, v);
+               });
+
+               const newSearch = shortParams.toString() ? `?${shortParams.toString()}` : '';
+               // TEMP DEBUG: log backendFilters & short params to help debugging mapping
+               try { console.debug('Sidebar sync -> backendFilters:', backendFilters, 'shortParams:', shortParams.toString()); } catch(e) {}
+               // If there's nothing to write (no filters and no short params),
+               // avoid replacing the current URL — this prevents clobbering
+               // canonical links (like header menu) on initial load.
+               const shouldReplace = Boolean(newSearch) || window.location.search === '';
+               if (shouldReplace) {
+                 const sx = window.scrollX || 0; const sy = window.scrollY || 0;
+                 try { navigate(`${window.location.pathname}${newSearch}`, { replace: true }); } catch(e) { window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`); }
+                 window.scrollTo(sx, sy);
+               }
             } catch(e) { /* ignore */ }
           }, 200);
         }
