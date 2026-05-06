@@ -259,26 +259,31 @@ export default function Cart() {
                           const meta = productMetaMap.get(String(pl.productId)) || null;
                           const variant = meta ? findVariant(meta, String(pl.variantId || '')) : null;
                           const title = meta?.name || 'Sản phẩm';
-                          const img = firstImage(meta, variant?.code);
+                          const img = firstImage(meta, variant?.code || variant?._id || '');
+                          // derive human-friendly variant label (size/code)
+                          const variantSize = variant?.size || variant?.sizeCm || variant?.sizeLabel || variant?.label || null;
+                          const variantCode = variant?.code || variant?.variantCode || String(pl.variantId || '');
                           return (
-                            <div key={pl._id} className="cart2-bundle" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                              <div style={{ width: 88, height: 88, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div key={pl._id} className="cart2-bundle" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, background: '#fbfdff', border: '1px solid #e6eef6' }}>
+                              <div style={{ width: 88, height: 88, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}>
                                 {img ? <img src={img} alt={title} style={{ maxWidth: '100%', maxHeight: '100%' }} /> : <div style={{ fontSize: 12 }}>HÌNH</div>}
                               </div>
                               <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 700 }}>{title}</div>
-                                <div style={{ color: '#666', fontSize: 13 }}>{variant?.code || String(pl.variantId || '')}</div>
-                                <div style={{ marginTop: 8 }}>
+                                <div style={{ fontWeight: 800, fontSize: 16 }}>{title}</div>
+                                <div style={{ color: '#666', fontSize: 13, marginTop: 6 }}>{meta?.code || meta?._id || ''} {variantSize ? `· Size: ${variantSize}` : ''} {variantCode ? `· ${variantCode}` : ''}</div>
+                                <div style={{ marginTop: 10 }}>
                                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                                     <button type="button" onClick={() => patchProductQty(pl._id, Math.max((pl.quantity || 1) - 1, 1))} disabled={(pl.quantity || 1) <= 1}>-</button>
-                                    <div>{pl.quantity || 1}</div>
+                                    <div style={{ minWidth: 28, textAlign: 'center' }}>{pl.quantity || 1}</div>
                                     <button type="button" onClick={() => patchProductQty(pl._id, (pl.quantity || 1) + 1)}>+</button>
                                   </div>
                                 </div>
                               </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontWeight: 700 }}>{formatPrice((Number(pl.price) || 0) * (Number(pl.quantity) || 1))}</div>
-                                <button type="button" className="cart2-remove" onClick={() => removeProductLine(pl._id)}>Xóa</button>
+                              <div style={{ textAlign: 'right', minWidth: 140 }}>
+                                <div style={{ fontWeight: 800, fontSize: 16 }}>{formatPrice((Number(pl.price) || 0) * (Number(pl.quantity) || 1))}</div>
+                                <div style={{ marginTop: 8 }}>
+                                  <button type="button" className="cart2-remove" onClick={() => removeProductLine(pl._id)}>Xóa</button>
+                                </div>
                               </div>
                             </div>
                           );

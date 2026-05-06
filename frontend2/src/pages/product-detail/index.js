@@ -61,6 +61,11 @@ export default function ProductDetailPage({ params }) {
   // Memoize variants so it is stable for useMemo/useEffect dependencies
   const variants = useMemo(() => (Array.isArray(product?.variants) ? product.variants : []), [product?.variants]);
 
+  // Whether any variant actually exposes a size attribute
+  const hasVariantSizes = useMemo(() => {
+    return variants.some((v) => Boolean(v?.size || v?.sizeCm || v?.sizeLabel || v?.label));
+  }, [variants]);
+
   // Helper function to get material color
   const getMaterialColor = (label) => {
     const lowerLabel = label.toLowerCase();
@@ -139,6 +144,17 @@ export default function ProductDetailPage({ params }) {
     }
     return found.length ? found : ['16', '17', '18', '19'];
   }, [product, variants]);
+
+  // compute total available quantity per size (for disabling / strike-through)
+  const sizeQtyMap = useMemo(() => {
+    const map = {};
+    for (const v of variants) {
+      const s = String(v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '').trim();
+      if (!s) continue;
+      map[s] = (map[s] || 0) + (Number(v?.quantity) || 0);
+    }
+    return map;
+  }, [variants]);
 
   // const colors = useMemo(() => {
   //   const found = [];
@@ -269,7 +285,8 @@ export default function ProductDetailPage({ params }) {
   useEffect(() => {
     if (!product) return;
     if (!selectedMaterial && materials.length) setSelectedMaterial(materials[0].id);
-    if (!selectedSize && sizes.length) setSelectedSize(String(sizes[0]));
+    // Only default-select a size when variants actually support sizes
+    if (hasVariantSizes && !selectedSize && sizes.length) setSelectedSize(String(sizes[0]));
 
     // derive default color id (slug) from variants for the selected material (or first variant)
     if (!selectedColor) {
@@ -353,8 +370,8 @@ export default function ProductDetailPage({ params }) {
       if (byMat) return byMat;
     }
 
-    // fallback: match size only
-    if (selectedSize) {
+    // fallback: match size only (only when variants support sizes)
+    if (hasVariantSizes && selectedSize) {
       const bySize = variants.find((v) => String(v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') === String(selectedSize));
       if (bySize) return bySize;
     }
@@ -462,8 +479,77 @@ export default function ProductDetailPage({ params }) {
 
         // FALLBACK: try legacy product add API (adds to cart.products) so non-bundle products can be added
         try {
-          // Prefer variant._id as authoritative identifier; fallback to id/code if missing
-          const variantIdentifier = selectedVariant?._id || selectedVariant?.id || selectedVariant?.variantCode || selectedVariant?.code || null;
+          // Recompute selected variant at time of add to avoid any stale/closure issues.
+          const findSelectedVariantNow = () => {
+            if (!variants || !variants.length) return null;
+            // try exact match on material, size and color
+            const byExact = variants.find((v) => {
+              const variantMat = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+              const variantMatId = variantMat
+                .normalize('NFD')
+                .replace(/\p{Diacritic}/gu, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+              const variantSize = (v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') + '';
+              const variantColor = String(v?.color || '');
+              const variantColorId = variantColor
+                .normalize('NFD')
+                .replace(/\p{Diacritic}/gu, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+              const matchesMat = selectedMaterial ? variantMatId === String(selectedMaterial) : true;
+              const matchesSize = selectedSize ? String(variantSize) === String(selectedSize) : true;
+              const matchesColor = selectedColor && colors.length ? variantColorId === String(selectedColor) : true;
+              return matchesMat && matchesSize && matchesColor;
+            });
+            if (byExact) return byExact;
+
+            // fallback matchers (mat+color, mat, size, first)
+            if (selectedMaterial && selectedColor && colors.length) {
+              const byMatColor = variants.find((v) => {
+                const vm = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+                const vid = vm
+                  .normalize('NFD')
+                  .replace(/\p{Diacritic}/gu, '')
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-+|-+$/g, '');
+                const vc = String(v?.color || '');
+                const vidColor = vc
+                  .normalize('NFD')
+                  .replace(/\p{Diacritic}/gu, '')
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-+|-+$/g, '');
+                return vid === String(selectedMaterial) && vidColor === String(selectedColor);
+              });
+              if (byMatColor) return byMatColor;
+            }
+            if (selectedMaterial) {
+              const byMat = variants.find((v) => {
+                const vm = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+                const vid = vm
+                  .normalize('NFD')
+                  .replace(/\p{Diacritic}/gu, '')
+                  .toLowerCase()
+                  .replace(/[^a-z0-9]+/g, '-')
+                  .replace(/^-+|-+$/g, '');
+                return vid === String(selectedMaterial);
+              });
+              if (byMat) return byMat;
+            }
+            if (selectedSize) {
+              const bySize = variants.find((v) => String(v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') === String(selectedSize));
+              if (bySize) return bySize;
+            }
+            return variants[0];
+          };
+
+          const selectedNow = findSelectedVariantNow();
+          const variantIdentifier = selectedNow?._id || selectedNow?.id || selectedNow?.variantCode || selectedNow?.code || selectedVariant?._id || selectedVariant?.id || selectedVariant?.variantCode || selectedVariant?.code || null;
+
           // fallback attempt
           // call addProductToCart; this API returns the updated cart and lineId on success
           const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1 });
@@ -472,9 +558,7 @@ export default function ProductDetailPage({ params }) {
           // Try to extract returned line id from multiple possible shapes
           const lineId = prodRes?.data?.lineId || prodRes?.data?._id || prodRes?.lineId || null;
 
-          // Small debug: log server response so we can verify variant/line mapping
-          // eslint-disable-next-line no-console
-          console.log('addProductToCart response', { payload: { productId: product._id, variantId: variantIdentifier }, prodRes });
+          // (debug logs removed)
 
           // If buyNow requested and we have a lineId, persist it for checkout and navigate
           if (buyNow && lineId) {
@@ -586,25 +670,29 @@ export default function ProductDetailPage({ params }) {
             </div>
           )}
 
-          {/* CHỌN SIZE */}
-          <div className="option-section">
-            <h2 className="option-label">Chọn kích thước</h2>
-            <div className="size-list sizes-square">
-              {sizes.map((size) => {
-                const disabled = disabledSizes.includes(String(size));
-                return (
-                  <button
-                    key={size}
-                    onClick={() => !disabled && setSelectedSize(size)}
-                    className={`size-btn ${selectedSize === size ? "active" : ""} ${disabled ? 'disabled' : ''}`}
-                    disabled={disabled}
-                  >
-                    {size}
-                  </button>
-                )
-              })}
+           {/* CHỌN SIZE - only show when variants expose sizes */}
+          {hasVariantSizes && (
+            <div className="option-section">
+              <h2 className="option-label">Chọn kích thước</h2>
+              <div className="size-list sizes-square">
+                {sizes.map((size) => {
+                  const qty = sizeQtyMap[size] || 0;
+                  const disabled = qty <= 0 || disabledSizes.includes(String(size));
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => !disabled && setSelectedSize(size)}
+                      className={`size-btn ${selectedSize === size ? "active" : ""} ${disabled ? 'disabled strike' : ''}`}
+                      disabled={disabled}
+                      title={disabled ? 'Hết hàng' : `Còn ${qty} sản phẩm`}
+                    >
+                      {disabled ? <span style={{ textDecoration: 'line-through' }}>{size}</span> : size}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* STOCK NOTICE (use variant / total quantity) */}
           {typeof totalQuantity === 'number' && (
