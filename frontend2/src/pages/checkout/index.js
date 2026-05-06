@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
@@ -7,40 +7,50 @@ import { formatPrice } from "../../utils/format";
 const readCheckoutBundleIds = () => {
   try {
     const raw = sessionStorage.getItem("checkout:bundleIds");
-    if (!raw) return [];
+    if (raw === null) return null; // key not present
     const parsed = JSON.parse(raw);
-    const ids = Array.isArray(parsed?.bundleIds)
-      ? parsed.bundleIds.map(String)
-      : [];
+    const ids = Array.isArray(parsed?.bundleIds) ? parsed.bundleIds.map(String) : [];
     return ids.filter(Boolean);
   } catch {
-    return [];
+    return null;
   }
 };
 
 const readCheckoutProductLineIds = () => {
   try {
     const raw = sessionStorage.getItem("checkout:productLineIds");
-    if (!raw) return [];
+    if (raw === null) return null;
     const parsed = JSON.parse(raw);
-    const ids = Array.isArray(parsed?.productLineIds)
-      ? parsed.productLineIds.map(String)
-      : [];
+    const ids = Array.isArray(parsed?.productLineIds) ? parsed.productLineIds.map(String) : [];
     return ids.filter(Boolean);
   } catch {
-    return [];
+    return null;
   }
 };
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const [bundleIds, setBundleIds] = useState(() => readCheckoutBundleIds());
-  const [productLineIds, setProductLineIds] = useState(() => readCheckoutProductLineIds());
+  const [bundleIds, setBundleIds] = useState(() => {
+    // priority: react-router location.state -> sessionStorage -> empty
+    try {
+      const fromNav = location && location.state && location.state.bundleIds ? location.state.bundleIds : null;
+      if (fromNav && fromNav.length) return fromNav.map(String);
+    } catch {}
+    return readCheckoutBundleIds();
+  });
+  const [productLineIds, setProductLineIds] = useState(() => {
+    try {
+      const fromNav = location && location.state && location.state.productLineIds ? location.state.productLineIds : null;
+      if (fromNav && fromNav.length) return fromNav.map(String);
+    } catch {}
+    return readCheckoutProductLineIds();
+  });
 
   // Addresses are client-only for now.
   const [addresses, setAddresses] = useState(() => {
@@ -85,15 +95,53 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    // If user directly enters /checkout without bundleIds, fallback to all cart bundles.
-    if (!bundleIds.length && (cart?.bundles || []).length) {
-      setBundleIds((cart.bundles || []).map((b) => String(b.bundleId)));
+    // Resolve selection priority carefully to avoid accidentally selecting all bundles
+    // Priority: explicit location.state (even empty array) -> sessionStorage (if key present) -> fallback select-all only when user directly entered /checkout (no nav/state/storage)
+    const navBundles = (location && location.state && Array.isArray(location.state.bundleIds)) ? location.state.bundleIds.map(String) : null;
+    const navProducts = (location && location.state && Array.isArray(location.state.productLineIds)) ? location.state.productLineIds.map(String) : null;
+    const storedBundles = readCheckoutBundleIds(); // returns array or null
+    const storedProducts = readCheckoutProductLineIds();
+
+    // debug
+    // eslint-disable-next-line no-console
+    console.debug('[checkout] navBundles=%o navProducts=%o storedBundles=%o storedProducts=%o cartBundles=%o cartProducts=%o', navBundles, navProducts, storedBundles, storedProducts, cart?.bundles || [], cart?.products || []);
+
+    // BUNDLES
+    if (Array.isArray(navBundles)) {
+      // explicit navigation provided bundleIds (possibly empty) -> respect it
+      setBundleIds(navBundles);
+      try { sessionStorage.setItem('checkout:bundleIds', JSON.stringify({ bundleIds: navBundles, at: Date.now() })); } catch {}
+    } else if (Array.isArray(storedBundles)) {
+      // sessionStorage contained the key (even empty array) -> respect it
+      setBundleIds(storedBundles);
+    } else {
+      // storedBundles === null (key absent)
+      // Only fallback to select-all when user directly landed on /checkout (no nav state and no stored keys)
+      const cameFromNav = Boolean(location && location.state);
+      if (!cameFromNav && (cart?.bundles || []).length) {
+        setBundleIds((cart.bundles || []).map((b) => String(b.bundleId)));
+      } else {
+        // do not auto-select bundles in mixed scenarios (e.g. productLine selected but no bundle key)
+        setBundleIds([]);
+      }
     }
-    // If productLineIds not provided, try to inherit from cart.products (select all)
-    if ((!productLineIds || !productLineIds.length) && (cart?.products || []).length) {
-      setProductLineIds((cart.products || []).map((p) => String(p._id)));
+
+    // PRODUCTS
+    if (Array.isArray(navProducts)) {
+      setProductLineIds(navProducts);
+      try { sessionStorage.setItem('checkout:productLineIds', JSON.stringify({ productLineIds: navProducts, at: Date.now() })); } catch {}
+    } else if (Array.isArray(storedProducts)) {
+      setProductLineIds(storedProducts);
+    } else {
+      const cameFromNav = Boolean(location && location.state);
+      if (!cameFromNav && (cart?.products || []).length) {
+        setProductLineIds((cart.products || []).map((p) => String(p._id)));
+      } else {
+        setProductLineIds([]);
+      }
     }
-  }, [bundleIds.length, cart?.bundles, cart?.products, productLineIds]);
+  // run when cart or navigation state changes
+  }, [cart?.bundles, cart?.products, location && location.state]);
 
   const selectedBundles = useMemo(() => {
     const bundles = cart?.bundles || [];

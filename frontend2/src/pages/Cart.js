@@ -41,7 +41,8 @@ export default function Cart() {
   const [loadingCharms, setLoadingCharms] = useState(false);
 
   const [selected, setSelected] = useState({});
-  const [selectAll, setSelectAll] = useState(true);
+  // Do not default to select-all on page load; user must choose selections explicitly
+  const [selectAll, setSelectAll] = useState(false);
   const [openBundle, setOpenBundle] = useState({});
   const [productMetaMap, setProductMetaMap] = useState(new Map());
 
@@ -49,7 +50,18 @@ export default function Cart() {
     setLoading(true);
     try {
       const res = await api.getCart();
-      setCart(res?.data || null);
+      // set cart from server; but keep existing selections where possible to avoid UI jumps
+      setCart((prev) => {
+        const next = res?.data || null;
+        if (!next) return next;
+        // preserve previous selection state keys where same bundle/product ids exist
+        try {
+          if (prev && prev.bundles && next.bundles) {
+            // nothing to mutate here; selection state is separate
+          }
+        } catch (e) {}
+        return next;
+      });
       const products = res?.data?.products || [];
       const bundles = res?.data?.bundles || [];
       // collect productIds referenced by legacy product lines and bracelet productIds from bundles
@@ -80,6 +92,29 @@ export default function Cart() {
   }, []);
 
   useEffect(() => {
+    // Listen for external cart changes and refresh local cart state without a full page reload.
+    let timeout = null;
+    const onCartChanged = () => {
+      // debounce multiple events
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(async () => {
+        try {
+          const res = await api.getCart();
+          setCart(res?.data || null);
+        } catch (e) {
+          // ignore
+        }
+      }, 250);
+    };
+    window.addEventListener('cart:changed', onCartChanged);
+    return () => {
+      window.removeEventListener('cart:changed', onCartChanged);
+      if (timeout) clearTimeout(timeout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     setLoadingCharms(true);
     api
@@ -100,40 +135,67 @@ export default function Cart() {
   }, []);
 
   const patchQty = async (bundleId, quantity) => {
+    // Optimistic update: update local state immediately, call API in background
+    const prev = cart;
     try {
+      setCart((c) => {
+        if (!c) return c;
+        const next = { ...c, bundles: (c.bundles || []).map((b) => (String(b.bundleId) === String(bundleId) ? { ...b, quantity } : b)) };
+        return next;
+      });
       await api.patchBundle(bundleId, { quantity });
-      await refresh();
+      // no full refresh to avoid full page/network churn
     } catch (e) {
+      // revert
+      setCart(prev);
       setToast({ type: "error", message: e.message || "Update failed" });
     }
   };
 
   // Update quantity for legacy product line
   const patchProductQty = async (lineId, quantity) => {
+    const prev = cart;
     try {
+      setCart((c) => {
+        if (!c) return c;
+        const next = { ...c, products: (c.products || []).map((p) => (String(p._id) === String(lineId) ? { ...p, quantity } : p)) };
+        return next;
+      });
       await api.patchProduct(lineId, { quantity });
-      await refresh();
       setToast({ type: 'success', message: 'Cập nhật giỏ hàng thành công' });
     } catch (e) {
+      setCart(prev);
       setToast({ type: 'error', message: e.message || 'Update failed' });
     }
   };
 
   const removeBundle = async (bundleId) => {
+    const prev = cart;
     try {
+      setCart((c) => {
+        if (!c) return c;
+        const next = { ...c, bundles: (c.bundles || []).filter((b) => String(b.bundleId) !== String(bundleId)) };
+        return next;
+      });
       await api.deleteBundle(bundleId);
-      await refresh();
     } catch (e) {
+      setCart(prev);
       setToast({ type: "error", message: e.message || "Delete failed" });
     }
   };
 
   const removeProductLine = async (lineId) => {
+    const prev = cart;
     try {
+      setCart((c) => {
+        if (!c) return c;
+        const next = { ...c, products: (c.products || []).filter((p) => String(p._id) !== String(lineId)) };
+        return next;
+      });
       await api.deleteProduct(lineId);
-      await refresh();
       setToast({ type: 'success', message: 'Xóa sản phẩm khỏi giỏ hàng thành công' });
     } catch (e) {
+      setCart(prev);
       setToast({ type: 'error', message: e.message || 'Delete failed' });
     }
   };
@@ -176,15 +238,15 @@ export default function Cart() {
       const next = {};
       for (const b of bundles) {
         const key = `b:${b.bundleId}`;
-        next[key] = prev[key] !== false;
+        // preserve explicit previous choice if present; otherwise default to not selected
+        next[key] = Object.prototype.hasOwnProperty.call(prev, key) ? prev[key] !== false : false;
       }
       for (const p of products) {
         const key = `p:${p._id}`;
-        next[key] = prev[key] !== false;
+        next[key] = Object.prototype.hasOwnProperty.call(prev, key) ? prev[key] !== false : false;
       }
-      const nextAll = (bundles.length + products.length)
-        ? [...bundles.map(b => `b:${b.bundleId}`), ...products.map(p => `p:${p._id}`)].every((k) => next[k] !== false)
-        : false;
+      const allKeys = [...bundles.map(b => `b:${b.bundleId}`), ...products.map(p => `p:${p._id}`)];
+      const nextAll = allKeys.length ? allKeys.every((k) => next[k] !== false) : false;
       setSelectAll(nextAll);
       return next;
     });
@@ -236,19 +298,27 @@ export default function Cart() {
 
   const goCheckout = () => {
     if (!selectedCount) return;
+    // recompute selection at click time to ensure latest state
+    const selBundleIds = (bundles || []).filter((b) => selected[`b:${b.bundleId}`] !== false).map((b) => String(b.bundleId));
+    const selProductLineIds = (products || []).filter((p) => selected[`p:${p._id}`] !== false).map((p) => String(p._id));
     try {
       sessionStorage.setItem(
         "checkout:bundleIds",
-        JSON.stringify({ bundleIds: selectedBundleIds, at: Date.now() }),
+        JSON.stringify({ bundleIds: selBundleIds, at: Date.now() }),
       );
       sessionStorage.setItem(
         "checkout:productLineIds",
-        JSON.stringify({ productLineIds: selectedProductLineIds, at: Date.now() }),
+        JSON.stringify({ productLineIds: selProductLineIds, at: Date.now() }),
       );
     } catch {
       // ignore
     }
-    navigate("/checkout");
+    // pass selected ids via navigation state as well to avoid any sessionStorage race
+    try {
+      navigate('/checkout', { state: { bundleIds: selBundleIds, productLineIds: selProductLineIds } });
+    } catch (e) {
+      navigate('/checkout');
+    }
   };
 
   return (
@@ -335,7 +405,7 @@ export default function Cart() {
                                       </div>
                                     </div>
                                     <div style={{ textAlign: 'right', minWidth: 160 }}>
-                                      <div style={{ fontWeight: 900, fontSize: 18 }}>{formatPrice((Number(pl.price) || 0) * (Number(pl.quantity) || 1))}</div>
+                                       <div style={{ fontWeight: 900, fontSize: 18 }}>{formatPrice(Number(pl.price) || 0)}</div>
                                     </div>
                                   </div>
                                 </div>
@@ -409,7 +479,7 @@ export default function Cart() {
                                   {/* bundleMeta moved next to price for cleaner layout */}
                                 </div>
                                 <div className="cart2-bundlePrice">
-                                  <div style={{ fontWeight: 900 }}>{formatPrice((Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1))}</div>
+                                  <div style={{ fontWeight: 900 }}>{formatPrice(Number(b?.priceSnapshot?.total) || 0)}</div>
                                   <div style={{ fontSize: 13, color: '#6B7280', marginTop: 6 }}>Sử dụng slot: {items.length} / {b?.rulesSnapshot?.slotCount ?? '-'}</div>
                                 </div>
                               </div>
@@ -577,8 +647,8 @@ export default function Cart() {
               <div className="cart2-summaryBody">
                 <div className="cart2-summaryTitle">Tóm tắt đơn hàng</div>
                 <div className="cart2-row">
-                  <div>Số design đã chọn:</div>
-                  <strong>{selectedCount}</strong>
+                  {/* <div>Số design đã chọn:</div>
+                  <strong>{selectedCount}</strong> */}
                 </div>
                 <div className="cart2-row">
                   <div>Tạm tính</div>
