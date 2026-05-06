@@ -51,8 +51,15 @@ export default function Cart() {
       const res = await api.getCart();
       setCart(res?.data || null);
       const products = res?.data?.products || [];
-      if (products.length) {
-        const ids = Array.from(new Set(products.map((p) => String(p.productId))));
+      const bundles = res?.data?.bundles || [];
+      // collect productIds referenced by legacy product lines and bracelet productIds from bundles
+      const ids = Array.from(
+        new Set([
+          ...products.map((p) => String(p.productId)),
+          ...bundles.map((b) => String(b?.bracelet?.productId || '')),
+        ].filter(Boolean)),
+      );
+      if (ids.length) {
         const ps = await Promise.all(ids.map((id) => api.getProductByIdPublic(id).catch(() => null)));
         const map = new Map();
         for (let i = 0; i < ids.length; i++) if (ps[i]) map.set(String(ids[i]), ps[i]);
@@ -132,41 +139,51 @@ export default function Cart() {
   };
 
   const bundles = cart?.bundles || [];
-
+  // legacy product lines
+  const products = cart?.products || [];
   const charmById = useMemo(() => {
     const m = new Map();
     for (const p of charms || []) m.set(String(p?._id), p);
     return m;
   }, [charms]);
 
-  const selectedIds = bundles
-    .filter((b) => selected[b.bundleId] !== false)
-    .map((b) => b.bundleId);
-  const selectedCount = selectedIds.length;
-  const total = bundles
-    .filter((b) => selected[b.bundleId] !== false)
-    .reduce(
-      (sum, b) =>
-        sum +
-        (Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1),
-      0,
-    );
+  // Heuristic to filter out internal product/variant codes from display labels
+  const isLikelyCode = (s) => {
+    if (!s || typeof s !== 'string') return false;
+    // common patterns: contains double-hyphen, starts with SP-, or long uppercase-with-dashes codes
+    if (s.includes('--')) return true;
+    if (/^SP-/i.test(s)) return true;
+    if (/^[A-Z0-9-]{6,}$/.test(s)) return true;
+    return false;
+  };
 
-  // include legacy product lines in total
-  const products = cart?.products || [];
-  const productsTotal = (products || []).reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
-  const grandTotal = total + productsTotal;
+  // Build selected ids (support both bundles and legacy products)
+  const selectedBundleIds = bundles.filter((b) => selected[`b:${b.bundleId}`] !== false).map((b) => b.bundleId);
+  const selectedProductLineIds = products.filter((p) => selected[`p:${p._id}`] !== false).map((p) => p._id);
+  const selectedCount = selectedBundleIds.length + selectedProductLineIds.length;
+
+  const total = bundles
+    .filter((b) => selected[`b:${b.bundleId}`] !== false)
+    .reduce((sum, b) => sum + (Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1), 0)
+    + products.filter((p) => selected[`p:${p._id}`] !== false).reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
+
+  // grandTotal should reflect only the selected items (total already sums selected bundles + selected products)
+  const grandTotal = total;
 
   useEffect(() => {
-    // Preserve selections on refresh; default new bundles to selected.
+    // Preserve selections on refresh; default new bundles/products to selected.
     setSelected((prev) => {
       const next = {};
       for (const b of bundles) {
-        const id = b.bundleId;
-        next[id] = prev[id] !== false;
+        const key = `b:${b.bundleId}`;
+        next[key] = prev[key] !== false;
       }
-      const nextAll = bundles.length
-        ? bundles.every((b) => next[b.bundleId] !== false)
+      for (const p of products) {
+        const key = `p:${p._id}`;
+        next[key] = prev[key] !== false;
+      }
+      const nextAll = (bundles.length + products.length)
+        ? [...bundles.map(b => `b:${b.bundleId}`), ...products.map(p => `p:${p._id}`)].every((k) => next[k] !== false)
         : false;
       setSelectAll(nextAll);
       return next;
@@ -182,23 +199,36 @@ export default function Cart() {
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart?.guestId, bundles.length]);
+  }, [cart?.guestId, bundles.length, products.length]);
 
   const toggleSelectAll = () => {
     const nextAll = !selectAll;
     setSelectAll(nextAll);
     const next = {};
-    for (const b of bundles) next[b.bundleId] = nextAll;
+    for (const b of bundles) next[`b:${b.bundleId}`] = nextAll;
+    for (const p of products) next[`p:${p._id}`] = nextAll;
     setSelected(next);
   };
 
   const toggleBundle = (bundleId) => {
     setSelected((prev) => {
-      const nextChecked = !(prev[bundleId] !== false);
-      const next = { ...prev, [bundleId]: nextChecked };
-      const nextAll = bundles.length
-        ? bundles.every((b) => next[b.bundleId] !== false)
-        : false;
+      const key = `b:${bundleId}`;
+      const nextChecked = !(prev[key] !== false);
+      const next = { ...prev, [key]: nextChecked };
+      const allKeys = [...bundles.map(b => `b:${b.bundleId}`), ...products.map(p => `p:${p._id}`)];
+      const nextAll = allKeys.length ? allKeys.every((k) => next[k] !== false) : false;
+      setSelectAll(nextAll);
+      return next;
+    });
+  };
+
+  const toggleProductLine = (lineId) => {
+    setSelected((prev) => {
+      const key = `p:${lineId}`;
+      const nextChecked = !(prev[key] !== false);
+      const next = { ...prev, [key]: nextChecked };
+      const allKeys = [...bundles.map(b => `b:${b.bundleId}`), ...products.map(p => `p:${p._id}`)];
+      const nextAll = allKeys.length ? allKeys.every((k) => next[k] !== false) : false;
       setSelectAll(nextAll);
       return next;
     });
@@ -209,7 +239,11 @@ export default function Cart() {
     try {
       sessionStorage.setItem(
         "checkout:bundleIds",
-        JSON.stringify({ bundleIds: selectedIds, at: Date.now() }),
+        JSON.stringify({ bundleIds: selectedBundleIds, at: Date.now() }),
+      );
+      sessionStorage.setItem(
+        "checkout:productLineIds",
+        JSON.stringify({ productLineIds: selectedProductLineIds, at: Date.now() }),
       );
     } catch {
       // ignore
@@ -256,9 +290,14 @@ export default function Cart() {
                       <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
                         <div style={{ fontWeight: 700 }}>Sản phẩm</div>
                         {products.map((pl) => {
-                          const meta = productMetaMap.get(String(pl.productId)) || null;
-                          const variant = meta ? findVariant(meta, String(pl.variantId || '')) : null;
-                          const title = meta?.name || 'Sản phẩm';
+                           const meta = productMetaMap.get(String(pl.productId)) || null;
+                           const variant = meta ? findVariant(meta, String(pl.variantId || '')) : null;
+                           const title = meta?.name || 'Sản phẩm';
+                           const material = variant?.material || variant?.materialLabel || (meta?.materials && meta.materials[0]) || meta?.material?.name || null;
+                           const color = variant?.color || variant?.colorLabel || null;
+                           const sizeText = variant?.size || variant?.sizeCm || variant?.sizeLabel || null;
+                           const inlineAttrs = [sizeText, material, color].filter(Boolean).join(' · ');
+                           const prodChecked = selected[`p:${pl._id}`] !== false;
                            const img = (() => {
                              if (!meta) return null;
                              // 1) try variant image by variantId (preferred)
@@ -271,18 +310,21 @@ export default function Cart() {
                              const productImg = (meta?.images && meta.images[0]) || null;
                              return productImg;
                            })();
-                           // derive human-friendly variant label (size/code)
+                           // derive human-friendly variant label (size)
                            const variantSize = variant?.size || variant?.sizeCm || variant?.sizeLabel || variant?.label || null;
-                           const variantCode = variant?.code || variant?.variantCode || String(pl.variantId || '');
                            const categoryLabel = (meta?.category && (meta.category.name || meta.category.slug)) || '';
                           return (
                             <div key={pl._id} className="cart2-bundle" style={{ padding: '16px', borderRadius: 12, background: '#fbfdff', border: '1px solid #e6eef6' }}>
                               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                  <input type="checkbox" checked={prodChecked} onChange={() => toggleProductLine(pl._id)} style={{ width: 18, height: 18, marginRight: 12 }} />
+                                </div>
                                 <div style={{ width: 84, height: 84, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden' }}>
                                   {img ? <img src={img} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" /> : <div style={{ fontSize: 12 }}>HÌNH</div>}
                                 </div>
                                 <div style={{ flex: 1 }}>
                                   <div style={{ fontWeight: 900, fontSize: 20 }}>{title}</div>
+                                  {inlineAttrs ? <div style={{ color: '#333', marginTop: 6 }}>{inlineAttrs}</div> : null}
                                   <div style={{ color: '#666', fontSize: 14, marginTop: 6 }}>{categoryLabel}</div>
                                   <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div>
@@ -310,21 +352,26 @@ export default function Cart() {
                     {bundles.length ? (
                       <div style={{ display: "grid", gap: 12 }}>
                         {bundles.map((b) => {
-                          const id = b.bundleId;
-                          const checked = selected[id] !== false;
+                           const id = b.bundleId;
+                           const checked = selected[`b:${id}`] !== false;
                           const open = openBundle[id] === true;
                           const items = Array.isArray(b?.items) ? b.items : [];
                           const shown = open ? items : items.slice(0, 2);
 
-                          const braceletLabel = [
-                            b?.bracelet?.typeCode,
-                            b?.bracelet?.sizeCm ? `${b.bracelet.sizeCm}cm` : null,
-                            b?.bracelet?.variantCode
-                              ? String(b.bracelet.variantCode)
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ");
+                           // Prefer human-friendly label/name, show size but do NOT show internal variant/product codes
+                           // prefer label/typeName; if those look like internal codes, skip them
+                           let braceletName = b?.bracelet?.label || b?.bracelet?.typeName || b?.bracelet?.typeCode;
+                           if (isLikelyCode(braceletName)) {
+                             // fallback: try typeName without code, or leave empty
+                             braceletName = b?.bracelet?.typeName || b?.bracelet?.label || '';
+                             if (isLikelyCode(braceletName)) braceletName = '';
+                           }
+                           const braceletLabel = [
+                             braceletName,
+                             b?.bracelet?.sizeCm ? `${b.bracelet.sizeCm}cm` : null,
+                           ]
+                             .filter(Boolean)
+                             .join(" · ");
 
                           const firstItem = items[0] || null;
                           const firstCharm = firstItem
@@ -352,19 +399,18 @@ export default function Cart() {
                                         color: "rgba(11, 18, 32, 0.55)",
                                       }}
                                     >
-                                      {braceletLabel || "-"}
+                                      {(() => {
+                                        const braceletMeta = productMetaMap.get(String(b?.bracelet?.productId || '')) || null;
+                                        if (braceletMeta?.name) return braceletMeta.name;
+                                        return braceletLabel || "-";
+                                      })()}
                                     </span>
                                   </div>
-                                  <div className="cart2-bundleMeta">
-                                    Sử dụng slot: {items.length} /{" "}
-                                    {b?.rulesSnapshot?.slotCount ?? "-"}
-                                  </div>
+                                  {/* bundleMeta moved next to price for cleaner layout */}
                                 </div>
                                 <div className="cart2-bundlePrice">
-                                  {formatPrice(
-                                    (Number(b?.priceSnapshot?.total) || 0) *
-                                    (Number(b?.quantity) || 1),
-                                  )}
+                                  <div style={{ fontWeight: 900 }}>{formatPrice((Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1))}</div>
+                                  <div style={{ fontSize: 13, color: '#6B7280', marginTop: 6 }}>Sử dụng slot: {items.length} / {b?.rulesSnapshot?.slotCount ?? '-'}</div>
                                 </div>
                               </div>
 
@@ -382,8 +428,14 @@ export default function Cart() {
                                 </div>
                                 <div>
                                   <div className="cart2-infoTitle">
-                                    Vòng tay{" "}
-                                    {braceletLabel || b?.bracelet?.typeCode || ""}
+                                    {/* Prefer product meta name for bracelet when available */}
+                                    {(() => {
+                                      const braceletMeta = productMetaMap.get(String(b?.bracelet?.productId || '')) || null;
+                                      const nameFromMeta = braceletMeta?.name || null;
+                                      const sizePart = b?.bracelet?.sizeCm ? ` · ${b.bracelet.sizeCm}cm` : '';
+                                      if (nameFromMeta) return `${nameFromMeta}${sizePart}`;
+                                      return `Vòng tay ${braceletLabel || ''}`;
+                                    })()}
                                   </div>
                                   <div className="cart2-infoSub">
                                     {items.length ? (
@@ -397,36 +449,40 @@ export default function Cart() {
                                          it?.charmVariantCode,
                                        );
                                           const name = p?.name || "Charm";
-                                          const price = Number(v?.price) || 0;
+                                      const price = Number(v?.price) || 0;
+                                      const material = v?.material || v?.materialLabel || (p?.materials && p.materials[0]) || p?.material?.name || null;
+                                      const color = v?.color || v?.colorLabel || null;
+                                      const sizeText = v?.size || v?.sizeCm || v?.sizeLabel || null;
+                                      const inline = [sizeText, material, color].filter(Boolean).join(' · ');
                                           const vCode = it?.charmVariantCode
                                             ? String(it.charmVariantCode)
                                             : "";
-                                          return (
-                                            <div
-                                              key={it.slotIndex}
-                                              className="cart2-itemRow"
-                                            >
-                                              <div className="cart2-itemLeft">
-                                                <span className="cart2-dot">•</span>
-                                                <span
-                                                  className="cart2-itemText"
-                                                  title={name}
-                                                >
-                                                  Slot {it.slotIndex}: {name}
-                                                  {vCode ? ` (${vCode})` : ""}
-                                                </span>
-                                              </div>
-                                              <div className="cart2-itemPrice">
-                                                {formatPrice(price)}
-                                              </div>
-                                            </div>
-                                          );
+                                           return (
+                                             <div
+                                               key={it.slotIndex}
+                                               className="cart2-itemRow"
+                                               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                                             >
+                                               <div className="cart2-itemLeft">
+                                                 <span className="cart2-dot">•</span>
+                                                 <span className="cart2-itemText" title={name}>
+                                                   Slot {it.slotIndex}: {name}
+                                                 </span>
+                                               </div>
+                                               <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 220, justifyContent: 'flex-end' }}>
+                                                 <div style={{ fontWeight: 700 }}>{formatPrice(price)}</div>
+                                                 {inline ? (
+                                                   <div style={{ fontSize: 13, color: '#6B7280' }}>{inline}</div>
+                                                 ) : null}
+                                               </div>
+                                             </div>
+                                           );
                                         })}
-                                        {items.length > shown.length ? (
-                                          <div style={{ marginTop: 4 }}>
-                                            +{items.length - shown.length} item khác
-                                          </div>
-                                        ) : null}
+                                         {items.length > shown.length ? (
+                                           <div style={{ marginTop: 8, color: '#374151', fontWeight: 600 }}>
+                                             +{items.length - shown.length} item khác
+                                           </div>
+                                         ) : null}
                                       </>
                                     ) : (
                                       "Chưa có charm"
