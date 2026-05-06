@@ -423,6 +423,81 @@ export default function ProductDetailPage({ params }) {
     const slugLower = String(slug || '').toLowerCase();
     const isCharm = slugLower.includes('charm') || (product?.category?.slug && String(product.category.slug).toLowerCase().includes('charm'));
 
+    // Recompute selected variant now to ensure we send the correct variantId for product-level adds
+    const findSelectedVariantNow = () => {
+      if (!variants || !variants.length) return null;
+      // try exact match on material, size and color
+      const byExact = variants.find((v) => {
+        const variantMat = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+        const variantMatId = variantMat
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        const variantSize = (v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') + '';
+        const variantColor = String(v?.color || '');
+        const variantColorId = variantColor
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        const matchesMat = selectedMaterial ? variantMatId === String(selectedMaterial) : true;
+        const matchesSize = selectedSize ? String(variantSize) === String(selectedSize) : true;
+        const matchesColor = selectedColor && colors.length ? variantColorId === String(selectedColor) : true;
+        return matchesMat && matchesSize && matchesColor;
+      });
+      if (byExact) return byExact;
+
+      // fallback: match material and color (exact id)
+      if (selectedMaterial && selectedColor && colors.length) {
+        const byMatColor = variants.find((v) => {
+          const vm = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+          const vid = vm
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          const vc = String(v?.color || '');
+          const vidColor = vc
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          return vid === String(selectedMaterial) && vidColor === String(selectedColor);
+        });
+        if (byMatColor) return byMatColor;
+      }
+
+      // fallback: match material only (exact id)
+      if (selectedMaterial) {
+        const byMat = variants.find((v) => {
+          const vm = String(v?.material || v?.materialLabel || (Array.isArray(v?.materials) ? v.materials[0] : '') || '');
+          const vid = vm
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          return vid === String(selectedMaterial);
+        });
+        if (byMat) return byMat;
+      }
+
+      // fallback: match size only (only when variants support sizes)
+      if (hasVariantSizes && selectedSize) {
+        const bySize = variants.find((v) => String(v?.size || v?.sizeCm || v?.sizeLabel || v?.label || '') === String(selectedSize));
+        if (bySize) return bySize;
+      }
+
+      return variants[0];
+    };
+
+    const selectedNow = findSelectedVariantNow();
+
     const payload = isCharm
       ? {
           bracelet: null,
@@ -430,18 +505,45 @@ export default function ProductDetailPage({ params }) {
             {
               slotIndex: 0,
               charmProductId: product._id,
-              charmVariantCode: selectedVariant.code || selectedVariant.variantCode || selectedVariant.code || '',
+              charmVariantCode: selectedNow?.code || selectedNow?.variantCode || selectedVariant?.code || selectedVariant?.variantCode || '',
             },
           ],
         }
       : {
-          bracelet: { productId: product._id, variantCode: selectedVariant.code || selectedVariant.variantCode || selectedVariant.code || '', sizeCm: selectedSize },
+          bracelet: { productId: product._id, variantCode: selectedNow?.code || selectedNow?.variantCode || selectedVariant?.code || selectedVariant?.variantCode || '', sizeCm: selectedSize },
           items: [],
         };
 
     try {
-      // proceed without debug logs
-      let res = await api.addBundleToCart(payload);
+      // For non-charm products prefer legacy addProductToCart (so they appear as product lines in cart)
+      let res = null;
+      if (!isCharm) {
+        try {
+          const variantIdentifier = selectedNow?._id || selectedVariant?._id || selectedNow?.id || selectedVariant?.id || selectedNow?.variantCode || selectedVariant?.variantCode || selectedNow?.code || selectedVariant?.code || null;
+          const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1 });
+          try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+          const lineId = prodRes?.data?.lineId || prodRes?.data?._id || prodRes?.lineId || null;
+          if (buyNow && lineId) {
+            try {
+              sessionStorage.setItem(
+                'checkout:productLineIds',
+                JSON.stringify({ productLineIds: [String(lineId)], at: Date.now() }),
+              );
+            } catch (e) {}
+            setToast({ type: 'success', message: 'Đã thêm và chuyển tới thanh toán' });
+            return { type: 'product', id: String(lineId) };
+          }
+          setToast({ type: 'success', message: buyNow ? 'Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng' : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ''})` });
+          return { type: 'product', id: lineId };
+        } catch (eProd) {
+          // fallback to bundle flow below if product-level add fails
+          // eslint-disable-next-line no-console
+          console.warn('addProductToCart failed, falling back to addBundleToCart', eProd?.message || eProd);
+        }
+      }
+
+      // proceed to try bundle path (either because isCharm or product-level add failed)
+      res = await api.addBundleToCart(payload);
       // proceed without debug logs
       if (!res || !res.valid) {
         // Prefer structured errors from backend if available
@@ -466,7 +568,7 @@ export default function ProductDetailPage({ params }) {
           // retry charm payload (no debug log)
           const res2 = await api.addBundleToCart(charmPayload);
           // no debug log
-        if (res2 && res2.valid) {
+      if (res2 && res2.valid) {
             const bundleId2 = res2?.data?.bundleId || res2?.data?._id || null;
             setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
             // notify header and other listeners that cart changed
@@ -594,6 +696,8 @@ export default function ProductDetailPage({ params }) {
       }
       const bundleId = res?.data?.bundleId || res?.data?._id || null;
       setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
+      // Ensure cart UI updates immediately after adding a bundle
+      try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
       return { type: 'bundle', id: bundleId };
     } catch (e) {
       // Debug: log error
