@@ -4,6 +4,33 @@ import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 
+// Helpers to resolve variant/product metadata for friendly display
+const findVariant = (product, identifier) => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  if (!identifier) return variants[0] || null;
+  const idLike = /^[a-f0-9]{24}$/i.test(String(identifier));
+  if (idLike) {
+    return (
+      variants.find((v) => String(v?._id || v?.id) === String(identifier)) ||
+      variants.find((v) => String(v?.code) === String(identifier) || String(v?.variantCode) === String(identifier)) ||
+      variants[0] ||
+      null
+    );
+  }
+  return (
+    variants.find((v) => String(v?.code) === String(identifier) || String(v?.variantCode) === String(identifier)) ||
+    variants.find((v) => String(v?._id || v?.id) === String(identifier)) ||
+    variants[0] ||
+    null
+  );
+};
+
+const firstImage = (product, variantIdentifier) => {
+  const v = findVariant(product, variantIdentifier);
+  const img = v?.images?.[0] || null;
+  return typeof img === "string" && img.trim() ? img : null;
+};
+
 const readCheckoutBundleIds = () => {
   try {
     const raw = sessionStorage.getItem("checkout:bundleIds");
@@ -88,6 +115,32 @@ export default function CheckoutPage() {
       setLoading(false);
     }
   };
+
+  // product metadata map for friendly labels (productId -> product doc)
+  const [productMetaMap, setProductMetaMap] = useState(new Map());
+
+  // fetch product meta for product lines present in cart (so we can show product.name)
+  useEffect(() => {
+    let cancelled = false;
+    const loadMeta = async () => {
+      try {
+        const ids = Array.from(new Set(((cart?.products || []).map((p) => String(p.productId)).filter(Boolean))));
+        if (!ids.length) {
+          setProductMetaMap(new Map());
+          return;
+        }
+        const ps = await Promise.all(ids.map((id) => api.getProductByIdPublic(id).catch(() => null)));
+        if (cancelled) return;
+        const m = new Map();
+        for (let i = 0; i < ids.length; i++) if (ps[i]) m.set(String(ids[i]), ps[i]);
+        setProductMetaMap(m);
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadMeta();
+    return () => { cancelled = true; };
+  }, [cart?.products]);
 
   useEffect(() => {
     refresh();
@@ -414,11 +467,22 @@ export default function CheckoutPage() {
                   {(productLineIds || []).map((lineId) => {
                     const pl = (cart?.products || []).find((p) => String(p._id) === String(lineId));
                     if (!pl) return null;
+
+                    // Friendly display: prefer product meta name and show classification (size · material · color)
+                    const prodMeta = productMetaMap.get(String(pl.productId)) || null;
+                    const displayName = prodMeta?.name || pl?.name || pl?.productName || "Sản phẩm";
+                    // try to resolve variant details from prodMeta if available
+                    const variant = prodMeta ? findVariant(prodMeta, pl?.variantId || pl?.variantCode || '') : null;
+                    const size = pl?.size || variant?.size || variant?.sizeCm || null;
+                    const material = pl?.material || variant?.material || null;
+                    const color = pl?.color || variant?.color || null;
+                    const classification = [size, material, color].filter(Boolean).join(' · ');
+
                     return (
                       <div key={String(lineId)} className="checkout-line">
                         <div>
                           <div className="checkout-lineTitle">Sản phẩm</div>
-                          <div className="checkout-lineMeta">{pl?.variantId || ''}</div>
+                          <div className="checkout-lineMeta">{displayName}{classification ? ` · ${classification}` : ''}</div>
                           <div className="checkout-lineQty">x{pl.quantity || 1}</div>
                         </div>
                         <div className="checkout-linePrice">{formatPrice((Number(pl.price) || 0) * (Number(pl.quantity) || 1))}</div>
