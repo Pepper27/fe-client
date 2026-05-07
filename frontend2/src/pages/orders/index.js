@@ -286,17 +286,40 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="orders-orderActions">
-                        <button
-                          type="button"
-                          className="orders-btn"
-                          onClick={() =>
-                            navigate(
-                              `/orders/detail/${encodeURIComponent(o.orderCode)}`,
-                            )
-                          }
-                        >
-                          Xem chi tiết
-                        </button>
+                          <button
+                            type="button"
+                            className="orders-btn"
+                            onClick={() =>
+                              navigate(
+                                `/orders/detail/${encodeURIComponent(o.orderCode)}`,
+                              )
+                            }
+                          >
+                            Xem chi tiết
+                          </button>
+                          {(["pending", "confirmed"].includes(o.status)) ? (
+                            <button
+                              type="button"
+                              className="orders-btn orders-btnSecondary"
+                              onClick={async () => {
+                                if (!window.confirm("Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?")) return;
+                                try {
+                                  const res = await api.v1ClientCancelOrder(o.orderCode, { reason: "Khách huỷ (list)" });
+                                  // Update list snapshot
+                                  setOrders((prev) => prev.map((p) => (p._id === res?.data?._id ? res.data : p)));
+                                  setToast({ type: "success", message: "Huỷ đơn thành công" });
+                                } catch (e) {
+                                  if (e?.status === 409) {
+                                    setToast({ type: "error", message: "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết." });
+                                  } else {
+                                    setToast({ type: "error", message: e?.message || "Huỷ đơn thất bại" });
+                                  }
+                                }
+                              }}
+                            >
+                              Huỷ
+                            </button>
+                          ) : null}
                       </div>
                     </div>
                   );
