@@ -261,9 +261,13 @@ export default function OrdersPage() {
                             {line?.name || "Sản phẩm"}
                           </div>
                           <div className="orders-itemMeta">
-                            {line?.variantId
-                              ? `SKU ${String(line.variantId).slice(-6)}`
-                              : ""}
+                            {(() => {
+                              const size = line?.size || line?.sizeText || line?.sizeCm || null;
+                              const material = line?.material || null;
+                              const color = line?.color || null;
+                              const parts = [size, material, color].filter(Boolean);
+                              return parts.length ? parts.join(' · ') : (line?.variantId ? `SKU ${String(line.variantId).slice(-6)}` : "");
+                            })()}
                           </div>
                         </div>
                         <div className="orders-itemRight">
