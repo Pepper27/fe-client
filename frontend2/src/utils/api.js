@@ -297,6 +297,15 @@ export const api = {
       },
     );
   },
+  // Cancel order (client)
+  v1ClientCancelOrder: (orderCode, { reason } = {}) => {
+    const token = readClientToken();
+    return request(`${V1_CLIENT}/orders/${encodeURIComponent(String(orderCode || "").trim())}/cancel`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify({ reason }),
+    });
+  },
 
   // Wishlist (requires legacy cookie auth currently)
   wishlistList: () => request(`/api/public/wishlist`),
