@@ -1,31 +1,83 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 
+// Helpers to resolve variant/product metadata for friendly display
+const findVariant = (product, identifier) => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  if (!identifier) return variants[0] || null;
+  const idLike = /^[a-f0-9]{24}$/i.test(String(identifier));
+  if (idLike) {
+    return (
+      variants.find((v) => String(v?._id || v?.id) === String(identifier)) ||
+      variants.find((v) => String(v?.code) === String(identifier) || String(v?.variantCode) === String(identifier)) ||
+      variants[0] ||
+      null
+    );
+  }
+  return (
+    variants.find((v) => String(v?.code) === String(identifier) || String(v?.variantCode) === String(identifier)) ||
+    variants.find((v) => String(v?._id || v?.id) === String(identifier)) ||
+    variants[0] ||
+    null
+  );
+};
+
+const firstImage = (product, variantIdentifier) => {
+  const v = findVariant(product, variantIdentifier);
+  const img = v?.images?.[0] || null;
+  return typeof img === "string" && img.trim() ? img : null;
+};
+
 const readCheckoutBundleIds = () => {
   try {
     const raw = sessionStorage.getItem("checkout:bundleIds");
-    if (!raw) return [];
+    if (raw === null) return null; // key not present
     const parsed = JSON.parse(raw);
-    const ids = Array.isArray(parsed?.bundleIds)
-      ? parsed.bundleIds.map(String)
-      : [];
+    const ids = Array.isArray(parsed?.bundleIds) ? parsed.bundleIds.map(String) : [];
     return ids.filter(Boolean);
   } catch {
-    return [];
+    return null;
+  }
+};
+
+const readCheckoutProductLineIds = () => {
+  try {
+    const raw = sessionStorage.getItem("checkout:productLineIds");
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw);
+    const ids = Array.isArray(parsed?.productLineIds) ? parsed.productLineIds.map(String) : [];
+    return ids.filter(Boolean);
+  } catch {
+    return null;
   }
 };
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const [bundleIds, setBundleIds] = useState(() => readCheckoutBundleIds());
+  const [bundleIds, setBundleIds] = useState(() => {
+    // priority: react-router location.state -> sessionStorage -> empty
+    try {
+      const fromNav = location && location.state && location.state.bundleIds ? location.state.bundleIds : null;
+      if (fromNav && fromNav.length) return fromNav.map(String);
+    } catch {}
+    return readCheckoutBundleIds();
+  });
+  const [productLineIds, setProductLineIds] = useState(() => {
+    try {
+      const fromNav = location && location.state && location.state.productLineIds ? location.state.productLineIds : null;
+      if (fromNav && fromNav.length) return fromNav.map(String);
+    } catch {}
+    return readCheckoutProductLineIds();
+  });
 
   // Addresses are client-only for now.
   const [addresses, setAddresses] = useState(() => {
@@ -64,17 +116,85 @@ export default function CheckoutPage() {
     }
   };
 
+  // product metadata map for friendly labels (productId -> product doc)
+  const [productMetaMap, setProductMetaMap] = useState(new Map());
+
+  // fetch product meta for product lines present in cart (so we can show product.name)
+  useEffect(() => {
+    let cancelled = false;
+    const loadMeta = async () => {
+      try {
+        const ids = Array.from(new Set(((cart?.products || []).map((p) => String(p.productId)).filter(Boolean))));
+        if (!ids.length) {
+          setProductMetaMap(new Map());
+          return;
+        }
+        const ps = await Promise.all(ids.map((id) => api.getProductByIdPublic(id).catch(() => null)));
+        if (cancelled) return;
+        const m = new Map();
+        for (let i = 0; i < ids.length; i++) if (ps[i]) m.set(String(ids[i]), ps[i]);
+        setProductMetaMap(m);
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadMeta();
+    return () => { cancelled = true; };
+  }, [cart?.products]);
+
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // If user directly enters /checkout without bundleIds, fallback to all cart bundles.
-    if (!bundleIds.length && (cart?.bundles || []).length) {
-      setBundleIds((cart.bundles || []).map((b) => String(b.bundleId)));
+    // Resolve selection priority carefully to avoid accidentally selecting all bundles
+    // Priority: explicit location.state (even empty array) -> sessionStorage (if key present) -> fallback select-all only when user directly entered /checkout (no nav/state/storage)
+    const navBundles = (location && location.state && Array.isArray(location.state.bundleIds)) ? location.state.bundleIds.map(String) : null;
+    const navProducts = (location && location.state && Array.isArray(location.state.productLineIds)) ? location.state.productLineIds.map(String) : null;
+    const storedBundles = readCheckoutBundleIds(); // returns array or null
+    const storedProducts = readCheckoutProductLineIds();
+
+    // debug
+    // eslint-disable-next-line no-console
+    console.debug('[checkout] navBundles=%o navProducts=%o storedBundles=%o storedProducts=%o cartBundles=%o cartProducts=%o', navBundles, navProducts, storedBundles, storedProducts, cart?.bundles || [], cart?.products || []);
+
+    // BUNDLES
+    if (Array.isArray(navBundles)) {
+      // explicit navigation provided bundleIds (possibly empty) -> respect it
+      setBundleIds(navBundles);
+      try { sessionStorage.setItem('checkout:bundleIds', JSON.stringify({ bundleIds: navBundles, at: Date.now() })); } catch {}
+    } else if (Array.isArray(storedBundles)) {
+      // sessionStorage contained the key (even empty array) -> respect it
+      setBundleIds(storedBundles);
+    } else {
+      // storedBundles === null (key absent)
+      // Only fallback to select-all when user directly landed on /checkout (no nav state and no stored keys)
+      const cameFromNav = Boolean(location && location.state);
+      if (!cameFromNav && (cart?.bundles || []).length) {
+        setBundleIds((cart.bundles || []).map((b) => String(b.bundleId)));
+      } else {
+        // do not auto-select bundles in mixed scenarios (e.g. productLine selected but no bundle key)
+        setBundleIds([]);
+      }
     }
-  }, [bundleIds.length, cart?.bundles]);
+
+    // PRODUCTS
+    if (Array.isArray(navProducts)) {
+      setProductLineIds(navProducts);
+      try { sessionStorage.setItem('checkout:productLineIds', JSON.stringify({ productLineIds: navProducts, at: Date.now() })); } catch {}
+    } else if (Array.isArray(storedProducts)) {
+      setProductLineIds(storedProducts);
+    } else {
+      const cameFromNav = Boolean(location && location.state);
+      if (!cameFromNav && (cart?.products || []).length) {
+        setProductLineIds((cart.products || []).map((p) => String(p._id)));
+      } else {
+        setProductLineIds([]);
+      }
+    }
+  // run when cart or navigation state changes
+  }, [cart?.bundles, cart?.products, location && location.state]);
 
   const selectedBundles = useMemo(() => {
     const bundles = cart?.bundles || [];
@@ -83,15 +203,21 @@ export default function CheckoutPage() {
   }, [cart?.bundles, bundleIds]);
 
   const total = useMemo(() => {
-    return (selectedBundles || []).reduce(
+    const bundlesTotal = (selectedBundles || []).reduce(
       (sum, b) =>
         sum +
         (Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1),
       0,
     );
-  }, [selectedBundles]);
 
-  const selectedCount = selectedBundles.length;
+    // include product lines
+    const products = cart?.products || [];
+    const selectedProducts = products.filter((p) => productLineIds && productLineIds.includes(String(p._id)));
+    const productsTotal = selectedProducts.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
+    return bundlesTotal + productsTotal;
+  }, [selectedBundles, productLineIds, cart?.products]);
+
+  const selectedCount = selectedBundles.length + (productLineIds ? productLineIds.length : 0);
 
   const selectedAddress = useMemo(() => {
     return (
@@ -154,6 +280,7 @@ export default function CheckoutPage() {
     try {
       const res = await api.checkoutBundles({
         bundleIds: selectedBundles.map((b) => String(b.bundleId)),
+        productLineIds: productLineIds && productLineIds.length ? productLineIds.map(String) : [],
         fullName: selectedAddress.fullName,
         phone: selectedAddress.phone,
         address: selectedAddress.address,
@@ -163,6 +290,7 @@ export default function CheckoutPage() {
       const code = res?.data?.orderCode;
       try {
         sessionStorage.removeItem("checkout:bundleIds");
+        sessionStorage.removeItem("checkout:productLineIds");
       } catch {
         // ignore
       }
@@ -307,7 +435,7 @@ export default function CheckoutPage() {
 
               {loading ? (
                 <div className="checkout-empty">Đang tải...</div>
-              ) : selectedBundles.length ? (
+              ) : selectedBundles.length || (productLineIds && productLineIds.length) ? (
                 <div className="checkout-lines">
                   {selectedBundles.map((b) => (
                     <div key={b.bundleId} className="checkout-line">
@@ -334,6 +462,33 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   ))}
+
+                  {/* Render selected product lines */}
+                  {(productLineIds || []).map((lineId) => {
+                    const pl = (cart?.products || []).find((p) => String(p._id) === String(lineId));
+                    if (!pl) return null;
+
+                    // Friendly display: prefer product meta name and show classification (size · material · color)
+                    const prodMeta = productMetaMap.get(String(pl.productId)) || null;
+                    const displayName = prodMeta?.name || pl?.name || pl?.productName || "Sản phẩm";
+                    // try to resolve variant details from prodMeta if available
+                    const variant = prodMeta ? findVariant(prodMeta, pl?.variantId || pl?.variantCode || '') : null;
+                    const size = pl?.size || variant?.size || variant?.sizeCm || null;
+                    const material = pl?.material || variant?.material || null;
+                    const color = pl?.color || variant?.color || null;
+                    const classification = [size, material, color].filter(Boolean).join(' · ');
+
+                    return (
+                      <div key={String(lineId)} className="checkout-line">
+                        <div>
+                          <div className="checkout-lineTitle">Sản phẩm</div>
+                          <div className="checkout-lineMeta">{displayName}{classification ? ` · ${classification}` : ''}</div>
+                          <div className="checkout-lineQty">x{pl.quantity || 1}</div>
+                        </div>
+                        <div className="checkout-linePrice">{formatPrice((Number(pl.price) || 0) * (Number(pl.quantity) || 1))}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="checkout-empty">

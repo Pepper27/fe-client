@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+import { useTransition } from "react";
 
 const statusKey = (s) => {
   const v = String(s || "");
@@ -33,6 +34,37 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState(null);
   const [toast, setToast] = useState(null);
+  const [isPending, startTransition] = useTransition();
+
+  const canCancel = (order) => {
+    if (!order) return false;
+    return ["pending", "confirmed"].includes(order.status);
+  };
+
+  const handleCancel = async () => {
+    if (!order) return;
+    if (!window.confirm("Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?")) return;
+    startTransition(async () => {
+      try {
+        const res = await api.v1ClientCancelOrder(order.orderCode, { reason: "Khách huỷ (frontend)" });
+        setOrder(res?.data || null);
+        setToast({ type: "success", message: "Huỷ đơn thành công" });
+      } catch (e) {
+        if (e?.status === 409) {
+          // Conflict - reload latest snapshot
+          try {
+            const fresh = await api.v1ClientOrderByCode(order.orderCode);
+            setOrder(fresh?.data || null);
+          } catch (err) {
+            // ignore
+          }
+          setToast({ type: "error", message: "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra lại." });
+        } else {
+          setToast({ type: "error", message: e?.message || "Huỷ đơn thất bại" });
+        }
+      }
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -160,9 +192,21 @@ export default function OrderDetailPage() {
               ))}
             </div>
 
-            <div className="orders-orderTotal">
-              Tổng số tiền: <strong>{formatPrice(order.totalPrice)}</strong>
-            </div>
+              <div className="orders-orderTotal">
+                Tổng số tiền: <strong>{formatPrice(order.totalPrice)}</strong>
+              </div>
+              <div className="mt-3">
+                {canCancel(order) ? (
+                  <button
+                    type="button"
+                    className="orders-btn orders-btnPrimary"
+                    onClick={handleCancel}
+                    disabled={isPending}
+                  >
+                    {isPending ? "Đang huỷ..." : "Huỷ đơn"}
+                  </button>
+                ) : null}
+              </div>
           </div>
         ) : (
           <div className="orders-empty">Không tìm thấy đơn</div>

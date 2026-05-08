@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router-dom";
 import { ProductCard } from "../../components/product-card";
 import Sidebar from "../../components/sidebar";
 import { api } from "../../utils/api";
-import { mapQueryToFilters } from "../../utils/productsUrl";
 import "./products.scss";
 
 function ProductsPage() {
@@ -28,67 +27,14 @@ function ProductsPage() {
       try {
         const qs = new URLSearchParams(location.search || "");
         const q = qs.get("q") || "";
-        // Prefer explicit categorySlug param
-        let categorySlug = qs.get("categorySlug") || "";
-        // Parse filters param (JSON) if present; otherwise parse short params
+        const categorySlug = qs.get("categorySlug") || "";
+        // Parse filters param (JSON) if present
         let filtersParam = undefined;
         try {
           const raw = qs.get('filters');
-          if (raw) {
-            filtersParam = JSON.parse(raw);
-            } else {
-             // Build object from short query params
-             const shortObj = Object.fromEntries(qs.entries());
-             filtersParam = mapQueryToFilters(shortObj);
-
-             // Resolve short category slugs/names into backend category ids and
-             // prefer setting categorySlug to the selected child slug when user
-             // selected a particular type (e.g., type=day-chuyen while current
-             // page categorySlug is the parent 'trang-suc'). This ensures the
-             // backend receives a precise categorySlug and category ids in
-             // filters.categories so server-side filtering works correctly.
-             try {
-               if (filtersParam && Array.isArray(filtersParam.categories) && filtersParam.categories.length) {
-                 // Ensure we have a global category list to resolve against
-                 if (!Array.isArray(window._allCategories) || !window._allCategories.length) {
-                   const catRes = await api.getCategories({ root: 0 });
-                   window._allCategories = Array.isArray(catRes?.data) ? catRes.data : [];
-                 }
-
-                 const allCats = Array.isArray(window._allCategories) ? window._allCategories : [];
-                 const resolved = [];
-                 let childSlug = null;
-                 for (const v of filtersParam.categories) {
-                   const sv = String(v || '').trim().toLowerCase();
-                   const found = allCats.find(c => String((c.slug || '')).trim().toLowerCase() === sv || String((c.name || '')).trim().toLowerCase() === sv || String((c._id || '')).trim() === sv);
-                   if (found) {
-                     resolved.push(String(found._id));
-                     childSlug = childSlug || (found.slug || null);
-                   } else {
-                     resolved.push(v);
-                   }
-                 }
-                 filtersParam.categories = resolved;
-                 if (childSlug) {
-                   // prefer child slug for accurate backend filtering
-                   categorySlug = childSlug;
-                 }
-               }
-             } catch (e) {
-               // ignore resolution errors and continue with original filtersParam
-             }
-           }
+          if (raw) filtersParam = JSON.parse(raw);
         } catch (e) {
           filtersParam = undefined;
-        }
-
-        // If we don't have explicit categorySlug but short param `type` exists, try to resolve it
-        if (!categorySlug) {
-          const shortType = qs.get('type');
-          if (shortType && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-            const found = window._allCategories.find(c => String((c.slug || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase());
-            if (found) categorySlug = found.slug || '';
-          }
         }
 
         // If a categorySlug is present, pass it directly to the API
@@ -115,9 +61,22 @@ function ProductsPage() {
           };
 
           // Debug - log values
+          console.log('First load:', {
+            productsLength: productsData.length,
+            total: total,
+            hasMore: productsData.length === 24 && productsData.length < total,
+            filters: filtersData
+          });
 
-           // Store filters data for sidebar (backend already provides counts)
-           setAvailableFilters(normalizedFilters);
+          // Store filters data for sidebar (backend already provides counts)
+          console.log('Setting availableFilters:', {
+            materials: normalizedFilters.materials?.length || 0,
+            colors: normalizedFilters.colors?.length || 0,
+            sizes: normalizedFilters.sizes?.length || 0,
+            priceRanges: normalizedFilters.price?.length || 0,
+          });
+          console.log('Full filters data from backend:', normalizedFilters);
+          setAvailableFilters(normalizedFilters);
 
           // Set hasMore to check if there are more products to load
           const totalPages = res?.meta?.totalPages || 1;
@@ -134,6 +93,13 @@ function ProductsPage() {
         }
         if (cancelled) return;
         // Debug: Log product structure
+        console.log('Loaded products:', productsData.slice(0, 2).map(p => ({
+          id: p._id,
+          name: p.name,
+          category: p.category,
+          type: p.type
+        })));
+
         setItems(productsData);
         setFilteredItems(productsData);
 
@@ -146,34 +112,14 @@ function ProductsPage() {
             // Find category by slug
             let found = allCats.find((c) => c.slug === categorySlug);
             if (found) {
-              // Find children of the current category
-              const children = allCats.filter((c) => {
-                const parents = [c.parent, c.parentId, c.parent_id, c.parentIdString];
-                return parents.some((pid) => pid !== undefined && String(pid) === String(found._id));
+              // Determine whether this is a leaf category (no children). If it's a leaf,
+              // show only this category in the sidebar "Loại sản phẩm" filter.
+              const hasChild = allCats.some((c) => {
+                const parentIds = [c.parent, c.parentId, c.parent_id, c.parentIdString];
+                return parentIds.some((pid) => pid !== undefined && String(pid) === String(found._id));
               });
-
-              if (children.length) {
-                // If current category has children, show those children in the
-                // "Loại sản phẩm" filter (parent view -> its direct children).
-                found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: children.map(c => c.name) } };
-              } else {
-                // Leaf category: per UX B, show siblings (other children of the same parent)
-                const parentId = found.parent || found.parentId || found.parent_id || found.parentIdString || null;
-                if (parentId) {
-                  const siblings = allCats.filter((c) => {
-                    const parents = [c.parent, c.parentId, c.parent_id, c.parentIdString];
-                    return parents.some((pid) => pid !== undefined && String(pid) === String(parentId));
-                  });
-                  if (siblings.length) {
-                    found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: siblings.map(c => c.name) } };
-                  } else {
-                    // fallback: show itself
-                    found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
-                  }
-                } else {
-                  // No parent info: fallback to showing itself
-                  found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
-                }
+              if (!hasChild) {
+                found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
               }
             }
             setCategory(found || null);
@@ -184,9 +130,8 @@ function ProductsPage() {
           setCategory(null);
         }
 
-        // Store all categories for hierarchical filtering so Sidebar can resolve
-        // category names -> slugs/ids when necessary. Keep defensive check.
-        if (Array.isArray(allCats)) window._allCategories = allCats;
+        // Store all categories for hierarchical filtering
+        window._allCategories = allCats;
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -216,11 +161,10 @@ function ProductsPage() {
     // mismatch with server-side paging/sorting.
     try {
       const qs = new URLSearchParams(location.search || "");
-      // If server-side filters are present in URL, the backend already returned
-      // filtered items and the fetch effect above set items/filteredItems. Skip
-      // additional client-side filtering but ensure filteredItems mirrors items
-      // to avoid stale UI.
-      if (qs.get('filters')) { setFilteredItems(items); return; }
+      // If server-side filters are present in URL, do not run client-side
+      // filtering here — the fetch effect will update items/filteredItems when
+      // the server response arrives.
+      if (qs.get('filters')) return;
     } catch (e) {
       // ignore and proceed with client-side filtering
     }
@@ -337,6 +281,9 @@ function ProductsPage() {
     const afterFilter = next.length;
 
     // Debug: Log filter results and first few products
+    console.log(`Filter results: ${beforeFilter} -> ${afterFilter} products`);
+    console.log("First 5 products filter results:", filterResults.slice(0, 5));
+
     // Apply sort
     if (activeSort && activeSort.value) {
       switch (activeSort.value) {
@@ -358,6 +305,7 @@ function ProductsPage() {
   }, [items, activeFilters, activeSort, location.search]);
 
   const handleFiltersChange = useCallback((filters) => {
+    console.log('Filters changed:', filters);
     setActiveFilters(filters || {});
   }, []);
 
@@ -373,25 +321,13 @@ function ProductsPage() {
       const nextPage = page + 1;
       const qs = new URLSearchParams(location.search || "");
       const q = qs.get("q") || "";
-      let categorySlug = qs.get("categorySlug") || "";
+      const categorySlug = qs.get("categorySlug") || "";
       let filtersParam = undefined;
       try {
         const raw = qs.get('filters');
-        if (raw) {
-          filtersParam = JSON.parse(raw);
-        } else {
-          const shortObj = Object.fromEntries(qs.entries());
-          filtersParam = mapQueryToFilters(shortObj);
-        }
+        if (raw) filtersParam = JSON.parse(raw);
       } catch (e) {
         filtersParam = undefined;
-      }
-      if (!categorySlug) {
-        const shortType = qs.get('type');
-        if (shortType && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-          const found = window._allCategories.find(c => String((c.slug || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase());
-          if (found) categorySlug = found.slug || '';
-        }
       }
 
       const res = await api.getProducts({
@@ -411,6 +347,12 @@ function ProductsPage() {
       const totalPages = res?.meta?.totalPages || 1;
 
       // Debug - log values
+      console.log('Load more:', {
+        currentPage: nextPage,
+        newItemsLength: newItems.length,
+        totalPages: totalPages,
+        hasMore: nextPage < totalPages
+      });
 
       setHasMore(nextPage < totalPages);
     } catch (error) {
@@ -484,12 +426,14 @@ function ProductsPage() {
           </aside>
           {/* Product List */}
           <main className="products-content">
-            <div className="products-grid" >
+            <div className="products-grid" key={location.search}>
               {loading && page === 1 ? (
                 <div className="loading-initial">Đang tải sản phẩm...</div>
               ) : (
                 <>
                   {/* Log dữ liệu (đã bọc trong Fragment) */}
+                  {console.log('Rendering filteredItems', filteredItems.length, filteredItems.map(fi => fi._id))}
+
                   {/* Map danh sách sản phẩm */}
                   {filteredItems.map((p) => {
                     const variants = p?.variants || [];

@@ -8,6 +8,22 @@ import { buildProductsUrl, mapQueryToFilters } from "../../../utils/productsUrl"
 const safeStr = (v) => String(v ?? "").trim();
 const isBlank = (v) => !safeStr(v);
 
+// Create a slug-like short identifier from a label (ASCII-only, lowercased)
+const toSlug = (s) => {
+  if (!s && s !== 0) return '';
+  try {
+    return String(s)
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-');
+  } catch (e) {
+    return String(s).trim().toLowerCase().replace(/\s+/g, '-');
+  }
+};
+
 export const HeaderMenu = ({ isOpen, onClose }) => {
   const [openSub, setOpenSub] = useState(null);
   const [allCategories, setAllCategories] = useState([]);
@@ -149,9 +165,9 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                 // onMouseLeave={() => closeWithDelay()}
               >
                 <div className="menu-top">
-                  <Link to={buildProductsUrl({ categorySlug: safeStr(item?.slug) })} className="menu-link">
-                    {item?.name}
-                  </Link>
+                <Link to={buildProductsUrl({ categorySlug: safeStr(item?.slug), type: toSlug(item?.name) })} className="menu-link">
+                  {item?.name}
+                </Link>
                   <FaAngleDown className="icon-down" />
                 </div>
               </li>
@@ -175,17 +191,17 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                 <div className="dropdown-box content-center">
                   {active ? (
                     <>
-                      <div className="dropdown-col">
-                        <span className="dropdown-title">DANH MỤC</span>
-                        <ul className="submenu">
-                          <li>
-                            <Link to={buildProductsUrl({ categorySlug: safeStr(active?.slug) })}>
-                              Xem tất cả
-                            </Link>
-                          </li>
-                          {children.map((c) => (
+                <div className="dropdown-col">
+                         <span className="dropdown-title">DANH MỤC</span>
+                         <ul className="submenu">
+                           <li>
+                              <Link to={buildProductsUrl({ categorySlug: safeStr(active?.slug), type: toSlug(active?.name) })}>
+                                Xem tất cả
+                              </Link>
+                           </li>
+                            {children.map((c) => (
                             <li key={c._id}>
-                              <Link to={buildProductsUrl({ categorySlug: safeStr(c?.slug) })}>
+                               <Link to={buildProductsUrl({ categorySlug: safeStr(c?.slug), type: toSlug(c?.name) })}>
                                 {c?.name}
                               </Link>
                             </li>

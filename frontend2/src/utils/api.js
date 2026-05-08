@@ -7,7 +7,7 @@ export function getApiBase() {
   
   // For development, use the hardcoded URL
   // In production, this should be set via environment variable or config.json
-  return process.env.NODE_ENV === 'development' ? "http://localhost:3866" : "http://localhost:3866";
+  return process.env.NODE_ENV === 'development' ? "http://localhost:3000" : "http://localhost:3000";
 }
 
 // Prefer v1 endpoints for new work.
@@ -72,7 +72,7 @@ export const api = {
     return request(`${V1_PUBLIC}/categories${suffix}`);
   },
   // filters: optional object that will be JSON.stringify'd and placed in `filters` query param
-  getProducts: ({ page, limit, q, categorySlug, filters, _ } = {}) => {
+  getProducts: ({ page, limit, q, categorySlug, filters, includeFilters = true, _ } = {}) => {
     const qs = new URLSearchParams();
     if (page !== undefined) qs.set("page", String(page));
     if (limit !== undefined) qs.set("limit", String(limit));
@@ -85,6 +85,7 @@ export const api = {
         // ignore invalid filters
       }
     }
+    if (includeFilters) qs.set('includeFilters', 'true');
     if (_) qs.set("_", String(_)); // Cache-busting parameter
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`${V1_PUBLIC}/products${suffix}`);
@@ -136,6 +137,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ bracelet, items }),
     }),
+  // Add a non-bundle product to cart (legacy products[])
+  addProductToCart: ({ productId, variantId, quantity } = {}) =>
+    request(`/api/public/cart/products`, {
+      method: "POST",
+      body: JSON.stringify({ productId, variantId, quantity }),
+    }),
   patchBundle: (bundleId, patch) =>
     request(`/api/public/cart/bundles/${encodeURIComponent(bundleId)}`, {
       method: "PATCH",
@@ -145,13 +152,24 @@ export const api = {
     request(`/api/public/cart/bundles/${encodeURIComponent(bundleId)}`, {
       method: "DELETE",
     }),
+  // Product-level cart operations
+  patchProduct: (lineId, patch) =>
+    request(`/api/public/cart/products/${encodeURIComponent(lineId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteProduct: (lineId) =>
+    request(`/api/public/cart/products/${encodeURIComponent(lineId)}`, {
+      method: "DELETE",
+    }),
 
   // Bundle-centric checkout + order tracking
-  checkoutBundles: ({ bundleIds, phone, fullName, address, email, method }) =>
+  checkoutBundles: ({ bundleIds, productLineIds, phone, fullName, address, email, method }) =>
     request(`/api/public/checkout`, {
       method: "POST",
       body: JSON.stringify({
         bundleIds,
+        productLineIds,
         phone,
         fullName,
         address,
@@ -278,6 +296,15 @@ export const api = {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       },
     );
+  },
+  // Cancel order (client)
+  v1ClientCancelOrder: (orderCode, { reason } = {}) => {
+    const token = readClientToken();
+    return request(`${V1_CLIENT}/orders/${encodeURIComponent(String(orderCode || "").trim())}/cancel`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: JSON.stringify({ reason }),
+    });
   },
 
   // Wishlist (requires legacy cookie auth currently)

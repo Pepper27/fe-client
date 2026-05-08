@@ -10,8 +10,10 @@ export const CategoryCard = ({ image, name, slug }) => {
       className="category-card-container"
       onClick={() => {
         if (!slug) return;
-        // Use canonical products URL builder so ProductsPage receives `filters` JSON
-        navigate(buildProductsUrl({ categorySlug: String(slug) }));
+        // Use canonical products URL builder with short `type` slug so URLs
+        // remain human-friendly (no backend _id). Keep categorySlug for
+        // backend accuracy.
+        navigate(buildProductsUrl({ categorySlug: String(slug), type: String(slug) }));
       }}
     >
       <img

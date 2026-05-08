@@ -142,15 +142,15 @@
 .cart2-bundleBody {
   padding: 14px 16px 16px;
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: 120px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 
 .cart2-thumb {
-  width: 150px;
-  height: 150px;
-  border-radius: 16px;
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
   border: 1px solid rgba(2, 31, 61, 0.10);
   background: radial-gradient(circle at 30% 25%, rgba(1, 126, 189, 0.12), rgba(1, 126, 189, 0.03) 55%, rgba(255,255,255,1) 100%);
   display: grid;
