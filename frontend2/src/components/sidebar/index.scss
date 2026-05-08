@@ -126,6 +126,19 @@
   gap: 12px;
   font-size: 16px;
   color: #1f1f1f;
+  transition: opacity 0.2s ease;
+}
+
+.filter-checkbox.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.filter-count {
+  margin-left: auto;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
 }
 
 .filter-checkbox input[type="checkbox"] {
@@ -163,6 +176,26 @@
   border: none;
   padding: 0;
   cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.color-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.color-count {
+  margin-left: auto;
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+.color-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
 }
 
 .color-swatch {
@@ -202,10 +235,26 @@
   color: #1f1f1f;
   transition: all 0.2s ease;
   background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .size-pill.is-selected {
   background: #111;
   color: #fff;
   border-color: #111;
+}
+
+.size-pill.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.size-count {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
 }
