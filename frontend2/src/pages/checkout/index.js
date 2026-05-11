@@ -79,6 +79,9 @@ export default function CheckoutPage() {
 
   const buyNowRef = React.useRef(null);
   const placedRef = React.useRef(false);
+  // When redirecting to external payment provider, set this flag so unmount
+  // cleanup does not delete the temporary buyNow line.
+  const paymentInProgressRef = React.useRef(false);
 
   useEffect(() => {
     buyNowRef.current = readCheckoutBuyNow();
@@ -87,7 +90,9 @@ export default function CheckoutPage() {
   // Cleanup abandoned buy-now line when leaving checkout.
   useEffect(() => {
     const cleanup = async () => {
-      if (placedRef.current) return;
+      // If user has placed order, or is in the middle of external payment,
+      // avoid deleting buyNow line here.
+      if (placedRef.current || paymentInProgressRef.current) return;
       const bn = buyNowRef.current;
       if (!bn || bn.kind !== 'product' || !bn.lineId) return;
       try {
@@ -348,6 +353,18 @@ export default function CheckoutPage() {
         email: selectedAddress.email,
         method,
       });
+      // If Zalopay flow was used, BE returns zalopay.orderUrl for redirect.
+      if (method === 'zalopay' && res && res.zalopay && res.zalopay.orderUrl) {
+        try {
+          paymentInProgressRef.current = true;
+          // Don't clear buyNow session keys yet; they will be cleared on confirm or on failure.
+          window.location.href = res.zalopay.orderUrl;
+          return; // navigation will unload the page
+        } catch (err) {
+          // fallback to standard flow
+          paymentInProgressRef.current = false;
+        }
+      }
       const code = res?.data?.orderCode;
       placedRef.current = true;
       try {
