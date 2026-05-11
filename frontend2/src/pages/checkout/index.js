@@ -55,6 +55,20 @@ const readCheckoutProductLineIds = () => {
   }
 };
 
+const readCheckoutBuyNow = () => {
+  try {
+    const raw = sessionStorage.getItem('checkout:buyNow');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.kind !== 'product') return null;
+    const lineId = parsed.lineId ? String(parsed.lineId) : '';
+    if (!lineId) return null;
+    return { kind: 'product', lineId, at: parsed.at || Date.now() };
+  } catch {
+    return null;
+  }
+};
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,20 +77,53 @@ export default function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
   const [toast, setToast] = useState(null);
 
+  const buyNowRef = React.useRef(null);
+  const placedRef = React.useRef(false);
+
+  useEffect(() => {
+    buyNowRef.current = readCheckoutBuyNow();
+  }, []);
+
+  // Cleanup abandoned buy-now line when leaving checkout.
+  useEffect(() => {
+    const cleanup = async () => {
+      if (placedRef.current) return;
+      const bn = buyNowRef.current;
+      if (!bn || bn.kind !== 'product' || !bn.lineId) return;
+      try {
+        await api.deleteProduct(bn.lineId);
+      } catch {
+        // ignore
+      }
+      try {
+        sessionStorage.removeItem('checkout:buyNow');
+        sessionStorage.removeItem('checkout:productLineIds');
+      } catch {
+        // ignore
+      }
+      try { window.dispatchEvent(new Event('cart:changed')); } catch {}
+    };
+
+    return () => {
+      // best-effort async cleanup
+      cleanup();
+    };
+  }, []);
+
   const [bundleIds, setBundleIds] = useState(() => {
     // priority: react-router location.state -> sessionStorage -> empty
     try {
       const fromNav = location && location.state && location.state.bundleIds ? location.state.bundleIds : null;
       if (fromNav && fromNav.length) return fromNav.map(String);
     } catch {}
-    return readCheckoutBundleIds();
+    return readCheckoutBundleIds() || [];
   });
   const [productLineIds, setProductLineIds] = useState(() => {
     try {
       const fromNav = location && location.state && location.state.productLineIds ? location.state.productLineIds : null;
       if (fromNav && fromNav.length) return fromNav.map(String);
     } catch {}
-    return readCheckoutProductLineIds();
+    return readCheckoutProductLineIds() || [];
   });
 
   // Addresses are client-only for now.
@@ -184,7 +231,21 @@ export default function CheckoutPage() {
       setProductLineIds(navProducts);
       try { sessionStorage.setItem('checkout:productLineIds', JSON.stringify({ productLineIds: navProducts, at: Date.now() })); } catch {}
     } else if (Array.isArray(storedProducts)) {
-      setProductLineIds(storedProducts);
+      // If stored ids don't match any current product line, attempt a safe recovery.
+      // This happens if older code accidentally stored cart._id instead of product line _id.
+      try {
+        const cartProductIds = (cart?.products || []).map((p) => String(p?._id)).filter(Boolean);
+        const stored = storedProducts.map(String);
+        const matchesAny = stored.some((id) => cartProductIds.includes(String(id)));
+        const isProbablyCartId = stored.length === 1 && String(cart?._id || '') && String(stored[0]) === String(cart._id);
+        if (!matchesAny && isProbablyCartId && cartProductIds.length) {
+          setProductLineIds(cartProductIds);
+        } else {
+          setProductLineIds(stored);
+        }
+      } catch {
+        setProductLineIds(storedProducts);
+      }
     } else {
       const cameFromNav = Boolean(location && location.state);
       if (!cameFromNav && (cart?.products || []).length) {
@@ -198,7 +259,7 @@ export default function CheckoutPage() {
 
   const selectedBundles = useMemo(() => {
     const bundles = cart?.bundles || [];
-    const set = new Set(bundleIds.map(String));
+    const set = new Set((bundleIds || []).map(String));
     return (bundles || []).filter((b) => set.has(String(b.bundleId)));
   }, [cart?.bundles, bundleIds]);
 
@@ -212,12 +273,12 @@ export default function CheckoutPage() {
 
     // include product lines
     const products = cart?.products || [];
-    const selectedProducts = products.filter((p) => productLineIds && productLineIds.includes(String(p._id)));
+    const selectedProducts = products.filter((p) => (productLineIds || []).includes(String(p._id)));
     const productsTotal = selectedProducts.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
     return bundlesTotal + productsTotal;
   }, [selectedBundles, productLineIds, cart?.products]);
 
-  const selectedCount = selectedBundles.length + (productLineIds ? productLineIds.length : 0);
+  const selectedCount = selectedBundles.length + (productLineIds || []).length;
 
   const selectedAddress = useMemo(() => {
     return (
@@ -288,12 +349,15 @@ export default function CheckoutPage() {
         method,
       });
       const code = res?.data?.orderCode;
+      placedRef.current = true;
       try {
         sessionStorage.removeItem("checkout:bundleIds");
         sessionStorage.removeItem("checkout:productLineIds");
+        sessionStorage.removeItem('checkout:buyNow');
       } catch {
         // ignore
       }
+      try { window.dispatchEvent(new Event('cart:changed')); } catch {}
       if (code) {
         navigate(`/orders?code=${encodeURIComponent(code)}`);
       } else {
@@ -301,6 +365,24 @@ export default function CheckoutPage() {
       }
     } catch (e) {
       setToast({ type: "error", message: e?.message || "Đặt hàng thất bại" });
+
+      // If this was a buy-now session, cleanup the temporary line so cart remains unchanged.
+      try {
+        const bn = buyNowRef.current;
+        if (bn && bn.kind === 'product' && bn.lineId) {
+          await api.deleteProduct(bn.lineId);
+          buyNowRef.current = null;
+          try {
+            sessionStorage.removeItem('checkout:buyNow');
+            sessionStorage.removeItem('checkout:productLineIds');
+          } catch {}
+          try { window.dispatchEvent(new Event('cart:changed')); } catch {}
+          // Return user to cart (traditional behavior on failed checkout)
+          navigate('/cart');
+        }
+      } catch {
+        // ignore
+      }
     } finally {
       setPlacing(false);
     }

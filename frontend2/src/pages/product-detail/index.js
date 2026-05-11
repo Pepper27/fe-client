@@ -515,31 +515,78 @@ export default function ProductDetailPage({ params }) {
         };
 
     try {
-      // For non-charm products prefer legacy addProductToCart (so they appear as product lines in cart)
+      // Prefer adding a normal product line so Checkout can render product details.
+      // Fall back to bundle flow if backend rejects product-line adds for this item.
       let res = null;
-      if (!isCharm) {
-        try {
-          const variantIdentifier = selectedNow?._id || selectedVariant?._id || selectedNow?.id || selectedVariant?.id || selectedNow?.variantCode || selectedVariant?.variantCode || selectedNow?.code || selectedVariant?.code || null;
-          const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1 });
-          try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
-          const lineId = prodRes?.data?.lineId || prodRes?.data?._id || prodRes?.lineId || null;
-          if (buyNow && lineId) {
-            try {
-              sessionStorage.setItem(
-                'checkout:productLineIds',
-                JSON.stringify({ productLineIds: [String(lineId)], at: Date.now() }),
-              );
-            } catch (e) {}
-            setToast({ type: 'success', message: 'Đã thêm và chuyển tới thanh toán' });
-            return { type: 'product', id: String(lineId) };
-          }
-          setToast({ type: 'success', message: buyNow ? 'Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng' : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ''})` });
-          return { type: 'product', id: lineId };
-        } catch (eProd) {
-          // fallback to bundle flow below if product-level add fails
-          // eslint-disable-next-line no-console
-          console.warn('addProductToCart failed, falling back to addBundleToCart', eProd?.message || eProd);
+      try {
+        // For product-line adds, backend expects a concrete variant id in most setups.
+        // Avoid falling back to codes for buyNow because it breaks exact matching in cart.
+        const variantIdentifier = selectedNow?._id || selectedVariant?._id || selectedNow?.id || selectedVariant?.id || null;
+        if (!variantIdentifier) {
+          setToast({ type: 'error', message: 'Không xác định được biến thể để mua ngay' });
+          return null;
         }
+        const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1, buyNow });
+        try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+
+        // Try to extract returned product line id from multiple possible shapes.
+        // IMPORTANT: Do NOT treat cart._id as a product line id.
+        let lineId = prodRes?.data?.lineId || prodRes?.lineId || null;
+        if (!lineId) {
+          const cartLike =
+            (prodRes && prodRes.data && Array.isArray(prodRes.data.products) ? prodRes.data : null) ||
+            (prodRes && Array.isArray(prodRes.products) ? prodRes : null) ||
+            (prodRes && prodRes.data && prodRes.data.cart && Array.isArray(prodRes.data.cart.products) ? prodRes.data.cart : null) ||
+            (prodRes && prodRes.cart && Array.isArray(prodRes.cart.products) ? prodRes.cart : null) ||
+            null;
+
+          const lines = cartLike?.products || [];
+          const wantProductId = String(product?._id || '');
+          const wantVariantId = String(variantIdentifier || '');
+
+          // Prefer exact match productId+variantId.
+          // For buyNow, do NOT fall back to productId-only because it can select a different line with a different quantity.
+          const exact = wantProductId && wantVariantId
+            ? (lines || []).find((p) => String(p?.productId) === wantProductId && String(p?.variantId) === wantVariantId)
+            : null;
+          const byProduct = (!buyNow && wantProductId)
+            ? (lines || []).find((p) => String(p?.productId) === wantProductId)
+            : null;
+          const foundLine = exact || byProduct || null;
+          lineId = foundLine?._id || foundLine?.id || null;
+        }
+
+        if (buyNow && lineId) {
+          try {
+            sessionStorage.setItem(
+              'checkout:productLineIds',
+              JSON.stringify({ productLineIds: [String(lineId)], at: Date.now() }),
+            );
+            // Mark this as a buy-now session so Checkout can cleanup on exit.
+            sessionStorage.setItem(
+              'checkout:buyNow',
+              JSON.stringify({ kind: 'product', lineId: String(lineId), at: Date.now() }),
+            );
+            // Ensure bundles are not accidentally selected.
+            sessionStorage.setItem(
+              'checkout:bundleIds',
+              JSON.stringify({ bundleIds: [], at: Date.now() }),
+            );
+          } catch (e) {}
+          setToast({ type: 'success', message: 'Đã thêm và chuyển tới thanh toán' });
+          return { type: 'product', id: String(lineId), productId: String(product?._id || ''), variantId: String(variantIdentifier) };
+        }
+
+        setToast({
+          type: 'success',
+          message: buyNow
+            ? 'Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng'
+            : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ''})`,
+        });
+        return { type: 'product', id: lineId, productId: String(product?._id || ''), variantId: String(variantIdentifier) };
+      } catch (eProd) {
+        // eslint-disable-next-line no-console
+        console.warn('addProductToCart failed, falling back to addBundleToCart', eProd?.message || eProd);
       }
 
       // proceed to try bundle path (either because isCharm or product-level add failed)
@@ -573,7 +620,7 @@ export default function ProductDetailPage({ params }) {
             setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
             // notify header and other listeners that cart changed
             try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
-            return bundleId2;
+            return { type: 'bundle', id: bundleId2 };
           }
           // replace res with res2 for further handling
           res = res2;
@@ -811,13 +858,13 @@ export default function ProductDetailPage({ params }) {
 
           {/* NHÓM NÚT MUA HÀNG */}
           <div className="action-buttons">
-            <button className="btn btn-buy" aria-disabled={addingBuyNow} onClick={async () => {
-              // MUA NGAY: add to cart then navigate to checkout
-              try {
-                setAddingBuyNow(true);
-                const result = await addSingleProductToCart({ buyNow: true });
-                // result may be { type: 'bundle'|'product', id } or null
-                if (result && result.type === 'bundle' && result.id) {
+             <button className="btn btn-buy" aria-disabled={addingBuyNow} onClick={async () => {
+               // MUA NGAY: add to cart then navigate to checkout
+               try {
+                 setAddingBuyNow(true);
+                 const result = await addSingleProductToCart({ buyNow: true });
+                 // result may be { type: 'bundle'|'product', id } or null
+                 if (result && result.type === 'bundle' && result.id) {
                   try {
                     sessionStorage.setItem(
                       'checkout:bundleIds',
@@ -825,19 +872,53 @@ export default function ProductDetailPage({ params }) {
                     );
                   } catch {}
                   window.location.href = '/checkout';
-                } else if (result && result.type === 'product' && result.id) {
-                  // productLineIds already persisted inside addSingleProductToCart for buyNow
-                  window.location.href = '/checkout';
-                } else {
-                  // fallback: navigate to cart
-                  window.location.href = '/cart';
-                }
-              } catch (e) {
-                // error handled in addSingleProductToCart
-              } finally {
-                setAddingBuyNow(false);
-              }
-            }}>MUA NGAY</button>
+                 } else if (result && result.type === 'product') {
+                   // Prefer checkout with explicit productLineIds
+                   if (result.id) {
+                     window.location.href = '/checkout';
+                     return;
+                   }
+
+                   // Defensive: if backend didn't return lineId, fetch cart and infer the line.
+                   try {
+                     const cartRes = await api.getCart();
+                     const lines = cartRes?.data?.products || [];
+                     const wantProductId = String(result.productId || product?._id || '');
+                     const wantVariantId = String(result.variantId || selectedVariant?._id || selectedVariant?.id || '');
+
+                     // For buy now, require exact match when possible to avoid picking another line with higher quantity.
+                     const exact = wantProductId && wantVariantId
+                       ? (lines || []).find((p) => String(p?.productId) === wantProductId && String(p?.variantId) === wantVariantId)
+                       : null;
+
+                     const found = exact || null;
+                     const lineId = found?._id || found?.id || null;
+                     if (lineId) {
+                       try {
+                         sessionStorage.setItem(
+                           'checkout:productLineIds',
+                           JSON.stringify({ productLineIds: [String(lineId)], at: Date.now() }),
+                         );
+                       } catch {}
+                       window.location.href = '/checkout';
+                       return;
+                     }
+                   } catch (e) {
+                     // ignore
+                   }
+
+                   // Fallback: navigate to cart
+                   window.location.href = '/cart';
+                 } else {
+                   // fallback: navigate to cart
+                   window.location.href = '/cart';
+                 }
+               } catch (e) {
+                 // error handled in addSingleProductToCart
+               } finally {
+                 setAddingBuyNow(false);
+               }
+             }}>MUA NGAY</button>
             <button
               className="btn btn-cart"
               aria-disabled={addingCart}
