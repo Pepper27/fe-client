@@ -175,6 +175,8 @@ export const api = {
         address,
         email,
         method,
+        // signal to BE that FE expects zalopay create flow
+        zalopayFlow: true,
       }),
     }).then((res) => {
       // Defensive: older backend versions returned HTTP 200 with { valid:false }.
@@ -193,6 +195,11 @@ export const api = {
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`/api/public/orders/lookup${suffix}`);
   },
+  zalopayConfirm: ({ appTransId, orderCode }) =>
+    request(`/api/public/zalopay/confirm`, {
+      method: 'POST',
+      body: JSON.stringify({ appTransId, orderCode }),
+    }),
   getOrderByCode: (orderCode) =>
     request(
       `/api/public/orders/${encodeURIComponent(String(orderCode || "").trim())}`,
