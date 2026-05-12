@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
+import Autosuggest from "react-autosuggest";
+import { useNavigate } from "react-router-dom";
 import { CiSearch, CiShoppingCart } from "react-icons/ci";
 import { IoCloseOutline } from "react-icons/io5";
 import { BsPerson } from "react-icons/bs";
@@ -10,13 +12,24 @@ import "./index.scss";
 import "../cartBadge.scss";
 import { Link } from "react-router-dom";
 import { api } from "../../../utils/api";
+import { formatPrice } from "../../../utils/format";
 import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
 
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
+  const navigate = useNavigate();
   const [me, setMe] = useState(null);
   const [wishlistCount, setWishlistCount] = useState(() => {
     try {
       return Array.isArray(getWishlist()) ? getWishlist().length : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [cartCount, setCartCount] = useState(() => {
+    try {
+      const cached = typeof window !== 'undefined' && window.sessionStorage ? window.sessionStorage.getItem('cart:cachedCount') : null;
+      return cached !== null ? Number(cached) : 0;
     } catch {
       return 0;
     }
@@ -84,14 +97,6 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     };
   }, []);
 
-  const [cartCount, setCartCount] = useState(() => {
-    try {
-      const cached = typeof window !== 'undefined' && window.sessionStorage ? window.sessionStorage.getItem('cart:cachedCount') : null;
-      return cached !== null ? Number(cached) : 0;
-    } catch {
-      return 0;
-    }
-  });
 
   useEffect(() => {
     // subscribe to wishlist updates and keep badge count in sync
@@ -104,6 +109,85 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     });
     return unsub;
   }, []);
+
+  // Search state
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchDebounce = useRef(null);
+
+  const fetchSuggestions = async (q) => {
+    if (!q || String(q).trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    setSearchLoading(true);
+    try {
+      const res = await api.getProducts({ q: String(q).trim(), limit: 6 });
+      const items = (res?.data && Array.isArray(res.data)) ? res.data : [];
+      const total = (res?.meta && Number(res.meta.total)) ? Number(res.meta.total) : items.length;
+      const max = 6;
+      const out = items.slice(0, max);
+      if (total > out.length) out.push({ __more: true, total });
+      setSuggestions(out);
+    } catch (err) {
+      setSuggestions([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const onSuggestionsFetchRequested = ({ value }) => {
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
+    searchDebounce.current = setTimeout(() => fetchSuggestions(value), 250);
+  };
+
+  const onSuggestionsClearRequested = () => setSuggestions([]);
+
+  const getSuggestionValue = (s) => s?.name || s?.slug || "";
+
+  // Ensure loading state is cleared when suggestions are removed
+  const onSuggestionsClearRequestedEnhanced = () => {
+    setSuggestions([]);
+    setSearchLoading(false);
+  };
+
+  const renderSuggestion = (s) => (
+    s.__more ? (
+      <div className="search-suggestion search-more">Xem thêm {s.total} sản phẩm</div>
+    ) : (
+      <div className="search-suggestion">
+        <div className="ss-left" style={{ minWidth: 96, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {s?.variants?.[0]?.images?.[0] ? (
+            <img
+              src={s.variants[0].images[0]}
+              alt={s.name || ""}
+              style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 6 }}
+            />
+          ) : (
+            <div className="ss-noimg" style={{ width: 96, height: 96, background: '#f3f4f6', borderRadius: 6 }} />
+          )}
+        </div>
+        <div className="ss-right">
+          <div className="ss-name">{s.name}</div>
+          <div className="ss-price">{formatPrice(Number(s?.variants?.[0]?.price) || 0)}</div>
+        </div>
+      </div>
+    )
+  );
+
+  const onSuggestionSelected = (event, { suggestion }) => {
+    // navigate to product detail or to product list for "see more"
+    if (suggestion.__more) {
+      navigate(`/products?q=${encodeURIComponent(String(query || "").trim())}`);
+      return;
+    }
+    if (suggestion?.slug) {
+      navigate(`/product/${suggestion.slug}`);
+    } else if (suggestion?._id) {
+      navigate(`/product/id/${suggestion._id}`);
+    }
+  };
 
   const onLogout = async () => {
     try {
@@ -135,16 +219,27 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
           <div className="right-group">
             {/* SEARCH DESKTOP (Ẩn trên mobile) */}
             <div className="search-wrapper desktop-only">
-              <input
-                data-search
-                type="text"
-                onChange={handleSearch}
-                placeholder="Mày cần tìm gì?"
+              <Autosuggest
+                suggestions={suggestions}
+                onSuggestionsFetchRequested={onSuggestionsFetchRequested}
+                onSuggestionsClearRequested={onSuggestionsClearRequestedEnhanced}
+                getSuggestionValue={getSuggestionValue}
+                renderSuggestion={renderSuggestion}
+                onSuggestionSelected={onSuggestionSelected}
+                inputProps={{
+                  value: query,
+                  onChange: (_e, { newValue }) => {
+                    setQuery(newValue);
+                    if (typeof handleSearch === "function") handleSearch(newValue);
+                  },
+                  placeholder: "Mày cần tìm gì?",
+                  'data-search': true,
+                }}
               />
               <button icon-search>
                 <CiSearch />
               </button>
-              <button icon-delete className="hidden" onClick={handleDelete}>
+              <button icon-delete className={query ? "" : "hidden"} onClick={() => { setQuery(''); setSuggestions([]); if (typeof handleDelete === 'function') handleDelete(); }}>
                 <IoCloseOutline />
               </button>
             </div>
