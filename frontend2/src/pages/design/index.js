@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+import toast from "react-hot-toast";
 
 const TYPES = [
   { code: "vong-tay-mem", label: "Vòng tay mềm" },
@@ -73,7 +74,6 @@ export default function DesignBuilder() {
   const [itemsBySlot, setItemsBySlot] = useState({});
   const [validation, setValidation] = useState(null);
   const [loadingBracelets, setLoadingBracelets] = useState(false);
-  const [toast, setToast] = useState(null);
   const [editBundleId, setEditBundleId] = useState(null);
 
   const [braceletImages, setBraceletImages] = useState(new Map());
@@ -118,7 +118,7 @@ export default function DesignBuilder() {
 
     const payload = readEditPayload();
     if (!payload) {
-      setToast({ type: "error", message: "Không tìm thấy design để sửa" });
+      toast.error("Không tìm thấy design để sửa");
       return;
     }
 
@@ -321,7 +321,7 @@ export default function DesignBuilder() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setToast({ type: "error", message: err.message || "Failed to load bracelets" });
+        toast.error(err.message || "Failed to load bracelets");
       })
       .finally(() => {
         if (!cancelled) setLoadingBracelets(false);
@@ -342,7 +342,7 @@ export default function DesignBuilder() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setToast({ type: "error", message: err.message || "Failed to load charms" });
+        toast.error(err.message || "Failed to load charms");
       });
     return () => {
       cancelled = true;
@@ -419,7 +419,7 @@ export default function DesignBuilder() {
           if (!cancelled) setValidation(res);
         })
         .catch((err) => {
-          if (!cancelled) setToast({ type: "error", message: err.message || "Validate failed" });
+          if (!cancelled) toast.error(err.message || "Validate failed");
         });
     }, 200);
     return () => {
@@ -775,7 +775,7 @@ export default function DesignBuilder() {
       : (SIZES.find((s) => hasStockForSize(s)) || sizeCm);
 
     if (!hasStockForSize(sizeCm) && desiredSize !== sizeCm) {
-      setToast({ type: "error", message: `Size ${sizeCm} hết hàng. Đã chuyển sang size ${desiredSize}.` });
+      toast.error(`Size ${sizeCm} hết hàng. Đã chuyển sang size ${desiredSize}.`);
       setSizeCm(desiredSize);
     }
 
@@ -805,11 +805,11 @@ export default function DesignBuilder() {
 
   const placeSelectedCharmToSlot = (slotIndex) => {
     if (!bracelet || !braceletVariantCode) {
-      setToast({ type: "error", message: "Hãy chọn vòng trước" });
+      toast.error("Hãy chọn vòng trước");
       return;
     }
     if (!selectedCharm || !selectedCharmVariantCode) {
-      setToast({ type: "error", message: "Hãy chọn charm trước" });
+      toast.error("Hãy chọn charm trước");
       return;
     }
     if (!canPlaceOnSlot(slotIndex)) return;
@@ -928,7 +928,7 @@ export default function DesignBuilder() {
 
   const addToCart = async () => {
     if (!bracelet || !braceletVariantCode) {
-      setToast({ type: "error", message: "Hãy chọn vòng trước" });
+      toast.error("Hãy chọn vòng trước");
       return;
     }
 
@@ -948,14 +948,14 @@ export default function DesignBuilder() {
 
     if (res?.valid === false) {
       setValidation(res);
-      setToast({ type: "error", message: "Thiết kế chưa hợp lệ" });
+      toast.error("Thiết kế chưa hợp lệ");
       return;
     }
     if (editBundleId) {
-      setToast({ type: "success", message: "Đã lưu thay đổi design" });
+      toast.success("Đã lưu thay đổi design");
       setEditBundleId(null);
     } else {
-      setToast({ type: "success", message: "Đã thêm thiết kế vào giỏ hàng" });
+      toast.success("Đã thêm thiết kế vào giỏ hàng");
     }
     // Persist a copy of this design in localStorage so design list remains
     try {
@@ -1368,18 +1368,6 @@ export default function DesignBuilder() {
         ) : null} */}
       </div>
 
-      {toast ? (
-        <div
-          className={
-            "fixed bottom-5 right-5 rounded-lg px-4 py-3 text-sm font-semibold shadow-lg " +
-            (toast.type === "error" ? "bg-red-600 text-white" : "bg-emerald-600 text-white")
-          }
-          role="status"
-          onClick={() => setToast(null)}
-        >
-          {toast.message}
-        </div>
-      ) : null}
     </div>
   );
 }

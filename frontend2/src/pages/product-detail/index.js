@@ -10,6 +10,7 @@ import { api } from "../../utils/api";
 import "./index.scss"; // Import file SCSS đẹp chuẩn
 import { InformationDetail } from "./info";
 import { formatPrice } from "../../utils/format";
+import toast from "react-hot-toast";
 
 // keep previous signature expecting props.params (used in original project)
 export default function ProductDetailPage({ params }) {
@@ -20,7 +21,6 @@ export default function ProductDetailPage({ params }) {
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
   const [addingBuyNow, setAddingBuyNow] = useState(false);
   const [addingCart, setAddingCart] = useState(false);
 
@@ -415,7 +415,7 @@ export default function ProductDetailPage({ params }) {
   const addSingleProductToCart = async ({ buyNow = false } = {}) => {
     // selectedVariant expected to be resolved
     if (!selectedVariant) {
-      setToast({ type: 'error', message: 'Vui lòng chọn biến thể sản phẩm' });
+      toast.error("Vui lòng chọn biến thể sản phẩm");
       return null;
     }
 
@@ -535,7 +535,7 @@ export default function ProductDetailPage({ params }) {
         // Avoid falling back to codes for buyNow because it breaks exact matching in cart.
         const variantIdentifier = selectedNow?._id || selectedVariant?._id || selectedNow?.id || selectedVariant?.id || null;
         if (!variantIdentifier) {
-          setToast({ type: 'error', message: 'Không xác định được biến thể để mua ngay' });
+          toast.error("Không xác định được biến thể để mua ngay");
           return null;
         }
         const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1, buyNow });
@@ -585,16 +585,15 @@ export default function ProductDetailPage({ params }) {
               JSON.stringify({ bundleIds: [], at: Date.now() }),
             );
           } catch (e) {}
-          setToast({ type: 'success', message: 'Đã thêm và chuyển tới thanh toán' });
+          toast.success("Đã thêm và chuyển tới thanh toán");
           return { type: 'product', id: String(lineId), productId: String(product?._id || ''), variantId: String(variantIdentifier) };
         }
 
-        setToast({
-          type: 'success',
-          message: buyNow
-            ? 'Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng'
-            : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ''})`,
-        });
+        toast.success(
+          buyNow
+            ? "Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng"
+            : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ""})`
+        );
         return { type: 'product', id: lineId, productId: String(product?._id || ''), variantId: String(variantIdentifier) };
       } catch (eProd) {
         // eslint-disable-next-line no-console
@@ -629,7 +628,7 @@ export default function ProductDetailPage({ params }) {
           // no debug log
             if (res2 && res2.valid) {
             const bundleId2 = res2?.data?.bundleId || res2?.data?._id || null;
-            setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
+            toast.success(buyNow ? "Đã thêm và chuyển tới thanh toán" : "Đã thêm giỏ hàng thành công!");
             // notify header and other listeners that cart changed
             if (!buyNow) await notifyCartChanged();
             return { type: 'bundle', id: bundleId2 };
@@ -731,12 +730,16 @@ export default function ProductDetailPage({ params }) {
             } catch (e) {
               // ignore sessionStorage errors
             }
-            setToast({ type: 'success', message: 'Đã thêm và chuyển tới thanh toán' });
+            toast.success("Đã thêm và chuyển tới thanh toán");
             return { type: 'product', id: String(lineId) };
           }
 
           // Non-buyNow: show success toast and return product line info for callers if needed
-          setToast({ type: 'success', message: buyNow ? 'Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng' : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ''})` });
+          toast.success(
+            buyNow
+              ? "Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng"
+              : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ""})`
+          );
           return { type: 'product', id: lineId };
         } catch (eProd) {
           // If fallback failed as well, show combined error info
@@ -749,12 +752,12 @@ export default function ProductDetailPage({ params }) {
           } catch (e) {
             // ignore
           }
-          setToast({ type: 'error', message: msg });
+          toast.error(msg);
           return null;
         }
       }
       const bundleId = res?.data?.bundleId || res?.data?._id || null;
-      setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
+      toast.success(buyNow ? "Đã thêm và chuyển tới thanh toán" : "Đã thêm giỏ hàng thành công!");
       // Ensure cart UI updates immediately after adding a bundle
       if (!buyNow) await notifyCartChanged();
       return { type: 'bundle', id: bundleId };
@@ -762,7 +765,7 @@ export default function ProductDetailPage({ params }) {
       // Debug: log error
       // eslint-disable-next-line no-console
       console.error('addSingleProductToCart error', e);
-      setToast({ type: 'error', message: e.message || 'Lỗi khi thêm giỏ hàng' });
+      toast.error(e.message || "Lỗi khi thêm giỏ hàng");
       return null;
     }
   };
@@ -995,18 +998,6 @@ export default function ProductDetailPage({ params }) {
           <InformationDetail />
         </div>
       </div>
-      {toast ? (
-        <div
-          className={
-            "fixed bottom-5 right-5 rounded-lg px-4 py-3 text-sm font-semibold shadow-lg " +
-            (toast.type === "error" ? "bg-red-600 text-white" : "bg-emerald-600 text-white")
-          }
-          role="status"
-          onClick={() => setToast(null)}
-        >
-          {toast.message}
-        </div>
-      ) : null}
     </div>
   );
 }

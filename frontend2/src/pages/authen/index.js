@@ -6,6 +6,7 @@ import { FaFacebookF, FaGoogle } from "react-icons/fa";
 import { api } from "../../utils/api";
 import { syncWishlistFromServer } from "../../utils/wishlist";
 import "./index.scss";
+import toast from "react-hot-toast";
 
 export default function Authentication() {
   const [searchParams] = useSearchParams();
@@ -16,7 +17,6 @@ export default function Authentication() {
     searchParams.get("tab") === "register" ? "register" : "login";
 
   const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState(null);
   const [me, setMe] = useState(null);
 
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
@@ -58,10 +58,7 @@ export default function Authentication() {
   }, []);
 
   const showError = (err, fallback) => {
-    setToast({
-      type: "error",
-      message: err?.message || fallback || "Có lỗi xảy ra",
-    });
+    toast.error(err?.message || fallback || "Có lỗi xảy ra");
   };
 
   const onLoginSubmit = async (e) => {
@@ -69,10 +66,8 @@ export default function Authentication() {
     if (busy) return;
     const email = String(loginForm.email || "").trim();
     const password = String(loginForm.password || "");
-    if (!email)
-      return setToast({ type: "error", message: "Vui lòng nhập email" });
-    if (!password)
-      return setToast({ type: "error", message: "Vui lòng nhập mật khẩu" });
+    if (!email) return toast.error("Vui lòng nhập email");
+    if (!password) return toast.error("Vui lòng nhập mật khẩu");
 
     setBusy(true);
     try {
@@ -103,7 +98,7 @@ export default function Authentication() {
       } catch (e) {
         // ignore merge errors
       }
-      setToast({ type: "success", message: "Đăng nhập thành công" });
+      toast.success("Đăng nhập thành công");
       window.dispatchEvent(new Event("auth:changed"));
       navigate("/", { replace: true });
     } catch (err) {
@@ -122,27 +117,17 @@ export default function Authentication() {
     const password = String(registerForm.password || "");
     const confirmPassword = String(registerForm.confirmPassword || "");
 
-    if (!fullName)
-      return setToast({ type: "error", message: "Vui lòng nhập họ và tên" });
-    if (!email)
-      return setToast({ type: "error", message: "Vui lòng nhập email" });
-    if (!password)
-      return setToast({ type: "error", message: "Vui lòng nhập mật khẩu" });
-    if (password.length < 6)
-      return setToast({ type: "error", message: "Mật khẩu tối thiểu 6 ký tự" });
+    if (!fullName) return toast.error("Vui lòng nhập họ và tên");
+    if (!email) return toast.error("Vui lòng nhập email");
+    if (!password) return toast.error("Vui lòng nhập mật khẩu");
+    if (password.length < 6) return toast.error("Mật khẩu tối thiểu 6 ký tự");
     if (password !== confirmPassword)
-      return setToast({
-        type: "error",
-        message: "Xác nhận mật khẩu không khớp",
-      });
+      return toast.error("Xác nhận mật khẩu không khớp");
 
     setBusy(true);
     try {
       await api.authRegister({ fullName, email, password, phone });
-      setToast({
-        type: "success",
-        message: "Đăng ký thành công. Vui lòng đăng nhập.",
-      });
+      toast.success("Đăng ký thành công. Vui lòng đăng nhập.");
       navigate("/authen", { replace: true });
     } catch (err) {
       showError(err, "Đăng ký thất bại");
@@ -156,22 +141,17 @@ export default function Authentication() {
     setForgotStep("email");
     setForgotOtp("");
     setForgotNewPassword("");
-    setToast(null);
   };
 
   const onForgotSendOtp = async () => {
     if (busy) return;
     const email = String(forgotEmail || "").trim();
-    if (!email)
-      return setToast({ type: "error", message: "Vui lòng nhập email" });
+    if (!email) return toast.error("Vui lòng nhập email");
 
     setBusy(true);
     try {
       await api.authForgotPassword({ email });
-      setToast({
-        type: "success",
-        message: "Đã gửi OTP. Vui lòng kiểm tra email.",
-      });
+      toast.success("Đã gửi OTP. Vui lòng kiểm tra email.");
       setForgotStep("reset");
     } catch (err) {
       showError(err, "Gửi OTP thất bại");
@@ -185,21 +165,15 @@ export default function Authentication() {
     const email = String(forgotEmail || "").trim();
     const otp = String(forgotOtp || "").trim();
     const newPassword = String(forgotNewPassword || "");
-    if (!email)
-      return setToast({ type: "error", message: "Vui lòng nhập email" });
-    if (!otp) return setToast({ type: "error", message: "Vui lòng nhập OTP" });
-    if (!newPassword)
-      return setToast({ type: "error", message: "Vui lòng nhập mật khẩu mới" });
-    if (newPassword.length < 6)
-      return setToast({ type: "error", message: "Mật khẩu tối thiểu 6 ký tự" });
+    if (!email) return toast.error("Vui lòng nhập email");
+    if (!otp) return toast.error("Vui lòng nhập OTP");
+    if (!newPassword) return toast.error("Vui lòng nhập mật khẩu mới");
+    if (newPassword.length < 6) return toast.error("Mật khẩu tối thiểu 6 ký tự");
 
     setBusy(true);
     try {
       await api.authResetPassword({ email, otp, newPassword });
-      setToast({
-        type: "success",
-        message: "Đổi mật khẩu thành công. Bạn có thể đăng nhập.",
-      });
+      toast.success("Đổi mật khẩu thành công. Bạn có thể đăng nhập.");
       setIsForgotOpen(false);
     } catch (err) {
       showError(err, "Đổi mật khẩu thất bại");
@@ -229,18 +203,6 @@ export default function Authentication() {
           </div>
         ) : null}
 
-        {toast && !isForgotOpen ? (
-          <div
-            className={
-              "auth-toast " +
-              (toast.type === "error" ? "auth-toastError" : "auth-toastSuccess")
-            }
-            role="status"
-            onClick={() => setToast(null)}
-          >
-            {toast.message}
-          </div>
-        ) : null}
 
         <div className="auth-tabs" role="tablist" aria-label="Tài khoản">
           <Link
@@ -475,21 +437,6 @@ export default function Authentication() {
               </>
             ) : null}
 
-            {toast ? (
-              <div
-                className={
-                  "auth-toast " +
-                  (toast.type === "error"
-                    ? "auth-toastError"
-                    : "auth-toastSuccess")
-                }
-                role="status"
-                style={{ marginTop: 14 }}
-                onClick={() => setToast(null)}
-              >
-                {toast.message}
-              </div>
-            ) : null}
 
             <button
               type="button"

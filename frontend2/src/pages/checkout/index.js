@@ -6,6 +6,7 @@ import { formatPrice } from "../../utils/format";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import toast from "react-hot-toast";
 
 // Fix for default marker icons when using webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -86,7 +87,6 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
-  const [toast, setToast] = useState(null);
   const [errors, setErrors] = useState({});
 
   const buyNowRef = React.useRef(null);
@@ -242,7 +242,7 @@ export default function CheckoutPage() {
       const res = await api.getCart();
       setCart(res?.data || null);
     } catch (e) {
-      setToast({ type: "error", message: e?.message || "Failed to load cart" });
+      toast.error(e?.message || "Failed to load cart");
     } finally {
       setLoading(false);
     }
@@ -553,11 +553,11 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!selectedCount) {
-      setToast({ type: "error", message: "Bạn chưa chọn design nào" });
+      toast.error("Bạn chưa chọn design nào");
       return;
     }
     if (!selectedAddress) {
-      setToast({ type: "error", message: "Vui lòng chọn địa chỉ giao hàng" });
+      toast.error("Vui lòng chọn địa chỉ giao hàng");
       return;
     }
     setPlacing(true);
@@ -594,12 +594,14 @@ export default function CheckoutPage() {
       }
           try { await notifyCartChanged(); } catch { }
       if (code) {
+        toast.success("Đặt hàng thành công");
         navigate(`/orders?code=${encodeURIComponent(code)}`);
       } else {
+        toast.success("Đặt hàng thành công");
         navigate("/orders");
       }
     } catch (e) {
-      setToast({ type: "error", message: e?.message || "Đặt hàng thất bại" });
+      toast.error(e?.message || "Đặt hàng thất bại");
 
       // If this was a buy-now session, cleanup the temporary line so cart remains unchanged.
       try {
@@ -1021,20 +1023,6 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {toast ? (
-          <div
-            className={
-              "checkout-toast " +
-              (toast.type === "error"
-                ? "checkout-toastError"
-                : "checkout-toastSuccess")
-            }
-            role="status"
-            onClick={() => setToast(null)}
-          >
-            {toast.message}
-          </div>
-        ) : null}
       </div>
     </div>
   );
