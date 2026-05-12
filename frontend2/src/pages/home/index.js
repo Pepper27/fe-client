@@ -31,6 +31,53 @@ export const Home = () => {
         }
         if (cancelled) return;
         setProducts(merged);
+
+        // If API products include collections (from backend change), derive unique collections
+        const colMap = new Map();
+        for (const p of merged || []) {
+          const cols = Array.isArray(p.collections) ? p.collections : [];
+          for (const c of cols) {
+            if (!c) continue;
+            const id = String(c._id || c.id || "");
+            if (!id) continue;
+            if (!colMap.has(id)) {
+              colMap.set(id, {
+                _id: c._id || id,
+                name: c.name || c.title || c.displayName || "",
+                slug: c.slug || "",
+                avatar: c.avatar || c.avatarUrl || c.image || null,
+              });
+            }
+          }
+        }
+        const derived = Array.from(colMap.values());
+        if (derived.length) {
+          // Prefer newest collections first when createdAt is available
+          derived.sort((a, b) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return tb - ta;
+          });
+          setCollections(derived);
+        } else {
+          // Fallback: fetch collections endpoint if products didn't include them
+          try {
+            const res = await api.getCollections();
+            if (cancelled) return;
+            let items = res?.data && Array.isArray(res.data) ? res.data : [];
+            // sort collections by createdAt descending when possible
+            items = items.slice().sort((a, b) => {
+              const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return tb - ta;
+            });
+            setCollections(items);
+          } catch (e) {
+            if (cancelled) return;
+            console.error("Failed to load collections (fallback)", e);
+            setCollections([]);
+          }
+        }
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -45,27 +92,8 @@ export const Home = () => {
   const discoveryItems = [
     // legacy static placeholders removed; collections will be fetched from API
   ];
-  
-  const [collections, setCollections] = useState([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await api.getCollections();
-        if (cancelled) return;
-        const items = res?.data && Array.isArray(res.data) ? res.data : [];
-        setCollections(items);
-      } catch (e) {
-        if (cancelled) return;
-        console.error('Failed to load collections', e);
-        setCollections([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [collections, setCollections] = useState([]);
   return (
     <>
       <ProductSignature />
@@ -187,13 +215,24 @@ export const Home = () => {
             const title = item.title || item.name || item.displayName || "";
             // Prefer array `images` field, then common string fields.
             let rawImage = null;
-            if (Array.isArray(item.images) && item.images.length) rawImage = item.images[0];
-            if (!rawImage) rawImage = item.avatar || item.image || item.coverImage || item.banner || item.thumbnail || null;
+            if (Array.isArray(item.images) && item.images.length)
+              rawImage = item.images[0];
+            if (!rawImage)
+              rawImage =
+                item.avatar ||
+                item.image ||
+                item.coverImage ||
+                item.banner ||
+                item.thumbnail ||
+                null;
 
             // Resolve URL: if absolute or root-relative use directly, otherwise fallback to provided string or placeholder
-            const image = typeof rawImage === 'string' && rawImage.trim()
-              ? (rawImage.match(/^https?:\/\//) || rawImage.startsWith('/') ? rawImage : rawImage)
-              : "../client/image/khampha.jpg";
+            const image =
+              typeof rawImage === "string" && rawImage.trim()
+                ? rawImage.match(/^https?:\/\//) || rawImage.startsWith("/")
+                  ? rawImage
+                  : rawImage
+                : "../client/image/khampha.jpg";
             const slug = item.slug || item._id || "";
             return (
               <div
@@ -203,15 +242,24 @@ export const Home = () => {
                 data-aos-delay={200 * (index + 1)}
               >
                 <div className="image-box">
-                  <Link to={`/collections/${encodeURIComponent(String(slug))}`} aria-label={title}>
+                  <Link
+                    to={`/products/collections/${encodeURIComponent(String(slug))}`}
+                    aria-label={title}
+                  >
                     <img src={image} alt={title} />
                   </Link>
                 </div>
-                <Link className="item-title" to={`/collections/${encodeURIComponent(String(slug))}`}>
+                <Link
+                  className="item-title"
+                  to={`/products/collections/${encodeURIComponent(String(slug))}`}
+                >
                   {title}
                 </Link>
                 <div className="mt-button">
-                  <Link className="btn-link" to={`/collections/${encodeURIComponent(String(slug))}`}>
+                  <Link
+                    className="btn-link"
+                    to={`/products/collections/${encodeURIComponent(String(slug))}`}
+                  >
                     MUA NGAY
                   </Link>
                 </div>

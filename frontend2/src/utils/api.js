@@ -2,12 +2,20 @@
 // (set by index.js after fetching /config.json) is honored even when
 // modules import this file before bootstrap runs.
 export function getApiBase() {
-  if (typeof window !== 'undefined' && window.__API_BASE) return window.__API_BASE;
-  if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_BASE) return process.env.REACT_APP_API_BASE;
-  
+  if (typeof window !== "undefined" && window.__API_BASE)
+    return window.__API_BASE;
+  if (
+    typeof process !== "undefined" &&
+    process.env &&
+    process.env.REACT_APP_API_BASE
+  )
+    return process.env.REACT_APP_API_BASE;
+
   // For development, use the hardcoded URL
   // In production, this should be set via environment variable or config.json
-  return process.env.NODE_ENV === 'development' ? "http://localhost:3000" : "http://localhost:3000";
+  return process.env.NODE_ENV === "development"
+    ? "http://localhost:3000"
+    : "http://localhost:3000";
 }
 
 // Prefer v1 endpoints for new work.
@@ -19,13 +27,13 @@ const request = async (path, options = {}) => {
   let finalPath = path;
   if (!options.method || options.method === "GET") {
     const timestamp = Date.now().toString();
-    if (path.includes('?')) {
+    if (path.includes("?")) {
       finalPath = `${path}&_=${timestamp}`;
     } else {
       finalPath = `${path}?_=${timestamp}`;
     }
   }
-  
+
   const res = await fetch(`${getApiBase()}${finalPath}`, {
     credentials: "include",
     ...options,
@@ -73,16 +81,24 @@ export const api = {
   },
   getBestSellers: ({ page, limit, categorySlug, _ } = {}) => {
     const qs = new URLSearchParams();
-  
+
     if (page !== undefined) qs.set("page", String(page));
     if (limit !== undefined) qs.set("limit", String(limit));
     if (categorySlug) qs.set("categorySlug", String(categorySlug));
-    if (_) qs.set("_", String(_)); 
+    if (_) qs.set("_", String(_));
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
-  
+
     return request(`${V1_PUBLIC}/products/best-sellers${suffix}`);
   },
-  getProducts: ({ page, limit, q, categorySlug, filters, includeFilters = true, _ } = {}) => {
+  getProducts: ({
+    page,
+    limit,
+    q,
+    categorySlug,
+    filters,
+    includeFilters = true,
+    _,
+  } = {}) => {
     const qs = new URLSearchParams();
     if (page !== undefined) qs.set("page", String(page));
     if (limit !== undefined) qs.set("limit", String(limit));
@@ -95,10 +111,39 @@ export const api = {
         // ignore invalid filters
       }
     }
-    if (includeFilters) qs.set('includeFilters', 'true');
+    if (includeFilters) qs.set("includeFilters", "true");
     if (_) qs.set("_", String(_)); // Cache-busting parameter
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`${V1_PUBLIC}/products${suffix}`);
+  },
+  getProductsByCollection: ({
+    collectionId,
+    page,
+    limit,
+    q,
+    categorySlug,
+    filters,
+    includeFilters = true,
+    _,
+  } = {}) => {
+    const qs = new URLSearchParams();
+    if (page !== undefined) qs.set("page", String(page));
+    if (limit !== undefined) qs.set("limit", String(limit));
+    if (q) qs.set("q", String(q));
+    if (categorySlug) qs.set("categorySlug", String(categorySlug));
+    if (filters !== undefined) {
+      try {
+        qs.set("filters", JSON.stringify(filters));
+      } catch (e) {
+        // ignore invalid filters
+      }
+    }
+    if (includeFilters) qs.set("includeFilters", "true");
+    if (_) qs.set("_", String(_)); // Cache-busting parameter
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(
+      `${V1_PUBLIC}/products/collection/${encodeURIComponent(String(collectionId || "").trim())}${suffix}`,
+    );
   },
   getProductBySlug: (slug) =>
     request(
@@ -151,7 +196,12 @@ export const api = {
   addProductToCart: ({ productId, variantId, quantity, buyNow } = {}) =>
     request(`/api/public/cart/products`, {
       method: "POST",
-      body: JSON.stringify({ productId, variantId, quantity, buyNow: buyNow === true }),
+      body: JSON.stringify({
+        productId,
+        variantId,
+        quantity,
+        buyNow: buyNow === true,
+      }),
     }),
   patchBundle: (bundleId, patch) =>
     request(`/api/public/cart/bundles/${encodeURIComponent(bundleId)}`, {
@@ -174,7 +224,15 @@ export const api = {
     }),
 
   // Bundle-centric checkout + order tracking
-  checkoutBundles: ({ bundleIds, productLineIds, phone, fullName, address, email, method }) =>
+  checkoutBundles: ({
+    bundleIds,
+    productLineIds,
+    phone,
+    fullName,
+    address,
+    email,
+    method,
+  }) =>
     request(`/api/public/checkout`, {
       method: "POST",
       body: JSON.stringify({
@@ -207,7 +265,7 @@ export const api = {
   },
   zalopayConfirm: ({ appTransId, orderCode }) =>
     request(`/api/public/zalopay/confirm`, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify({ appTransId, orderCode }),
     }),
   getOrderByCode: (orderCode) =>
@@ -317,11 +375,14 @@ export const api = {
   // Cancel order (client)
   v1ClientCancelOrder: (orderCode, { reason } = {}) => {
     const token = readClientToken();
-    return request(`${V1_CLIENT}/orders/${encodeURIComponent(String(orderCode || "").trim())}/cancel`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: JSON.stringify({ reason }),
-    });
+    return request(
+      `${V1_CLIENT}/orders/${encodeURIComponent(String(orderCode || "").trim())}/cancel`,
+      {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: JSON.stringify({ reason }),
+      },
+    );
   },
 
   // Wishlist (requires legacy cookie auth currently)

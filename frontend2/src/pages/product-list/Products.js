@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ProductCard } from "../../components/product-card";
 import Sidebar from "../../components/sidebar";
 import { api } from "../../utils/api";
@@ -18,8 +18,7 @@ function ProductsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [availableFilters, setAvailableFilters] = useState({});
   const location = useLocation();
-
-
+  const { collectionSlug } = useParams();
 
   useEffect(() => {
     let cancelled = false;
@@ -33,61 +32,101 @@ function ProductsPage() {
         // Parse filters param (JSON) if present; otherwise parse short params
         let filtersParam = undefined;
         try {
-          const raw = qs.get('filters');
+          const raw = qs.get("filters");
           if (raw) {
             filtersParam = JSON.parse(raw);
-            } else {
-             // Build object from short query params
-             const shortObj = Object.fromEntries(qs.entries());
-             filtersParam = mapQueryToFilters(shortObj);
+          } else {
+            // Build object from short query params
+            const shortObj = Object.fromEntries(qs.entries());
+            filtersParam = mapQueryToFilters(shortObj);
 
-             // Resolve short category slugs/names into backend category ids and
-             // prefer setting categorySlug to the selected child slug when user
-             // selected a particular type (e.g., type=day-chuyen while current
-             // page categorySlug is the parent 'trang-suc'). This ensures the
-             // backend receives a precise categorySlug and category ids in
-             // filters.categories so server-side filtering works correctly.
-             try {
-               if (filtersParam && Array.isArray(filtersParam.categories) && filtersParam.categories.length) {
-                 // Ensure we have a global category list to resolve against
-                 if (!Array.isArray(window._allCategories) || !window._allCategories.length) {
-                   const catRes = await api.getCategories({ root: 0 });
-                   window._allCategories = Array.isArray(catRes?.data) ? catRes.data : [];
-                 }
+            // Resolve short category slugs/names into backend category ids and
+            // prefer setting categorySlug to the selected child slug when user
+            // selected a particular type (e.g., type=day-chuyen while current
+            // page categorySlug is the parent 'trang-suc'). This ensures the
+            // backend receives a precise categorySlug and category ids in
+            // filters.categories so server-side filtering works correctly.
+            try {
+              if (
+                filtersParam &&
+                Array.isArray(filtersParam.categories) &&
+                filtersParam.categories.length
+              ) {
+                // Ensure we have a global category list to resolve against
+                if (
+                  !Array.isArray(window._allCategories) ||
+                  !window._allCategories.length
+                ) {
+                  const catRes = await api.getCategories({ root: 0 });
+                  window._allCategories = Array.isArray(catRes?.data)
+                    ? catRes.data
+                    : [];
+                }
 
-                 const allCats = Array.isArray(window._allCategories) ? window._allCategories : [];
-                 const resolved = [];
-                 let childSlug = null;
-                 for (const v of filtersParam.categories) {
-                   const sv = String(v || '').trim().toLowerCase();
-                   const found = allCats.find(c => String((c.slug || '')).trim().toLowerCase() === sv || String((c.name || '')).trim().toLowerCase() === sv || String((c._id || '')).trim() === sv);
-                   if (found) {
-                     resolved.push(String(found._id));
-                     childSlug = childSlug || (found.slug || null);
-                   } else {
-                     resolved.push(v);
-                   }
-                 }
-                 filtersParam.categories = resolved;
-                 if (childSlug) {
-                   // prefer child slug for accurate backend filtering
-                   categorySlug = childSlug;
-                 }
-               }
-             } catch (e) {
-               // ignore resolution errors and continue with original filtersParam
-             }
-           }
+                const allCats = Array.isArray(window._allCategories)
+                  ? window._allCategories
+                  : [];
+                const resolved = [];
+                let childSlug = null;
+                for (const v of filtersParam.categories) {
+                  const sv = String(v || "")
+                    .trim()
+                    .toLowerCase();
+                  const found = allCats.find(
+                    (c) =>
+                      String(c.slug || "")
+                        .trim()
+                        .toLowerCase() === sv ||
+                      String(c.name || "")
+                        .trim()
+                        .toLowerCase() === sv ||
+                      String(c._id || "").trim() === sv,
+                  );
+                  if (found) {
+                    resolved.push(String(found._id));
+                    childSlug = childSlug || found.slug || null;
+                  } else {
+                    resolved.push(v);
+                  }
+                }
+                filtersParam.categories = resolved;
+                if (childSlug) {
+                  // prefer child slug for accurate backend filtering
+                  categorySlug = childSlug;
+                }
+              }
+            } catch (e) {
+              // ignore resolution errors and continue with original filtersParam
+            }
+          }
         } catch (e) {
           filtersParam = undefined;
         }
 
         // If we don't have explicit categorySlug but short param `type` exists, try to resolve it
         if (!categorySlug) {
-          const shortType = qs.get('type');
-          if (shortType && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-            const found = window._allCategories.find(c => String((c.slug || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase());
-            if (found) categorySlug = found.slug || '';
+          const shortType = qs.get("type");
+          if (
+            shortType &&
+            typeof window !== "undefined" &&
+            Array.isArray(window._allCategories)
+          ) {
+            const found = window._allCategories.find(
+              (c) =>
+                String(c.slug || "")
+                  .trim()
+                  .toLowerCase() ===
+                  String(shortType || "")
+                    .trim()
+                    .toLowerCase() ||
+                String(c.name || "")
+                  .trim()
+                  .toLowerCase() ===
+                  String(shortType || "")
+                    .trim()
+                    .toLowerCase(),
+            );
+            if (found) categorySlug = found.slug || "";
           }
         }
 
@@ -96,14 +135,24 @@ function ProductsPage() {
         let productsData = [];
         try {
           // Fetch first page only with limit 24
-          const res = await api.getProducts({
-            page: 1,
-            limit: 24,
-            q,
-            categorySlug: categorySlug,
-            filters: filtersParam,
-            includeFilters: true,
-          });
+          const res = collectionSlug
+            ? await api.getProductsByCollection({
+                collectionId: collectionSlug,
+                page: 1,
+                limit: 24,
+                q,
+                categorySlug: categorySlug,
+                filters: filtersParam,
+                includeFilters: true,
+              })
+            : await api.getProducts({
+                page: 1,
+                limit: 24,
+                q,
+                categorySlug: categorySlug,
+                filters: filtersParam,
+                includeFilters: true,
+              });
           productsData = res?.data || [];
           const total = res?.meta?.total || 0;
           const filtersData = res?.filters || {};
@@ -116,20 +165,23 @@ function ProductsPage() {
 
           // Debug - log values
 
-           // Store filters data for sidebar (backend already provides counts)
-           setAvailableFilters(normalizedFilters);
+          // Store filters data for sidebar (backend already provides counts)
+          setAvailableFilters(normalizedFilters);
 
           // Set hasMore to check if there are more products to load
           const totalPages = res?.meta?.totalPages || 1;
           setHasMore(productsData.length === 24 && page < totalPages);
         } catch (err) {
-          console.error('Error fetching products:', err);
+          console.error("Error fetching products:", err);
           // Fallback to getting bracelets and charms if products endpoint fails
           const [braceletsRes, charmsRes] = await Promise.all([
             api.getBracelets({}),
             api.getCharms({}),
           ]);
-          productsData = [...(braceletsRes?.data || []), ...(charmsRes?.data || [])];
+          productsData = [
+            ...(braceletsRes?.data || []),
+            ...(charmsRes?.data || []),
+          ];
           setHasMore(false); // No more products if fallback is used
         }
         if (cancelled) return;
@@ -148,31 +200,76 @@ function ProductsPage() {
             if (found) {
               // Find children of the current category
               const children = allCats.filter((c) => {
-                const parents = [c.parent, c.parentId, c.parent_id, c.parentIdString];
-                return parents.some((pid) => pid !== undefined && String(pid) === String(found._id));
+                const parents = [
+                  c.parent,
+                  c.parentId,
+                  c.parent_id,
+                  c.parentIdString,
+                ];
+                return parents.some(
+                  (pid) =>
+                    pid !== undefined && String(pid) === String(found._id),
+                );
               });
 
               if (children.length) {
                 // If current category has children, show those children in the
                 // "Loại sản phẩm" filter (parent view -> its direct children).
-                found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: children.map(c => c.name) } };
+                found = {
+                  ...found,
+                  filterOptions: {
+                    ...(found.filterOptions || {}),
+                    category: children.map((c) => c.name),
+                  },
+                };
               } else {
                 // Leaf category: per UX B, show siblings (other children of the same parent)
-                const parentId = found.parent || found.parentId || found.parent_id || found.parentIdString || null;
+                const parentId =
+                  found.parent ||
+                  found.parentId ||
+                  found.parent_id ||
+                  found.parentIdString ||
+                  null;
                 if (parentId) {
                   const siblings = allCats.filter((c) => {
-                    const parents = [c.parent, c.parentId, c.parent_id, c.parentIdString];
-                    return parents.some((pid) => pid !== undefined && String(pid) === String(parentId));
+                    const parents = [
+                      c.parent,
+                      c.parentId,
+                      c.parent_id,
+                      c.parentIdString,
+                    ];
+                    return parents.some(
+                      (pid) =>
+                        pid !== undefined && String(pid) === String(parentId),
+                    );
                   });
                   if (siblings.length) {
-                    found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: siblings.map(c => c.name) } };
+                    found = {
+                      ...found,
+                      filterOptions: {
+                        ...(found.filterOptions || {}),
+                        category: siblings.map((c) => c.name),
+                      },
+                    };
                   } else {
                     // fallback: show itself
-                    found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
+                    found = {
+                      ...found,
+                      filterOptions: {
+                        ...(found.filterOptions || {}),
+                        category: [found.name],
+                      },
+                    };
                   }
                 } else {
                   // No parent info: fallback to showing itself
-                  found = { ...found, filterOptions: { ...(found.filterOptions || {}), category: [found.name] } };
+                  found = {
+                    ...found,
+                    filterOptions: {
+                      ...(found.filterOptions || {}),
+                      category: [found.name],
+                    },
+                  };
                 }
               }
             }
@@ -220,7 +317,10 @@ function ProductsPage() {
       // filtered items and the fetch effect above set items/filteredItems. Skip
       // additional client-side filtering but ensure filteredItems mirrors items
       // to avoid stale UI.
-      if (qs.get('filters')) { setFilteredItems(items); return; }
+      if (qs.get("filters")) {
+        setFilteredItems(items);
+        return;
+      }
     } catch (e) {
       // ignore and proceed with client-side filtering
     }
@@ -239,26 +339,35 @@ function ProductsPage() {
 
         // Check if product category matches any selected category or their children
         const allCats = window._allCategories || [];
-        const isProductInSelectedCategory = f.categories.some(selectedCatId => {
-          const selectedCatIdStr = String(selectedCatId);
-          const prodCatIdStr = String(prodCatId);
+        const isProductInSelectedCategory = f.categories.some(
+          (selectedCatId) => {
+            const selectedCatIdStr = String(selectedCatId);
+            const prodCatIdStr = String(prodCatId);
 
-          // Direct match
-          if (selectedCatIdStr === prodCatIdStr) {
-            return true;
-          }
-
-          // Check if selected category is parent of product category
-          const isParent = allCats.some(cat => {
-            if (String(cat._id) === prodCatIdStr) {
-              const parentIds = [cat.parent, cat.parentId, cat.parent_id, cat.parentIdString];
-              return parentIds.some(pid => pid && String(pid) === selectedCatIdStr);
+            // Direct match
+            if (selectedCatIdStr === prodCatIdStr) {
+              return true;
             }
-            return false;
-          });
 
-          return isParent;
-        });
+            // Check if selected category is parent of product category
+            const isParent = allCats.some((cat) => {
+              if (String(cat._id) === prodCatIdStr) {
+                const parentIds = [
+                  cat.parent,
+                  cat.parentId,
+                  cat.parent_id,
+                  cat.parentIdString,
+                ];
+                return parentIds.some(
+                  (pid) => pid && String(pid) === selectedCatIdStr,
+                );
+              }
+              return false;
+            });
+
+            return isParent;
+          },
+        );
 
         if (!isProductInSelectedCategory) {
           return false;
@@ -280,14 +389,14 @@ function ProductsPage() {
 
         // Try to get from tags as fallback
         if (Array.isArray(p.tags)) {
-          p.tags.forEach(tag => {
-            if (typeof tag === 'string') productValues.push(String(tag));
+          p.tags.forEach((tag) => {
+            if (typeof tag === "string") productValues.push(String(tag));
           });
         }
 
-        return values.some(val => {
+        return values.some((val) => {
           const sval = String(val).trim().toLowerCase();
-          return productValues.some(pv => pv.toLowerCase().includes(sval));
+          return productValues.some((pv) => pv.toLowerCase().includes(sval));
         });
       };
 
@@ -298,7 +407,9 @@ function ProductsPage() {
 
       // price: simple range parsing based on the labels used in sidebar
       if (Array.isArray(f.price) && f.price.length) {
-        const price = Number((p.variants && p.variants[0] && p.variants[0].price) || 0);
+        const price = Number(
+          (p.variants && p.variants[0] && p.variants[0].price) || 0,
+        );
         const ok = f.price.some((label) => {
           if (label.indexOf("Dưới") === 0) {
             const n = Number(label.replace(/[^0-9]/g, "")) || 0;
@@ -309,7 +420,9 @@ function ProductsPage() {
             return price >= n;
           }
           // range like 1.000.001đ - 2.500.000đ
-          const parts = label.split("-").map((s) => Number(String(s).replace(/[^0-9]/g, "")));
+          const parts = label
+            .split("-")
+            .map((s) => Number(String(s).replace(/[^0-9]/g, "")));
           if (parts.length === 2) {
             const [min, max] = parts;
             return price >= min && price <= max;
@@ -325,11 +438,11 @@ function ProductsPage() {
     const beforeFilter = next.length;
 
     // Debug each product filtering
-    const filterResults = next.map(p => {
+    const filterResults = next.map((p) => {
       const result = matchesFilters(p);
       return {
         name: p.name,
-        included: result
+        included: result,
       };
     });
 
@@ -340,14 +453,22 @@ function ProductsPage() {
     // Apply sort
     if (activeSort && activeSort.value) {
       switch (activeSort.value) {
-        case 'price-asc':
-          next.sort((a, b) => ((a.variants?.[0]?.price || 0) - (b.variants?.[0]?.price || 0)));
+        case "price-asc":
+          next.sort(
+            (a, b) =>
+              (a.variants?.[0]?.price || 0) - (b.variants?.[0]?.price || 0),
+          );
           break;
-        case 'price-desc':
-          next.sort((a, b) => ((b.variants?.[0]?.price || 0) - (a.variants?.[0]?.price || 0)));
+        case "price-desc":
+          next.sort(
+            (a, b) =>
+              (b.variants?.[0]?.price || 0) - (a.variants?.[0]?.price || 0),
+          );
           break;
-        case 'newest':
-          next.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        case "newest":
+          next.sort(
+            (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+          );
           break;
         default:
           break;
@@ -376,7 +497,7 @@ function ProductsPage() {
       let categorySlug = qs.get("categorySlug") || "";
       let filtersParam = undefined;
       try {
-        const raw = qs.get('filters');
+        const raw = qs.get("filters");
         if (raw) {
           filtersParam = JSON.parse(raw);
         } else {
@@ -387,10 +508,28 @@ function ProductsPage() {
         filtersParam = undefined;
       }
       if (!categorySlug) {
-        const shortType = qs.get('type');
-        if (shortType && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-          const found = window._allCategories.find(c => String((c.slug || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(shortType || '').trim().toLowerCase());
-          if (found) categorySlug = found.slug || '';
+        const shortType = qs.get("type");
+        if (
+          shortType &&
+          typeof window !== "undefined" &&
+          Array.isArray(window._allCategories)
+        ) {
+          const found = window._allCategories.find(
+            (c) =>
+              String(c.slug || "")
+                .trim()
+                .toLowerCase() ===
+                String(shortType || "")
+                  .trim()
+                  .toLowerCase() ||
+              String(c.name || "")
+                .trim()
+                .toLowerCase() ===
+                String(shortType || "")
+                  .trim()
+                  .toLowerCase(),
+          );
+          if (found) categorySlug = found.slug || "";
         }
       }
 
@@ -404,7 +543,7 @@ function ProductsPage() {
       });
 
       const newItems = res?.data || [];
-      setItems(prev => [...prev, ...newItems]);  // Append new items
+      setItems((prev) => [...prev, ...newItems]); // Append new items
       setPage(nextPage);
 
       // Update hasMore - kiểm tra nếu có còn page tiếp theo không
@@ -414,7 +553,7 @@ function ProductsPage() {
 
       setHasMore(nextPage < totalPages);
     } catch (error) {
-      console.error('Error loading more products:', error);
+      console.error("Error loading more products:", error);
     } finally {
       setLoadingMore(false);
     }
@@ -432,7 +571,7 @@ function ProductsPage() {
           <>
             {typeof category.banner === "string" && category.banner.trim() ? (
               category.banner.match(/^https?:\/\//) ||
-                category.banner.startsWith("/") ? (
+              category.banner.startsWith("/") ? (
                 <img
                   src={category.banner}
                   alt={category.name || "Banner"}
@@ -484,7 +623,7 @@ function ProductsPage() {
           </aside>
           {/* Product List */}
           <main className="products-content">
-            <div className="products-grid" >
+            <div className="products-grid">
               {loading && page === 1 ? (
                 <div className="loading-initial">Đang tải sản phẩm...</div>
               ) : (
@@ -498,14 +637,16 @@ function ProductsPage() {
 
                     // Tính giá thấp nhất
                     const prices = variants
-                      .map(v => Number(v?.price || 0))
-                      .filter(n => Number.isFinite(n));
+                      .map((v) => Number(v?.price || 0))
+                      .filter((n) => Number.isFinite(n));
                     const price = prices.length ? Math.min(...prices) : 0;
 
                     // Xác định hình dạng card
                     const catName = category?.name || "";
                     const slug = (category && category.slug) || "";
-                    const shouldSquare = /nhấ?n|nhẫn|charm/i.test(catName) || /nhan|charm/i.test(slug);
+                    const shouldSquare =
+                      /nhấ?n|nhẫn|charm/i.test(catName) ||
+                      /nhan|charm/i.test(slug);
 
                     return (
                       <ProductCard
@@ -530,7 +671,7 @@ function ProductsPage() {
                     disabled={loadingMore}
                     className="load-more-button"
                   >
-                    {loadingMore ? 'Đang tải...' : 'Xem thêm'}
+                    {loadingMore ? "Đang tải..." : "Xem thêm"}
                   </button>
                 </div>
               )}
