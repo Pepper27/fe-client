@@ -21,6 +21,7 @@ import ZaloPayReturn from "./pages/zalopay-return";
 import ProductCreatePage from "./pages/admin/ProductCreatePage";
 import TestAPICall from "./components/TestAPICall";
 import SimpleAPITest from "./components/SimpleAPITest";
+import BestSellersPage from "./pages/product-bestseller/BestSellersPage";
 
 // Load runtime config (public/config.json) so the API base can be injected at deploy time
 async function loadRuntimeConfig() {
@@ -67,6 +68,7 @@ function renderApp() {
           }
         />
         <Route path="/products" element={<Products />} />
+        <Route path="/products/best-sellers" element={<BestSellersPage />} />
         <Route path="/product/:slug" element={<ProductDetailPageWrapper />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/authen" element={<Authentication />} />
