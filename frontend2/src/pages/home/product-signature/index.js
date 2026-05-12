@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ProductCard } from "../../../components/product-card/index";
 import { api } from "../../../utils/api";
 import "./index.scss";
 
 export const ProductSignature = () => {
   const [items, setItems] = useState([]);
-
+  const navigate = useNavigate(); 
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -13,7 +14,7 @@ export const ProductSignature = () => {
         // Prefer v1 unified product catalog. Fallback to legacy lists.
         let merged = [];
         try {
-          const v1 = await api.getProducts({ page: 1, limit: 12 });
+          const v1 = await api.getBestSellers({ page: 1, limit: 4 });
           merged = v1?.data || [];
         } catch {
           const [braceletsRes, charmsRes] = await Promise.all([
@@ -34,7 +35,9 @@ export const ProductSignature = () => {
       cancelled = true;
     };
   }, []);
-
+  const handleWatchNow = () => {
+    navigate("/products/best-sellers"); 
+  };
   return (
     <section className="product-signature-wrapper">
       <div className="container">
@@ -42,8 +45,8 @@ export const ProductSignature = () => {
         <div className="product-grid-layout">
           {items.map((item) => {
             const firstVariant = (item?.variants || [])[0] || null;
-            const image = (firstVariant?.images || [])[0] || "";
-            const price = firstVariant?.price ?? 0;
+            const image = item.thumbnail?.[0] || item.variants?.[0]?.images?.[0] || "";
+            const price = item.priceMin ?? item.variants?.[0]?.price ?? 0;
             return (
               <ProductCard
                 key={item._id}
@@ -56,8 +59,9 @@ export const ProductSignature = () => {
             );
           })}
         </div>
-        <div className="btnWatch">
-          <button className="btn">XEM NGAY</button>
+       <div className="btnWatch">
+         
+          <button className="btn" onClick={handleWatchNow}>XEM NGAY</button>
         </div>
       </div>
     </section>

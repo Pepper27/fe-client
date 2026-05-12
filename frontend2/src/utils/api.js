@@ -71,7 +71,17 @@ export const api = {
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`${V1_PUBLIC}/categories${suffix}`);
   },
-  // filters: optional object that will be JSON.stringify'd and placed in `filters` query param
+  getBestSellers: ({ page, limit, categorySlug, _ } = {}) => {
+    const qs = new URLSearchParams();
+  
+    if (page !== undefined) qs.set("page", String(page));
+    if (limit !== undefined) qs.set("limit", String(limit));
+    if (categorySlug) qs.set("categorySlug", String(categorySlug));
+    if (_) qs.set("_", String(_)); 
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+  
+    return request(`${V1_PUBLIC}/products/best-sellers${suffix}`);
+  },
   getProducts: ({ page, limit, q, categorySlug, filters, includeFilters = true, _ } = {}) => {
     const qs = new URLSearchParams();
     if (page !== undefined) qs.set("page", String(page));
