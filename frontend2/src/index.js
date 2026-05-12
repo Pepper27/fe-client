@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
+import { Toaster } from "react-hot-toast";
 import { Header } from "./components/header";
 import { BannerImage } from "./components/banner";
 import { Home } from "./pages/home";
@@ -83,6 +84,14 @@ function renderApp() {
         <Route path="/test-api" element={<TestAPICall />} />
         <Route path="/simple-test" element={<SimpleAPITest />} />
       </Routes>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          success: { duration: 2800 },
+          error: { duration: 3600 },
+        }}
+      />
       <Footer />
     </BrowserRouter>,
   );

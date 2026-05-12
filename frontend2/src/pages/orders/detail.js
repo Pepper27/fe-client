@@ -4,6 +4,7 @@ import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 import { useTransition } from "react";
+import toast from "react-hot-toast";
 
 const statusKey = (s) => {
   const v = String(s || "");
@@ -33,7 +34,6 @@ export default function OrderDetailPage() {
   const orderCode = String(params.orderCode || "").trim();
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState(null);
-  const [toast, setToast] = useState(null);
   const [isPending, startTransition] = useTransition();
 
   const canCancel = (order) => {
@@ -48,7 +48,7 @@ export default function OrderDetailPage() {
       try {
         const res = await api.v1ClientCancelOrder(order.orderCode, { reason: "Khách huỷ (frontend)" });
         setOrder(res?.data || null);
-        setToast({ type: "success", message: "Huỷ đơn thành công" });
+        toast.success("Huỷ đơn thành công");
       } catch (e) {
         if (e?.status === 409) {
           // Conflict - reload latest snapshot
@@ -58,9 +58,9 @@ export default function OrderDetailPage() {
           } catch (err) {
             // ignore
           }
-          setToast({ type: "error", message: "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra lại." });
+          toast.error("Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra lại.");
         } else {
-          setToast({ type: "error", message: e?.message || "Huỷ đơn thất bại" });
+          toast.error(e?.message || "Huỷ đơn thất bại");
         }
       }
     });
@@ -78,10 +78,7 @@ export default function OrderDetailPage() {
       })
       .catch((e) => {
         if (cancelled) return;
-        setToast({
-          type: "error",
-          message: e?.message || "Tải chi tiết thất bại",
-        });
+        toast.error(e?.message || "Tải chi tiết thất bại");
         setOrder(null);
       })
       .finally(() => {
@@ -212,20 +209,6 @@ export default function OrderDetailPage() {
           <div className="orders-empty">Không tìm thấy đơn</div>
         )}
 
-        {toast ? (
-          <div
-            className={
-              "orders-toast " +
-              (toast.type === "error"
-                ? "orders-toastError"
-                : "orders-toastSuccess")
-            }
-            role="status"
-            onClick={() => setToast(null)}
-          >
-            {toast.message}
-          </div>
-        ) : null}
       </div>
     </div>
   );

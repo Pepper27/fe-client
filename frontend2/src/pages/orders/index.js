@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+import toast from "react-hot-toast";
 
 const statusLabel = (s) => {
   const v = String(s || "");
@@ -20,7 +21,6 @@ export default function OrdersPage() {
 
   const [me, setMe] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState(null);
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState("pending");
   const [guestEmail, setGuestEmail] = useState("");
@@ -93,7 +93,7 @@ export default function OrdersPage() {
       setOrders(res?.data || []);
     } catch (e) {
       setOrders([]);
-      setToast({ type: "error", message: e?.message || "Tải đơn thất bại" });
+      toast.error(e?.message || "Tải đơn thất bại");
     } finally {
       setLoading(false);
     }
@@ -111,15 +111,15 @@ export default function OrdersPage() {
       .trim()
       .toLowerCase();
     if (!email || !email.includes("@")) {
-      setToast({ type: "error", message: "Nhập email hợp lệ" });
+      toast.error("Nhập email hợp lệ");
       return;
     }
     setSendingEmail(true);
     try {
       const res = await api.emailOrders({ email });
-      setToast({ type: "success", message: res?.message || "Đã gửi email" });
+      toast.success(res?.message || "Đã gửi email");
     } catch (e) {
-      setToast({ type: "error", message: e?.message || "Gửi email thất bại" });
+      toast.error(e?.message || "Gửi email thất bại");
     } finally {
       setSendingEmail(false);
     }
@@ -307,12 +307,12 @@ export default function OrdersPage() {
                                   const res = await api.v1ClientCancelOrder(o.orderCode, { reason: "Khách huỷ (list)" });
                                   // Update list snapshot
                                   setOrders((prev) => prev.map((p) => (p._id === res?.data?._id ? res.data : p)));
-                                  setToast({ type: "success", message: "Huỷ đơn thành công" });
+                                  toast.success("Huỷ đơn thành công");
                                 } catch (e) {
                                   if (e?.status === 409) {
-                                    setToast({ type: "error", message: "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết." });
+                                    toast.error("Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.");
                                   } else {
-                                    setToast({ type: "error", message: e?.message || "Huỷ đơn thất bại" });
+                                    toast.error(e?.message || "Huỷ đơn thất bại");
                                   }
                                 }
                               }}
@@ -357,20 +357,6 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {toast ? (
-          <div
-            className={
-              "orders-toast " +
-              (toast.type === "error"
-                ? "orders-toastError"
-                : "orders-toastSuccess")
-            }
-            role="status"
-            onClick={() => setToast(null)}
-          >
-            {toast.message}
-          </div>
-        ) : null}
       </div>
     </div>
   );

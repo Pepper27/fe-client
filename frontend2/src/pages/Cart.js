@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
 import "./Cart.scss";
 import { formatPrice } from "../utils/format";
+import toast from "react-hot-toast";
 
 // Find variant by identifier: prefer _id (or id), fallback to code/variantCode
 const findVariant = (product, identifier) => {
@@ -35,7 +36,6 @@ export default function Cart() {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
 
   const [charms, setCharms] = useState([]);
   const [loadingCharms, setLoadingCharms] = useState(false);
@@ -80,7 +80,7 @@ export default function Cart() {
         setProductMetaMap(new Map());
       }
     } catch (e) {
-      setToast({ type: "error", message: e.message || "Failed to load cart" });
+      toast.error(e.message || "Failed to load cart");
     } finally {
       setLoading(false);
     }
@@ -148,7 +148,7 @@ export default function Cart() {
     } catch (e) {
       // revert
       setCart(prev);
-      setToast({ type: "error", message: e.message || "Update failed" });
+      toast.error(e.message || "Update failed");
     }
   };
 
@@ -162,10 +162,10 @@ export default function Cart() {
         return next;
       });
       await api.patchProduct(lineId, { quantity });
-      setToast({ type: 'success', message: 'Cập nhật giỏ hàng thành công' });
+      toast.success("Cập nhật giỏ hàng thành công");
     } catch (e) {
       setCart(prev);
-      setToast({ type: 'error', message: e.message || 'Update failed' });
+      toast.error(e.message || "Update failed");
     }
   };
 
@@ -180,7 +180,7 @@ export default function Cart() {
       await api.deleteBundle(bundleId);
     } catch (e) {
       setCart(prev);
-      setToast({ type: "error", message: e.message || "Delete failed" });
+      toast.error(e.message || "Delete failed");
     }
   };
 
@@ -193,10 +193,10 @@ export default function Cart() {
         return next;
       });
       await api.deleteProduct(lineId);
-      setToast({ type: 'success', message: 'Xóa sản phẩm khỏi giỏ hàng thành công' });
+      toast.success("Xóa sản phẩm khỏi giỏ hàng thành công");
     } catch (e) {
       setCart(prev);
-      setToast({ type: 'error', message: e.message || 'Delete failed' });
+      toast.error(e.message || "Delete failed");
     }
   };
 
@@ -687,18 +687,6 @@ export default function Cart() {
           </div>
         </div>
 
-        {toast ? (
-          <div
-            className={
-              "cart2-toast " +
-              (toast.type === "error" ? "cart2-toastError" : "cart2-toastSuccess")
-            }
-            role="status"
-            onClick={() => setToast(null)}
-          >
-            {toast.message}
-          </div>
-        ) : null}
       </div>
     </div>
   );

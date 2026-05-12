@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+import toast from "react-hot-toast";
 
 const bundleKey = (b) => String(b?.bundleId || b?._id || b?._localId || "");
 
@@ -11,7 +12,6 @@ export default function DesignList() {
   const [cart, setCart] = useState(null);
   const [savedDesigns, setSavedDesigns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
 
   const STORAGE_KEY = "mixcharm:savedDesigns";
 
@@ -41,7 +41,7 @@ export default function DesignList() {
       setCart(res?.data || null);
       setSavedDesigns(loadSaved());
     } catch (e) {
-      setToast({ type: "error", message: e.message || "Failed to load designs" });
+      toast.error(e.message || "Failed to load designs");
     } finally {
       setLoading(false);
     }
@@ -105,7 +105,12 @@ export default function DesignList() {
           </div>
         </div>
 
-        <Link to="/design/mix" className="designlist-create" aria-label="Tạo design">
+        <Link
+          to="/design/mix"
+          className="designlist-create"
+          aria-label="Tạo design"
+          onClick={() => toast.success("Đang mở trang tạo design")}
+        >
           Tạo design
         </Link>
       </div>
@@ -162,24 +167,32 @@ export default function DesignList() {
                     <button type="button" className="designlist-btn" onClick={() => onEdit(b)}>
                       Sửa design
                     </button>
-                    <button
-                      type="button"
-                      className="designlist-btn designlist-btnDanger"
-                      onClick={() => {
-                        // remove from saved designs only
-                        try {
-                          const key = bundleKey(b);
-                          const next = (savedDesigns || []).filter((s) => bundleKey(s) !== key);
-                          setSavedDesigns(next);
-                          persistSaved(next);
-                          setToast({ type: "success", message: "Đã xóa design khỏi danh sách" });
-                        } catch {
-                          setToast({ type: "error", message: "Xoá thất bại" });
-                        }
-                      }}
-                    >
-                      Xóa design
-                    </button>
+                      <button
+                        type="button"
+                        className="designlist-btn designlist-btnDanger"
+                        onClick={async () => {
+                          try {
+                            const bundleId = b.bundleId || b._id || b._localId;
+                            if (bundleId) {
+                              // Remove from cart (server)
+                              await api.deleteBundle(bundleId);
+                            }
+                            // Remove from saved designs (client)
+                            const key = bundleKey(b);
+                            const next = (savedDesigns || []).filter((s) => bundleKey(s) !== key);
+                            setSavedDesigns(next);
+                            persistSaved(next);
+                            // Refresh cart and saved designs from server/storage
+                            await refresh();
+                            toast.success("Đã xóa design");
+                          } catch (err) {
+                            console.error(err);
+                            toast.error("Xoá design thất bại");
+                          }
+                        }}
+                      >
+                        Xóa design
+                      </button>
                   </div>
                 </div>
               );
@@ -192,17 +205,6 @@ export default function DesignList() {
         )}
       </div>
 
-      {toast ? (
-        <div
-          className={
-            "designlist-toast " + (toast.type === "error" ? "designlist-toastError" : "designlist-toastSuccess")
-          }
-          role="status"
-          onClick={() => setToast(null)}
-        >
-          {toast.message}
-        </div>
-      ) : null}
     </div>
   );
 }
