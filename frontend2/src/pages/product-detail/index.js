@@ -592,7 +592,7 @@ export default function ProductDetailPage({ params }) {
         toast.success(
           buyNow
             ? "Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng"
-            : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ""})`
+            : `Đã thêm giỏ hàng thành công!`,
         );
         return { type: 'product', id: lineId, productId: String(product?._id || ''), variantId: String(variantIdentifier) };
       } catch (eProd) {
