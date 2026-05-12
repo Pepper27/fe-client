@@ -283,3 +283,22 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.field-error {
+  color: #dc2626;
+  font-size: 13px;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.input-error {
+  border: 1px solid #dc2626 !important;
+  background: #fef2f2;
+}
+
+.input-error:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
