@@ -1,6 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  useParams,
+  Navigate,
+} from "react-router-dom";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
 import { Toaster } from "react-hot-toast";
@@ -27,16 +33,23 @@ import BestSellersPage from "./pages/product-bestseller/BestSellersPage";
 // Load runtime config (public/config.json) so the API base can be injected at deploy time
 async function loadRuntimeConfig() {
   try {
-    // For development, directly set the API base URL
-    // This bypasses any issues with config.json loading
-    // Use the backend default port for local development
-    // Backend in this workspace defaults to port 3861
-    window.__API_BASE = "http://localhost:3861";
-    
+    // Decide API base:
+    // - If FE is served from the backend origin, same-origin is correct.
+    // - If FE is served from CRA dev server (3000), default to the backend dev port.
+    // Backend in this repo defaults to 3861 (see Backend-charm/index.js).
+    if (process.env.REACT_APP_API_BASE) {
+      window.__API_BASE = process.env.REACT_APP_API_BASE;
+    } else if (process.env.NODE_ENV === "development") {
+      window.__API_BASE =
+        window.location.port === "3866"
+          ? "http://localhost:3861"
+          : window.location.origin;
+    }
+
     // In production, you can still try to load from config.json
-    if (process.env.NODE_ENV !== 'development') {
+    if (process.env.NODE_ENV !== "development") {
       try {
-        const res = await fetch('/config.json', { cache: 'no-store' });
+        const res = await fetch("/config.json", { cache: "no-store" });
         if (!res.ok) return;
         const cfg = await res.json();
         if (cfg && cfg.REACT_APP_API_BASE) {
@@ -44,12 +57,12 @@ async function loadRuntimeConfig() {
         }
       } catch (e) {
         // ignore — fallback to the hardcoded URL will be used
-        console.warn('Failed to load config.json, using fallback URL');
+        console.warn("Failed to load config.json, using fallback URL");
       }
     }
   } catch (e) {
     // ignore — fallback to env/default will be used
-    console.warn('Error in loadRuntimeConfig:', e);
+    console.warn("Error in loadRuntimeConfig:", e);
   }
 }
 
@@ -69,8 +82,13 @@ function renderApp() {
           }
         />
         <Route path="/products" element={<Products />} />
+        <Route
+          path="/products/collections/:collectionSlug"
+          element={<Products />}
+        />
         <Route path="/products/best-sellers" element={<BestSellersPage />} />
         <Route path="/product/:slug" element={<ProductDetailPageWrapper />} />
+        <Route path="/collections/:slug" element={<CollectionRedirect />} />
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/authen" element={<Authentication />} />
         <Route path="/design" element={<DesignList />} />
@@ -100,6 +118,16 @@ function renderApp() {
 function ProductDetailPageWrapper() {
   const { slug } = useParams();
   return <ProductDetailPage params={{ slug }} />;
+}
+
+function CollectionRedirect() {
+  const { slug } = useParams();
+  return (
+    <Navigate
+      to={`/products/collections/${encodeURIComponent(String(slug || "").trim())}`}
+      replace
+    />
+  );
 }
 
 // Load config then bootstrap the app
