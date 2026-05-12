@@ -217,6 +217,11 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
 
   const toggleOption = (filterKey, value) => {
     setSelectedFilters((prev) => {
+      if (filterKey === "category") {
+        const current = Array.isArray(prev[filterKey]) ? prev[filterKey] : [];
+        const isSame = current.length === 1 && String(current[0]) === String(value);
+        return { ...prev, [filterKey]: isSame ? [] : [value] };
+      }
       const cur = new Set(prev[filterKey] || []);
       if (cur.has(value)) cur.delete(value); else cur.add(value);
       return { ...prev, [filterKey]: Array.from(cur) };
@@ -240,7 +245,8 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           // item may already be an object; ensure it has _id and name
           const id = item._id ?? item.id ?? item.value ?? item.name ?? null;
           const name = item.name ?? item.title ?? String(id);
-          return { _id: id, name };
+          const slug = item.slug != null && String(item.slug).trim() ? String(item.slug).trim() : null;
+          return slug ? { _id: id, name, slug } : { _id: id, name };
         }).filter(Boolean);
       };
 
@@ -405,10 +411,19 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
         // ignore
       }
 
+      if (typeof onFiltersChange === 'function') {
+        const payloadForParent = { ...backendFilters };
+        if (Array.isArray(selectedFilters.price) && selectedFilters.price.length) {
+          payloadForParent.price = selectedFilters.price;
+        } else {
+          delete payloadForParent.price;
+        }
+        onFiltersChange(payloadForParent);
+      }
+
       try {
-        if (typeof onFiltersChange === 'function') {
-          if (debounceRef.current) clearTimeout(debounceRef.current);
-          debounceRef.current = setTimeout(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
             try {
               // Build short query params (type, material, color, size, collection, min, max)
               const shortParams = new URLSearchParams();
@@ -454,6 +469,28 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                   shortParams.set('type', String(outType));
                 }
 
+              // If facet lists lack slug / ids mismatch, still persist Loại SP in URL
+              if (!shortParams.has('type')) {
+                if (backendFilters?.categorySlug) {
+                  shortParams.set('type', String(backendFilters.categorySlug));
+                } else if (Array.isArray(selectedFilters.category) && selectedFilters.category.length) {
+                  const sel = selectedFilters.category[0];
+                  const globals =
+                    typeof window !== 'undefined' && Array.isArray(window._allCategories)
+                      ? window._allCategories
+                      : [];
+                  const hit = globals.find(
+                    (c) =>
+                      String(c._id) === String(sel) ||
+                      String((c.slug || '').trim().toLowerCase()) === String(sel).trim().toLowerCase() ||
+                      String((c.name || '').trim().toLowerCase()) === String(sel).trim().toLowerCase()
+                  );
+                  if (hit?.slug) shortParams.set('type', String(hit.slug));
+                  else if (hit?.name) shortParams.set('type', toSlug(hit.name));
+                  else shortParams.set('type', toSlug(sel));
+                }
+              }
+
               const writeCSV = (key, paramName) => {
                 const arr = selectedFilters[key] || [];
                 if (Array.isArray(arr) && arr.length) shortParams.set(paramName, arr.join(','));
@@ -489,26 +526,29 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                  shortParams.set(k, v);
                });
 
-               const newSearch = shortParams.toString() ? `?${shortParams.toString()}` : '';
-               // TEMP DEBUG: log backendFilters & short params to help debugging mapping
-               try { console.debug('Sidebar sync -> backendFilters:', backendFilters, 'shortParams:', shortParams.toString()); } catch(e) {}
-               // If there's nothing to write (no filters and no short params),
-               // avoid replacing the current URL — this prevents clobbering
-               // canonical links (like header menu) on initial load.
-               const shouldReplace = Boolean(newSearch) || window.location.search === '';
+               const qsBuilt = shortParams.toString();
+               const newSearch = qsBuilt ? `?${qsBuilt}` : '';
+               // Replace URL whenever we built any query, or the address bar had no query yet.
+               const shouldReplace = Boolean(qsBuilt) || window.location.search === '';
                if (shouldReplace) {
                  const sx = window.scrollX || 0; const sy = window.scrollY || 0;
-                 try { navigate(`${window.location.pathname}${newSearch}`, { replace: true }); } catch(e) { window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`); }
+                 try {
+                   navigate(`${window.location.pathname}${newSearch}`, { replace: true });
+                 } catch (e) {
+                   window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`);
+                 }
                  window.scrollTo(sx, sy);
                }
             } catch(e) { /* ignore */ }
           }, 200);
-        }
       } catch (e) {
         // ignore
       }
     })();
-  }, [selectedFilters, attrOptions, onFiltersChange]);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [selectedFilters, attrOptions, onFiltersChange, navigate]);
 
   useEffect(() => {
     if (typeof onSortChange === "function") onSortChange(selectedSort);
@@ -558,10 +598,17 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
             if (availableFilters[pluralKey]) candidates.push(availableFilters[pluralKey]);
           }
 
-          // If availableFilters explicitly provided the key (even empty array), respect it
+          // Prefer facet lists only when non-empty; otherwise fall through so category.children /
+          // defaults still render when API sends categories: [] or omits counts.
           if (availableFilters) {
-            if (Object.prototype.hasOwnProperty.call(availableFilters, key)) return availableFilters[key] || [];
-            if (Object.prototype.hasOwnProperty.call(availableFilters, pluralKey)) return availableFilters[pluralKey] || [];
+            if (Object.prototype.hasOwnProperty.call(availableFilters, key)) {
+              const v = availableFilters[key];
+              if (Array.isArray(v) && v.length) return v;
+            }
+            if (Object.prototype.hasOwnProperty.call(availableFilters, pluralKey)) {
+              const v = availableFilters[pluralKey];
+              if (Array.isArray(v) && v.length) return v;
+            }
           }
 
           // Next, check category-specific filterOptions
@@ -689,9 +736,11 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                         let value, display;
 
                         if (key === 'price') {
-                          // Special handling for price ranges
-                          value = JSON.stringify(label);
-                          display = label.label || String(label);
+                          display =
+                            label && typeof label === 'object' && label.label != null
+                              ? String(label.label)
+                              : String(label);
+                          value = display;
                         } else {
                           // Standard handling for other filter types
                           value = (label && (label._id || label.id)) ? String(label._id || label.id) : String(label);
@@ -699,7 +748,11 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                         }
 
                         const count = getOptionCount(key, value);
-                        const isDisabled = (typeof count === 'number' && count === 0 && key !== 'collection');
+                        const isDisabled =
+                          typeof count === 'number' &&
+                          count === 0 &&
+                          key !== 'collection' &&
+                          key !== 'category';
 
                         return (
                           <label className={`filter-checkbox ${isDisabled ? 'disabled' : ''}`} key={value}>
