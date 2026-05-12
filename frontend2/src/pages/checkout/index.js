@@ -147,7 +147,7 @@ export default function CheckoutPage() {
       } catch {
         // ignore
       }
-      try { window.dispatchEvent(new Event('cart:changed')); } catch { }
+      try { await notifyCartChanged(); } catch { }
     };
 
     return () => {
@@ -245,6 +245,18 @@ export default function CheckoutPage() {
       setToast({ type: "error", message: e?.message || "Failed to load cart" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const notifyCartChanged = async () => {
+    try {
+      const res = await api.getCart();
+      const cart = res?.data || null;
+      const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
+      try { window.dispatchEvent(new CustomEvent('cart:changed', { detail: { count: qty } })); } catch (e) { try { window.dispatchEvent(new Event('cart:changed')); } catch {} }
+      return;
+    } catch (e) {
+      try { window.dispatchEvent(new Event('cart:changed')); } catch {}
     }
   };
 
@@ -580,7 +592,7 @@ export default function CheckoutPage() {
       } catch {
         // ignore
       }
-      try { window.dispatchEvent(new Event('cart:changed')); } catch { }
+          try { await notifyCartChanged(); } catch { }
       if (code) {
         navigate(`/orders?code=${encodeURIComponent(code)}`);
       } else {
@@ -599,7 +611,7 @@ export default function CheckoutPage() {
             sessionStorage.removeItem('checkout:buyNow');
             sessionStorage.removeItem('checkout:productLineIds');
           } catch { }
-          try { window.dispatchEvent(new Event('cart:changed')); } catch { }
+          try { await notifyCartChanged(); } catch { }
           // Return user to cart (traditional behavior on failed checkout)
           navigate('/cart');
         }
@@ -780,7 +792,7 @@ export default function CheckoutPage() {
                 <label className="checkout-formFull">
                   <span>Địa chỉ *</span>
 
-                  <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'relative', width: '100%' }}>
                     <input
                       value={newAddress.address}
                       onChange={(e) => {
