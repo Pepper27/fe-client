@@ -1,8 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons when using webpack
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+  iconUrl: require('leaflet/dist/images/marker-icon.png'),
+  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+});
 
 // Helpers to resolve variant/product metadata for friendly display
 const findVariant = (product, identifier) => {
@@ -186,6 +197,44 @@ export default function CheckoutPage() {
   });
   const [editAddressId, setEditAddressId] = useState(null);
   const [method, setMethod] = useState("cash");
+  const [mapCenter, setMapCenter] = useState(null);
+  const [mapZoom, setMapZoom] = useState(15);
+  const [searchResults, setSearchResults] = useState([]);
+  const searchAbortRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+
+  // Nominatim search for address suggestions (OpenStreetMap)
+  const searchAddress = async (q) => {
+    if (!q || !q.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      if (searchAbortRef.current) searchAbortRef.current.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&addressdetails=1&limit=6`;
+      const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'vi' } });
+      const data = await res.json();
+      setSearchResults(Array.isArray(data) ? data : []);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      // ignore other errors
+    } finally {
+      searchAbortRef.current = null;
+    }
+  };
+
+  const pickSearchResult = (r) => {
+    if (!r) return;
+    const formatted = r.display_name || r.displayName || '';
+    const lat = Number(r.lat);
+    const lng = Number(r.lon);
+    setNewAddress((p) => ({ ...p, address: formatted, lat, lng }));
+    setMapCenter({ lat, lng });
+    setMapZoom(15);
+    setSearchResults([]);
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -418,9 +467,9 @@ export default function CheckoutPage() {
 
     // If editing an existing address, update it in place
     if (editAddressId) {
-      const next = (addresses || []).map((a) =>
+    const next = (addresses || []).map((a) =>
         String(a.id) === String(editAddressId)
-          ? { ...a, fullName, phone, address, email }
+          ? { ...a, fullName, phone, address, email, lat: newAddress.lat, lng: newAddress.lng }
           : a
       );
 
@@ -443,7 +492,7 @@ export default function CheckoutPage() {
     const id = `addr_${Date.now()}`;
 
     const next = [
-      { id, fullName, phone, address, email },
+      { id, fullName, phone, address, email, lat: newAddress.lat, lng: newAddress.lng },
       ...(addresses || []),
     ];
 
@@ -731,28 +780,49 @@ export default function CheckoutPage() {
                 <label className="checkout-formFull">
                   <span>Địa chỉ *</span>
 
-                  <input
-                    value={newAddress.address}
-                    onChange={(e) => {
-                      setNewAddress((p) => ({
-                        ...p,
-                        address: e.target.value,
-                      }));
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={newAddress.address}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNewAddress((p) => ({ ...p, address: v }));
+                        setErrors((prev) => ({ ...prev, address: "" }));
+                        // debounce search
+                        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                        searchDebounceRef.current = setTimeout(() => {
+                          searchAddress(v);
+                        }, 300);
+                      }}
+                      className={errors.address ? "input-error" : ""}
+                      placeholder="Nhập địa chỉ hoặc chọn gợi ý"
+                    />
 
-                      setErrors((prev) => ({
-                        ...prev,
-                        address: "",
-                      }));
-                    }}
-                    className={errors.address ? "input-error" : ""}
-                    placeholder="Số nhà, phường/xã, quận/huyện, tỉnh/thành"
-                  />
+                    {searchResults && searchResults.length ? (
+                      <div className="autocomplete-list">
+                        {searchResults.map((r) => (
+                          <div key={r.place_id || r.osm_id} className="autocomplete-item" onClick={() => pickSearchResult(r)}>
+                            {r.display_name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
 
                   {errors.address && (
-                    <div className="field-error">
-                      {errors.address}
-                    </div>
+                    <div className="field-error">{errors.address}</div>
                   )}
+
+                  {/* Map preview */}
+                  {mapCenter ? (
+                    <div className="checkout-mapPreview">
+                      <MapContainer center={mapCenter} zoom={mapZoom} style={{ width: '100%', height: 160, borderRadius: 8 }}>
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={mapCenter} />
+                      </MapContainer>
+                    </div>
+                  ) : null}
                 </label>
 
                 <label className="checkout-formFull">
