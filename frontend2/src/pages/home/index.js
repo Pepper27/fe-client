@@ -12,6 +12,7 @@ import { api } from "../../utils/api";
 
 export const Home = () => {
   const [products, setProducts] = useState([]);
+  const [collections, setCollections] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,51 +33,16 @@ export const Home = () => {
         if (cancelled) return;
         setProducts(merged);
 
-        // If API products include collections (from backend change), derive unique collections
-        const colMap = new Map();
-        for (const p of merged || []) {
-          const cols = Array.isArray(p.collections) ? p.collections : [];
-          for (const c of cols) {
-            if (!c) continue;
-            const id = String(c._id || c.id || "");
-            if (!id) continue;
-            if (!colMap.has(id)) {
-              colMap.set(id, {
-                _id: c._id || id,
-                name: c.name || c.title || c.displayName || "",
-                slug: c.slug || "",
-                avatar: c.avatar || c.avatarUrl || c.image || null,
-              });
-            }
-          }
-        }
-        const derived = Array.from(colMap.values());
-        if (derived.length) {
-          // Prefer newest collections first when createdAt is available
-          derived.sort((a, b) => {
-            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return tb - ta;
-          });
-          setCollections(derived);
-        } else {
-          // Fallback: fetch collections endpoint if products didn't include them
-          try {
-            const res = await api.getCollections();
-            if (cancelled) return;
-            let items = res?.data && Array.isArray(res.data) ? res.data : [];
-            // sort collections by createdAt descending when possible
-            items = items.slice().sort((a, b) => {
-              const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
-              const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
-              return tb - ta;
-            });
-            setCollections(items);
-          } catch (e) {
-            if (cancelled) return;
-            console.error("Failed to load collections (fallback)", e);
-            setCollections([]);
-          }
+        // Always fetch collections from backend so ordering by createdAt is correct.
+        try {
+          const res = await api.getCollections({ limit: 4 });
+          if (cancelled) return;
+          const items = res?.data && Array.isArray(res.data) ? res.data : [];
+          setCollections(items);
+        } catch (e) {
+          if (cancelled) return;
+          console.error("Failed to load collections", e);
+          setCollections([]);
         }
       } catch (e) {
         if (cancelled) return;
@@ -89,11 +55,6 @@ export const Home = () => {
     };
   }, []);
 
-  const discoveryItems = [
-    // legacy static placeholders removed; collections will be fetched from API
-  ];
-
-  const [collections, setCollections] = useState([]);
   return (
     <>
       <ProductSignature />

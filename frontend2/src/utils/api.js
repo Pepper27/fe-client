@@ -158,7 +158,12 @@ export const api = {
   getColors: () => request(`${V1_PUBLIC}/colors`),
   getSizes: () => request(`${V1_PUBLIC}/sizes`),
   getThemes: () => request(`${V1_PUBLIC}/themes`),
-  getCollections: () => request(`${V1_PUBLIC}/collections`),
+  getCollections: ({ limit } = {}) => {
+    const qs = new URLSearchParams();
+    if (limit !== undefined) qs.set("limit", String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`${V1_PUBLIC}/collections${suffix}`);
+  },
   getBracelets: ({ typeCode, sizeCm, _ } = {}) => {
     const qs = new URLSearchParams();
     if (typeCode) qs.set("typeCode", typeCode);
