@@ -10,6 +10,7 @@ function ProductsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState(null);
+  const [collectionMeta, setCollectionMeta] = useState(null);
   const [filteredItems, setFilteredItems] = useState([]);
   const [activeFilters, setActiveFilters] = useState({});
   const [activeSort, setActiveSort] = useState(null);
@@ -27,6 +28,8 @@ function ProductsPage() {
       try {
         const qs = new URLSearchParams(location.search || "");
         const q = qs.get("q") || "";
+        const bannerFromQuery = qs.get("banner") || "";
+        const titleFromQuery = qs.get("title") || "";
         // Prefer explicit categorySlug param
         let categorySlug = qs.get("categorySlug") || "";
         // Parse filters param (JSON) if present; otherwise parse short params
@@ -188,6 +191,34 @@ function ProductsPage() {
         // Debug: Log product structure
         setItems(productsData);
         setFilteredItems(productsData);
+
+        // If we're on a collection listing route, fetch its metadata so we can
+        // render the correct banner/title (and not the default products banner).
+        if (collectionSlug) {
+          try {
+            // If banner/title is explicitly passed (from banner click), use it.
+            if (bannerFromQuery || titleFromQuery) {
+              setCollectionMeta({
+                name: titleFromQuery || null,
+                avatar: bannerFromQuery || null,
+                slug: collectionSlug,
+              });
+            } else {
+              const colRes = await api.getCollections();
+              const cols = Array.isArray(colRes?.data) ? colRes.data : [];
+              const foundCol = cols.find(
+                (c) =>
+                  String(c?.slug || "") === String(collectionSlug) ||
+                  String(c?._id || "") === String(collectionSlug),
+              );
+              setCollectionMeta(foundCol || { slug: collectionSlug });
+            }
+          } catch {
+            setCollectionMeta({ slug: collectionSlug });
+          }
+        } else {
+          setCollectionMeta(null);
+        }
 
         // Fetch category info for banner and hierarchical filtering
         let allCats = [];
@@ -560,8 +591,21 @@ function ProductsPage() {
   };
 
   // Determine banner image
+  const qsNow = new URLSearchParams(location.search || "");
+  const bannerOverride = qsNow.get("banner") || "";
   const bannerUrl =
-    category?.banner || category?.avatar || "/client/image/vongtay.jpg";
+    bannerOverride ||
+    category?.banner ||
+    category?.avatar ||
+    collectionMeta?.avatar ||
+    "/client/image/vongtay.jpg";
+
+  const pageTitle =
+    category?.name ||
+    qsNow.get("title") ||
+    "" ||
+    collectionMeta?.name ||
+    "Sản phẩm";
 
   return (
     <div className="products-page">
@@ -606,9 +650,7 @@ function ProductsPage() {
             Trang chủ
           </Link>
           <span className="products-breadcrumb__sep">›</span>
-          <span className="products-breadcrumb__current">
-            {category?.name || "Sản phẩm"}
-          </span>
+          <span className="products-breadcrumb__current">{pageTitle}</span>
         </nav>
         {/* Layout */}
         <div className="products-layout">
