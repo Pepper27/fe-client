@@ -514,6 +514,18 @@ export default function ProductDetailPage({ params }) {
           items: [],
         };
 
+    const notifyCartChanged = async () => {
+      try {
+        const cartRes = await api.getCart();
+        const cart = cartRes?.data || null;
+        const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
+        try { window.dispatchEvent(new CustomEvent('cart:changed', { detail: { count: qty } })); } catch (e) { try { window.dispatchEvent(new Event('cart:changed')); } catch {} }
+        return;
+      } catch (e) {
+        try { window.dispatchEvent(new Event('cart:changed')); } catch {}
+      }
+    };
+
     try {
       // Prefer adding a normal product line so Checkout can render product details.
       // Fall back to bundle flow if backend rejects product-line adds for this item.
@@ -527,7 +539,7 @@ export default function ProductDetailPage({ params }) {
           return null;
         }
         const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1, buyNow });
-        try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+        await notifyCartChanged();
 
         // Try to extract returned product line id from multiple possible shapes.
         // IMPORTANT: Do NOT treat cart._id as a product line id.
@@ -615,11 +627,11 @@ export default function ProductDetailPage({ params }) {
           // retry charm payload (no debug log)
           const res2 = await api.addBundleToCart(charmPayload);
           // no debug log
-      if (res2 && res2.valid) {
+          if (res2 && res2.valid) {
             const bundleId2 = res2?.data?.bundleId || res2?.data?._id || null;
             setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
             // notify header and other listeners that cart changed
-            try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+            await notifyCartChanged();
             return { type: 'bundle', id: bundleId2 };
           }
           // replace res with res2 for further handling
@@ -702,7 +714,7 @@ export default function ProductDetailPage({ params }) {
           // fallback attempt
           // call addProductToCart; this API returns the updated cart and lineId on success
           const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1 });
-          try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+          await notifyCartChanged();
 
           // Try to extract returned line id from multiple possible shapes
           const lineId = prodRes?.data?.lineId || prodRes?.data?._id || prodRes?.lineId || null;
@@ -744,7 +756,7 @@ export default function ProductDetailPage({ params }) {
       const bundleId = res?.data?.bundleId || res?.data?._id || null;
       setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
       // Ensure cart UI updates immediately after adding a bundle
-      try { window.dispatchEvent(new Event('cart:changed')); } catch(e){}
+      await notifyCartChanged();
       return { type: 'bundle', id: bundleId };
     } catch (e) {
       // Debug: log error
