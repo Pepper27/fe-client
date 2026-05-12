@@ -539,7 +539,7 @@ export default function ProductDetailPage({ params }) {
           return null;
         }
         const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1, buyNow });
-        await notifyCartChanged();
+        if (!buyNow) await notifyCartChanged();
 
         // Try to extract returned product line id from multiple possible shapes.
         // IMPORTANT: Do NOT treat cart._id as a product line id.
@@ -627,11 +627,11 @@ export default function ProductDetailPage({ params }) {
           // retry charm payload (no debug log)
           const res2 = await api.addBundleToCart(charmPayload);
           // no debug log
-          if (res2 && res2.valid) {
+            if (res2 && res2.valid) {
             const bundleId2 = res2?.data?.bundleId || res2?.data?._id || null;
             setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
             // notify header and other listeners that cart changed
-            await notifyCartChanged();
+            if (!buyNow) await notifyCartChanged();
             return { type: 'bundle', id: bundleId2 };
           }
           // replace res with res2 for further handling
@@ -714,7 +714,7 @@ export default function ProductDetailPage({ params }) {
           // fallback attempt
           // call addProductToCart; this API returns the updated cart and lineId on success
           const prodRes = await api.addProductToCart({ productId: product._id, variantId: variantIdentifier, quantity: 1 });
-          await notifyCartChanged();
+          if (!buyNow) await notifyCartChanged();
 
           // Try to extract returned line id from multiple possible shapes
           const lineId = prodRes?.data?.lineId || prodRes?.data?._id || prodRes?.lineId || null;
@@ -756,7 +756,7 @@ export default function ProductDetailPage({ params }) {
       const bundleId = res?.data?.bundleId || res?.data?._id || null;
       setToast({ type: 'success', message: buyNow ? 'Đã thêm và chuyển tới thanh toán' : 'Đã thêm giỏ hàng thành công!' });
       // Ensure cart UI updates immediately after adding a bundle
-      await notifyCartChanged();
+      if (!buyNow) await notifyCartChanged();
       return { type: 'bundle', id: bundleId };
     } catch (e) {
       // Debug: log error
