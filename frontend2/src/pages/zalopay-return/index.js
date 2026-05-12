@@ -18,7 +18,13 @@ export default function ZaloPayReturn() {
         if (res && res.data && res.data.payStatus === 'paid') {
           // Successful - clear session keys and go to order detail
           try { sessionStorage.removeItem('checkout:buyNow'); sessionStorage.removeItem('checkout:productLineIds'); } catch {}
-          try { window.dispatchEvent(new Event('cart:changed')); } catch {}
+          try {
+            // attempt to fetch cart and emit count for immediate header update
+            const cartRes = await api.getCart();
+            const cart = cartRes?.data || null;
+            const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
+            try { window.dispatchEvent(new CustomEvent('cart:changed', { detail: { count: qty } })); } catch (e) { try { window.dispatchEvent(new Event('cart:changed')); } catch {} }
+          } catch (e) { try { window.dispatchEvent(new Event('cart:changed')); } catch {} }
           navigate(`/orders/detail/${encodeURIComponent(res.data.orderCode || orderCode)}`);
           return;
         }

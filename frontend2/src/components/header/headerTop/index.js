@@ -44,18 +44,38 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     const onAuthChanged = () => refresh();
     window.addEventListener("auth:changed", onAuthChanged);
     // listen to cart changes to update badge
-    const onCartChanged = async () => {
+    const onCartChanged = async (evt) => {
       try {
+        // If emitter provided immediate count, use it to avoid an extra request
+        const provided = evt && evt.detail && typeof evt.detail.count === 'number' ? evt.detail.count : null;
+        if (typeof provided === 'number') {
+          setCartCount(provided);
+          try { window.sessionStorage.setItem('cart:cachedCount', String(provided)); } catch {}
+          return;
+        }
         const res = await api.getCart();
         const cart = res?.data || null;
         const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
         setCartCount(qty);
+        try { window.sessionStorage.setItem('cart:cachedCount', String(qty)); } catch {}
       } catch {
         setCartCount(0);
       }
     };
     // call once to populate initial badge
-    onCartChanged();
+    try {
+      const hasBuyNow = typeof window !== 'undefined' && window.sessionStorage && window.sessionStorage.getItem('checkout:buyNow');
+      if (hasBuyNow) {
+        try {
+          const cached = window.sessionStorage.getItem('cart:cachedCount');
+          if (cached !== null) setCartCount(Number(cached));
+        } catch {}
+      } else {
+        onCartChanged();
+      }
+    } catch {
+      onCartChanged();
+    }
     window.addEventListener('cart:changed', onCartChanged);
     return () => {
       cancelled = true;
@@ -64,7 +84,14 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     };
   }, []);
 
-  const [cartCount, setCartCount] = useState(0);
+  const [cartCount, setCartCount] = useState(() => {
+    try {
+      const cached = typeof window !== 'undefined' && window.sessionStorage ? window.sessionStorage.getItem('cart:cachedCount') : null;
+      return cached !== null ? Number(cached) : 0;
+    } catch {
+      return 0;
+    }
+  });
 
   useEffect(() => {
     // subscribe to wishlist updates and keep badge count in sync
