@@ -49,10 +49,21 @@ export const Categories = () => {
       <div className="categories-wrapper">
         <div data-aos="fade-up" className="categories-grid">
           {items
-            .filter((it) => String(it?.name || "").trim().toLowerCase() !== "trang sức")
+            .filter(
+              (it) =>
+                String(it?.name || "").trim().toLowerCase() !== "trang sức"
+            )
             .map((item, i) => (
-              <div key={item.id || i} data-aos="fade-up" data-aos-delay={i * 200}>
-                <CategoryCard image={item.image} name={item.name} />
+              <div
+                key={item.id || i}
+                data-aos="fade-up"
+                data-aos-delay={i * 200}
+              >
+                <CategoryCard
+                  image={item.image}
+                  name={item.name}
+                  slug={item.slug}
+                />
               </div>
             ))}
         </div>
