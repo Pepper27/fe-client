@@ -1,8 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons when using webpack
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+  iconUrl: require('leaflet/dist/images/marker-icon.png'),
+  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+});
 
 // Helpers to resolve variant/product metadata for friendly display
 const findVariant = (product, identifier) => {
@@ -55,6 +66,20 @@ const readCheckoutProductLineIds = () => {
   }
 };
 
+const readCheckoutBuyNow = () => {
+  try {
+    const raw = sessionStorage.getItem('checkout:buyNow');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.kind !== 'product') return null;
+    const lineId = parsed.lineId ? String(parsed.lineId) : '';
+    if (!lineId) return null;
+    return { kind: 'product', lineId, at: parsed.at || Date.now() };
+  } catch {
+    return null;
+  }
+};
+
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -62,21 +87,89 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [toast, setToast] = useState(null);
+  const [errors, setErrors] = useState({});
+
+  const buyNowRef = React.useRef(null);
+  const placedRef = React.useRef(false);
+  // When redirecting to external payment provider, set this flag so unmount
+  // cleanup does not delete the temporary buyNow line.
+  const paymentInProgressRef = React.useRef(false);
+
+  const validateAddress = () => {
+    const newErrors = {};
+
+    if (!newAddress.fullName.trim()) {
+      newErrors.fullName = "Vui lòng nhập họ tên";
+    }
+
+    if (!newAddress.phone.trim()) {
+      newErrors.phone = "Vui lòng nhập số điện thoại";
+    } else if (!/^(0|\+84)[0-9]{9}$/.test(newAddress.phone)) {
+      newErrors.phone = "Số điện thoại không hợp lệ";
+    }
+
+    if (!newAddress.address.trim()) {
+      newErrors.address = "Vui lòng nhập địa chỉ";
+    }
+
+    if (
+      newAddress.email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAddress.email)
+    ) {
+      newErrors.email = "Email không hợp lệ";
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  useEffect(() => {
+    buyNowRef.current = readCheckoutBuyNow();
+  }, []);
+
+  // Cleanup abandoned buy-now line when leaving checkout.
+  useEffect(() => {
+    const cleanup = async () => {
+      // If user has placed order, or is in the middle of external payment,
+      // avoid deleting buyNow line here.
+      if (placedRef.current || paymentInProgressRef.current) return;
+      const bn = buyNowRef.current;
+      if (!bn || bn.kind !== 'product' || !bn.lineId) return;
+      try {
+        await api.deleteProduct(bn.lineId);
+      } catch {
+        // ignore
+      }
+      try {
+        sessionStorage.removeItem('checkout:buyNow');
+        sessionStorage.removeItem('checkout:productLineIds');
+      } catch {
+        // ignore
+      }
+      try { window.dispatchEvent(new Event('cart:changed')); } catch { }
+    };
+
+    return () => {
+      // best-effort async cleanup
+      cleanup();
+    };
+  }, []);
 
   const [bundleIds, setBundleIds] = useState(() => {
     // priority: react-router location.state -> sessionStorage -> empty
     try {
       const fromNav = location && location.state && location.state.bundleIds ? location.state.bundleIds : null;
       if (fromNav && fromNav.length) return fromNav.map(String);
-    } catch {}
-    return readCheckoutBundleIds();
+    } catch { }
+    return readCheckoutBundleIds() || [];
   });
   const [productLineIds, setProductLineIds] = useState(() => {
     try {
       const fromNav = location && location.state && location.state.productLineIds ? location.state.productLineIds : null;
       if (fromNav && fromNav.length) return fromNav.map(String);
-    } catch {}
-    return readCheckoutProductLineIds();
+    } catch { }
+    return readCheckoutProductLineIds() || [];
   });
 
   // Addresses are client-only for now.
@@ -102,7 +195,46 @@ export default function CheckoutPage() {
     address: "",
     email: "",
   });
+  const [editAddressId, setEditAddressId] = useState(null);
   const [method, setMethod] = useState("cash");
+  const [mapCenter, setMapCenter] = useState(null);
+  const [mapZoom, setMapZoom] = useState(15);
+  const [searchResults, setSearchResults] = useState([]);
+  const searchAbortRef = useRef(null);
+  const searchDebounceRef = useRef(null);
+
+  // Nominatim search for address suggestions (OpenStreetMap)
+  const searchAddress = async (q) => {
+    if (!q || !q.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      if (searchAbortRef.current) searchAbortRef.current.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&addressdetails=1&limit=6`;
+      const res = await fetch(url, { signal: controller.signal, headers: { 'Accept-Language': 'vi' } });
+      const data = await res.json();
+      setSearchResults(Array.isArray(data) ? data : []);
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      // ignore other errors
+    } finally {
+      searchAbortRef.current = null;
+    }
+  };
+
+  const pickSearchResult = (r) => {
+    if (!r) return;
+    const formatted = r.display_name || r.displayName || '';
+    const lat = Number(r.lat);
+    const lng = Number(r.lon);
+    setNewAddress((p) => ({ ...p, address: formatted, lat, lng }));
+    setMapCenter({ lat, lng });
+    setMapZoom(15);
+    setSearchResults([]);
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -163,7 +295,7 @@ export default function CheckoutPage() {
     if (Array.isArray(navBundles)) {
       // explicit navigation provided bundleIds (possibly empty) -> respect it
       setBundleIds(navBundles);
-      try { sessionStorage.setItem('checkout:bundleIds', JSON.stringify({ bundleIds: navBundles, at: Date.now() })); } catch {}
+      try { sessionStorage.setItem('checkout:bundleIds', JSON.stringify({ bundleIds: navBundles, at: Date.now() })); } catch { }
     } else if (Array.isArray(storedBundles)) {
       // sessionStorage contained the key (even empty array) -> respect it
       setBundleIds(storedBundles);
@@ -182,9 +314,23 @@ export default function CheckoutPage() {
     // PRODUCTS
     if (Array.isArray(navProducts)) {
       setProductLineIds(navProducts);
-      try { sessionStorage.setItem('checkout:productLineIds', JSON.stringify({ productLineIds: navProducts, at: Date.now() })); } catch {}
+      try { sessionStorage.setItem('checkout:productLineIds', JSON.stringify({ productLineIds: navProducts, at: Date.now() })); } catch { }
     } else if (Array.isArray(storedProducts)) {
-      setProductLineIds(storedProducts);
+      // If stored ids don't match any current product line, attempt a safe recovery.
+      // This happens if older code accidentally stored cart._id instead of product line _id.
+      try {
+        const cartProductIds = (cart?.products || []).map((p) => String(p?._id)).filter(Boolean);
+        const stored = storedProducts.map(String);
+        const matchesAny = stored.some((id) => cartProductIds.includes(String(id)));
+        const isProbablyCartId = stored.length === 1 && String(cart?._id || '') && String(stored[0]) === String(cart._id);
+        if (!matchesAny && isProbablyCartId && cartProductIds.length) {
+          setProductLineIds(cartProductIds);
+        } else {
+          setProductLineIds(stored);
+        }
+      } catch {
+        setProductLineIds(storedProducts);
+      }
     } else {
       const cameFromNav = Boolean(location && location.state);
       if (!cameFromNav && (cart?.products || []).length) {
@@ -193,12 +339,12 @@ export default function CheckoutPage() {
         setProductLineIds([]);
       }
     }
-  // run when cart or navigation state changes
+    // run when cart or navigation state changes
   }, [cart?.bundles, cart?.products, location && location.state]);
 
   const selectedBundles = useMemo(() => {
     const bundles = cart?.bundles || [];
-    const set = new Set(bundleIds.map(String));
+    const set = new Set((bundleIds || []).map(String));
     return (bundles || []).filter((b) => set.has(String(b.bundleId)));
   }, [cart?.bundles, bundleIds]);
 
@@ -212,12 +358,12 @@ export default function CheckoutPage() {
 
     // include product lines
     const products = cart?.products || [];
-    const selectedProducts = products.filter((p) => productLineIds && productLineIds.includes(String(p._id)));
+    const selectedProducts = products.filter((p) => (productLineIds || []).includes(String(p._id)));
     const productsTotal = selectedProducts.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
     return bundlesTotal + productsTotal;
   }, [selectedBundles, productLineIds, cart?.products]);
 
-  const selectedCount = selectedBundles.length + (productLineIds ? productLineIds.length : 0);
+  const selectedCount = selectedBundles.length + (productLineIds || []).length;
 
   const selectedAddress = useMemo(() => {
     return (
@@ -245,25 +391,151 @@ export default function CheckoutPage() {
     }
   };
 
+  // const addNewAddress = () => {
+  //   const fullName = String(newAddress.fullName || "").trim();
+  //   const phone = String(newAddress.phone || "").trim();
+  //   const address = String(newAddress.address || "").trim();
+  //   const email = String(newAddress.email || "").trim();
+  //   if (!fullName || !phone || !address) {
+  //     setToast({
+  //       type: "error",
+  //       message: "Vui lòng nhập Họ tên, SĐT và Địa chỉ",
+  //     });
+  //     return;
+  //   }
+  //   // If editing an existing address, update it in place
+  //   if (editAddressId) {
+  //     const next = (addresses || []).map((a) =>
+  //       String(a.id) === String(editAddressId)
+  //         ? { ...a, fullName, phone, address, email }
+  //         : a,
+  //     );
+  //     persistAddresses(next);
+  //     saveSelectedAddressId(editAddressId);
+  //     setEditAddressId(null);
+  //     setNewAddress({ fullName: "", phone: "", address: "", email: "" });
+  //     return;
+  //   }
+
+  //   const id = `addr_${Date.now()}`;
+  //   const next = [{ id, fullName, phone, address, email }, ...(addresses || [])];
+  //   persistAddresses(next);
+  //   saveSelectedAddressId(id);
+  //   setNewAddress({ fullName: "", phone: "", address: "", email: "" });
+  // };
   const addNewAddress = () => {
     const fullName = String(newAddress.fullName || "").trim();
     const phone = String(newAddress.phone || "").trim();
     const address = String(newAddress.address || "").trim();
     const email = String(newAddress.email || "").trim();
-    if (!fullName || !phone || !address) {
-      setToast({
-        type: "error",
-        message: "Vui lòng nhập Họ tên, SĐT và Địa chỉ",
-      });
+
+    const newErrors = {};
+
+    // validate fullname
+    if (!fullName) {
+      newErrors.fullName = "Vui lòng nhập họ tên!";
+    }
+
+    // validate phone
+    if (!phone) {
+      newErrors.phone = "Vui lòng nhập số điện thoại";
+    } else if (!/^(0|\+84)[0-9]{9}$/.test(phone)) {
+      newErrors.phone = "Số điện thoại không hợp lệ!";
+    }
+
+    // validate address
+    if (!address) {
+      newErrors.address = "Vui lòng nhập địa chỉ!";
+    }
+
+    // validate email
+    if (
+      email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
+      newErrors.email = "Email không hợp lệ!";
+    }
+
+    // nếu có lỗi -> stop
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    // clear lỗi
+    setErrors({});
+
+    // If editing an existing address, update it in place
+    if (editAddressId) {
+    const next = (addresses || []).map((a) =>
+        String(a.id) === String(editAddressId)
+          ? { ...a, fullName, phone, address, email, lat: newAddress.lat, lng: newAddress.lng }
+          : a
+      );
+
+      persistAddresses(next);
+      saveSelectedAddressId(editAddressId);
+
+      setEditAddressId(null);
+
+      setNewAddress({
+        fullName: "",
+        phone: "",
+        address: "",
+        email: "",
+      });
+
+      return;
+    }
+
+    // create new
     const id = `addr_${Date.now()}`;
+
     const next = [
-      { id, fullName, phone, address, email },
+      { id, fullName, phone, address, email, lat: newAddress.lat, lng: newAddress.lng },
       ...(addresses || []),
     ];
+
     persistAddresses(next);
+
     saveSelectedAddressId(id);
+
+    setNewAddress({
+      fullName: "",
+      phone: "",
+      address: "",
+      email: "",
+    });
+  };
+
+  const deleteAddress = (id) => {
+    if (!id) return;
+    // simple confirm to avoid accidental deletion
+    if (!window.confirm('Xóa địa chỉ này?')) return;
+    const next = (addresses || []).filter((a) => String(a.id) !== String(id));
+    persistAddresses(next);
+    // if deleted address was selected, clear selection or pick first
+    if (String(selectedAddressId) === String(id)) {
+      if (next.length) saveSelectedAddressId(next[0].id);
+      else saveSelectedAddressId("");
+    }
+    // cancel edit if we were editing this address
+    if (String(editAddressId) === String(id)) {
+      setEditAddressId(null);
+      setNewAddress({ fullName: "", phone: "", address: "", email: "" });
+    }
+  };
+
+  const startEditAddress = (a) => {
+    if (!a) return;
+    setEditAddressId(a.id);
+    setNewAddress({ fullName: a.fullName || "", phone: a.phone || "", address: a.address || "", email: a.email || "" });
+    // ensure the address being edited becomes the selected address
+    saveSelectedAddressId(a.id);
+  };
+
+  const cancelEdit = () => {
+    setEditAddressId(null);
     setNewAddress({ fullName: "", phone: "", address: "", email: "" });
   };
 
@@ -287,13 +559,28 @@ export default function CheckoutPage() {
         email: selectedAddress.email,
         method,
       });
+      // If Zalopay flow was used, BE returns zalopay.orderUrl for redirect.
+      if (method === 'zalopay' && res && res.zalopay && res.zalopay.orderUrl) {
+        try {
+          paymentInProgressRef.current = true;
+          // Don't clear buyNow session keys yet; they will be cleared on confirm or on failure.
+          window.location.href = res.zalopay.orderUrl;
+          return; // navigation will unload the page
+        } catch (err) {
+          // fallback to standard flow
+          paymentInProgressRef.current = false;
+        }
+      }
       const code = res?.data?.orderCode;
+      placedRef.current = true;
       try {
         sessionStorage.removeItem("checkout:bundleIds");
         sessionStorage.removeItem("checkout:productLineIds");
+        sessionStorage.removeItem('checkout:buyNow');
       } catch {
         // ignore
       }
+      try { window.dispatchEvent(new Event('cart:changed')); } catch { }
       if (code) {
         navigate(`/orders?code=${encodeURIComponent(code)}`);
       } else {
@@ -301,6 +588,24 @@ export default function CheckoutPage() {
       }
     } catch (e) {
       setToast({ type: "error", message: e?.message || "Đặt hàng thất bại" });
+
+      // If this was a buy-now session, cleanup the temporary line so cart remains unchanged.
+      try {
+        const bn = buyNowRef.current;
+        if (bn && bn.kind === 'product' && bn.lineId) {
+          await api.deleteProduct(bn.lineId);
+          buyNowRef.current = null;
+          try {
+            sessionStorage.removeItem('checkout:buyNow');
+            sessionStorage.removeItem('checkout:productLineIds');
+          } catch { }
+          try { window.dispatchEvent(new Event('cart:changed')); } catch { }
+          // Return user to cart (traditional behavior on failed checkout)
+          navigate('/cart');
+        }
+      } catch {
+        // ignore
+      }
     } finally {
       setPlacing(false);
     }
@@ -328,12 +633,14 @@ export default function CheckoutPage() {
               {addresses.length ? (
                 <div className="checkout-addressList">
                   {addresses.map((a) => (
-                    <label key={a.id} className="checkout-addressRow">
-                      <input
-                        type="radio"
-                        checked={String(selectedAddressId) === String(a.id)}
-                        onChange={() => saveSelectedAddressId(a.id)}
-                      />
+                    <div key={a.id} className="checkout-addressRow">
+                      <label>
+                        <input
+                          type="radio"
+                          checked={String(selectedAddressId) === String(a.id)}
+                          onChange={() => saveSelectedAddressId(a.id)}
+                        />
+                      </label>
                       <div className="checkout-addressText">
                         <div className="checkout-addressName">
                           {a.fullName} · {a.phone}
@@ -343,7 +650,11 @@ export default function CheckoutPage() {
                           <div className="checkout-addressEmail">{a.email}</div>
                         ) : null}
                       </div>
-                    </label>
+                      <div className="checkout-addressActions">
+                        <button type="button" className="btn-link" onClick={() => startEditAddress(a)}>Sửa</button>
+                        <button type="button" className="btn-link danger" onClick={() => deleteAddress(a.id)}>Xóa</button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -355,7 +666,7 @@ export default function CheckoutPage() {
               <div className="checkout-divider" />
 
               <div className="checkout-subTitle">Tạo địa chỉ mới</div>
-              <div className="checkout-form">
+              {/* <div className="checkout-form">
                 <label>
                   <span>Họ tên *</span>
                   <input
@@ -396,13 +707,178 @@ export default function CheckoutPage() {
                     placeholder="email@example.com"
                   />
                 </label>
-                <button
-                  type="button"
-                  className="checkout-addAddr"
-                  onClick={addNewAddress}
+                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                   <button
+                     type="button"
+                     className="checkout-addAddr"
+                     onClick={addNewAddress}
+                   >
+                     {editAddressId ? 'Lưu thay đổi' : 'Thêm địa chỉ'}
+                   </button>
+                   {editAddressId ? (
+                     <button type="button" className="checkout-cancel" onClick={cancelEdit}>
+                       Hủy
+                     </button>
+                   ) : null}
+                 </div>
+              </div> */}
+              <div className="checkout-form">
+                <label>
+                  <span>Họ tên *</span>
+
+                  <input
+                    value={newAddress.fullName}
+                    onChange={(e) => {
+                      setNewAddress((p) => ({
+                        ...p,
+                        fullName: e.target.value,
+                      }));
+
+                      setErrors((prev) => ({
+                        ...prev,
+                        fullName: "",
+                      }));
+                    }}
+                    className={errors.fullName ? "input-error" : ""}
+                    placeholder="Nguyễn Văn A"
+                  />
+
+                  {errors.fullName && (
+                    <div className="field-error">
+                      {errors.fullName}
+                    </div>
+                  )}
+                </label>
+
+                <label>
+                  <span>Số điện thoại *</span>
+
+                  <input
+                    value={newAddress.phone}
+                    onChange={(e) => {
+                      setNewAddress((p) => ({
+                        ...p,
+                        phone: e.target.value,
+                      }));
+
+                      setErrors((prev) => ({
+                        ...prev,
+                        phone: "",
+                      }));
+                    }}
+                    className={errors.phone ? "input-error" : ""}
+                    placeholder="09xxxxxxxx"
+                  />
+
+                  {errors.phone && (
+                    <div className="field-error">
+                      {errors.phone}
+                    </div>
+                  )}
+                </label>
+
+                <label className="checkout-formFull">
+                  <span>Địa chỉ *</span>
+
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={newAddress.address}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setNewAddress((p) => ({ ...p, address: v }));
+                        setErrors((prev) => ({ ...prev, address: "" }));
+                        // debounce search
+                        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+                        searchDebounceRef.current = setTimeout(() => {
+                          searchAddress(v);
+                        }, 300);
+                      }}
+                      className={errors.address ? "input-error" : ""}
+                      placeholder="Nhập địa chỉ hoặc chọn gợi ý"
+                    />
+
+                    {searchResults && searchResults.length ? (
+                      <div className="autocomplete-list">
+                        {searchResults.map((r) => (
+                          <div key={r.place_id || r.osm_id} className="autocomplete-item" onClick={() => pickSearchResult(r)}>
+                            {r.display_name}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {errors.address && (
+                    <div className="field-error">{errors.address}</div>
+                  )}
+
+                  {/* Map preview */}
+                  {mapCenter ? (
+                    <div className="checkout-mapPreview">
+                      <MapContainer center={mapCenter} zoom={mapZoom} style={{ width: '100%', height: 160, borderRadius: 8 }}>
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={mapCenter} />
+                      </MapContainer>
+                    </div>
+                  ) : null}
+                </label>
+
+                <label className="checkout-formFull">
+                  <span>Email</span>
+
+                  <input
+                    value={newAddress.email}
+                    onChange={(e) => {
+                      setNewAddress((p) => ({
+                        ...p,
+                        email: e.target.value,
+                      }));
+
+                      setErrors((prev) => ({
+                        ...prev,
+                        email: "",
+                      }));
+                    }}
+                    className={errors.email ? "input-error" : ""}
+                    placeholder="email@example.com"
+                  />
+
+                  {errors.email && (
+                    <div className="field-error">
+                      {errors.email}
+                    </div>
+                  )}
+                </label>
+
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
                 >
-                  Thêm địa chỉ
-                </button>
+                  <button
+                    type="button"
+                    className="checkout-addAddr"
+                    onClick={addNewAddress}
+                  >
+                    {editAddressId
+                      ? "Lưu thay đổi"
+                      : "Thêm địa chỉ"}
+                  </button>
+
+                  {editAddressId ? (
+                    <button
+                      type="button"
+                      className="checkout-cancel"
+                      onClick={cancelEdit}
+                    >
+                      Hủy
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -457,7 +933,7 @@ export default function CheckoutPage() {
                       <div className="checkout-linePrice">
                         {formatPrice(
                           (Number(b?.priceSnapshot?.total) || 0) *
-                            (Number(b?.quantity) || 1),
+                          (Number(b?.quantity) || 1),
                         )}
                       </div>
                     </div>

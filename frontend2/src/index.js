@@ -17,6 +17,7 @@ import Cart from "./pages/Cart";
 import OrdersPage from "./pages/orders";
 import OrderDetailPage from "./pages/orders/detail";
 import CheckoutPage from "./pages/checkout";
+import ZaloPayReturn from "./pages/zalopay-return";
 import ProductCreatePage from "./pages/admin/ProductCreatePage";
 import TestAPICall from "./components/TestAPICall";
 import SimpleAPITest from "./components/SimpleAPITest";
@@ -73,6 +74,7 @@ function renderApp() {
         <Route path="/design/mix" element={<DesignBuilder />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/zalopay/return" element={<ZaloPayReturn />} />
         <Route path="/orders" element={<OrdersPage />} />
         <Route path="/orders/detail/:orderCode" element={<OrderDetailPage />} />
         <Route path="/admin/tao-san-pham" element={<ProductCreatePage />} />
