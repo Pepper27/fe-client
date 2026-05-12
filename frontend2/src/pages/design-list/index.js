@@ -4,17 +4,42 @@ import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 
+const bundleKey = (b) => String(b?.bundleId || b?._id || b?._localId || "");
+
 export default function DesignList() {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
+  const [savedDesigns, setSavedDesigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+
+  const STORAGE_KEY = "mixcharm:savedDesigns";
+
+  const loadSaved = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const persistSaved = (arr) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(arr || []));
+    } catch {
+      // ignore
+    }
+  };
 
   const refresh = async () => {
     setLoading(true);
     try {
       const res = await api.getCart();
       setCart(res?.data || null);
+      setSavedDesigns(loadSaved());
     } catch (e) {
       setToast({ type: "error", message: e.message || "Failed to load designs" });
     } finally {
@@ -27,16 +52,29 @@ export default function DesignList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const bundles = useMemo(() => cart?.bundles || [], [cart]);
+  const designs = useMemo(() => {
+    // Cart bundles first (server truth); localStorage fills designs only on this device / offline.
+    const map = new Map();
+    for (const b of cart?.bundles || []) {
+      const key = bundleKey(b);
+      if (key) map.set(key, b);
+    }
+    for (const s of savedDesigns || []) {
+      const key = bundleKey(s);
+      if (!key) continue;
+      if (!map.has(key)) map.set(key, s);
+    }
+    return Array.from(map.values());
+  }, [savedDesigns, cart]);
 
   const stats = useMemo(() => {
-    const total = bundles.reduce(
+    const total = (designs || []).reduce(
       (sum, b) => sum + (Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1),
       0
     );
-    const count = bundles.length;
+    const count = (designs || []).length;
     return { total, count };
-  }, [bundles]);
+  }, [designs]);
 
   const onEdit = (b) => {
     // Persist a lightweight snapshot for the builder to load.
@@ -46,7 +84,7 @@ export default function DesignList() {
         version: 1,
         source: "cartBundle",
         savedAt: Date.now(),
-        bundleId: b?.bundleId,
+        bundleId: b?.bundleId || b?._id || b?._localId,
         bracelet: b?.bracelet || null,
         items: Array.isArray(b?.items) ? b.items : [],
       };
@@ -73,12 +111,11 @@ export default function DesignList() {
       </div>
 
       <div className="designlist-shell">
-        {loading ? (
+          {loading ? (
           <div className="designlist-empty">Đang tải...</div>
-        ) : bundles.length ? (
+        ) : designs.length ? (
           <div className="designlist-grid" role="list">
-            {bundles.map((b) => {
-              const id = b?.bundleId;
+            {designs.map((b, idx) => {
               const braceletLabel = [
                 b?.bracelet?.typeCode,
                 b?.bracelet?.sizeCm ? `${b.bracelet.sizeCm}cm` : null,
@@ -91,7 +128,7 @@ export default function DesignList() {
               const slotCount = b?.rulesSnapshot?.slotCount;
 
               return (
-                <div key={id} className="designlist-card" role="listitem">
+                <div key={bundleKey(b) || `design-${idx}`} className="designlist-card" role="listitem">
                   <div className="designlist-cardTop">
                     <div className="designlist-name">Bundle</div>
                     <div className="designlist-price">
@@ -125,8 +162,23 @@ export default function DesignList() {
                     <button type="button" className="designlist-btn" onClick={() => onEdit(b)}>
                       Sửa design
                     </button>
-                    <button type="button" className="designlist-btn designlist-btnGhost" onClick={refresh}>
-                      Tải lại
+                    <button
+                      type="button"
+                      className="designlist-btn designlist-btnDanger"
+                      onClick={() => {
+                        // remove from saved designs only
+                        try {
+                          const key = bundleKey(b);
+                          const next = (savedDesigns || []).filter((s) => bundleKey(s) !== key);
+                          setSavedDesigns(next);
+                          persistSaved(next);
+                          setToast({ type: "success", message: "Đã xóa design khỏi danh sách" });
+                        } catch {
+                          setToast({ type: "error", message: "Xoá thất bại" });
+                        }
+                      }}
+                    >
+                      Xóa design
                     </button>
                   </div>
                 </div>

@@ -89,6 +89,27 @@ export default function DesignBuilder() {
   const lastBraceletSelectionRef = useRef({ braceletId: null, sizeCm: null });
   const pendingEditRef = useRef(null);
 
+  const STORAGE_KEY = "mixcharm:savedDesigns";
+
+  const loadSaved = () => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      const data = JSON.parse(raw);
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const persistSaved = (arr) => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(arr || []));
+    } catch {
+      // ignore
+    }
+  };
+
   // If coming from the design list (edit flow), hydrate initial state from localStorage.
   useEffect(() => {
     const qs = new URLSearchParams(location.search || "");
@@ -925,7 +946,7 @@ export default function DesignBuilder() {
       ? await api.patchBundle(editBundleId, payload)
       : await api.addBundleToCart(payload);
 
-    if (!res?.valid) {
+    if (res?.valid === false) {
       setValidation(res);
       setToast({ type: "error", message: "Thiết kế chưa hợp lệ" });
       return;
@@ -935,6 +956,62 @@ export default function DesignBuilder() {
       setEditBundleId(null);
     } else {
       setToast({ type: "success", message: "Đã thêm thiết kế vào giỏ hàng" });
+    }
+    // Persist a copy of this design in localStorage so design list remains
+    try {
+      const saved = loadSaved();
+      const returnedBundleId = editBundleId || res?.bundleId || res?.data?.bundleId || (res?.bundle?._id) || null;
+      const savedItem = {
+        bundleId: returnedBundleId,
+        bracelet: payload.bracelet,
+        items: payload.items,
+        quantity: 1,
+        savedAt: Date.now(),
+        priceSnapshot: res?.pricing || res?.data?.pricing || null,
+      };
+      if (!savedItem.bundleId) savedItem._localId = `local-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      const next = [savedItem];
+      for (const s of saved) {
+        const sKey = s.bundleId || s._localId || null;
+        const newKey = savedItem.bundleId || savedItem._localId || null;
+        if (!sKey) continue;
+        if (newKey && sKey === newKey) continue;
+        if (editBundleId && (s.bundleId === editBundleId || s._localId === editBundleId)) continue;
+        next.push(s);
+      }
+
+      if (returnedBundleId) {
+        for (let i = 0; i < next.length; i++) {
+          const s = next[i];
+          if (!s) continue;
+          if (!s.bundleId && s._localId && s._localId === savedItem._localId) {
+            s.bundleId = returnedBundleId;
+          }
+        }
+      }
+
+      persistSaved(next);
+      try {
+        const editPayload = {
+          version: 1,
+          source: "savedDesign",
+          savedAt: Date.now(),
+          bundleId: savedItem.bundleId || savedItem._localId,
+          bracelet: savedItem.bracelet || null,
+          items: Array.isArray(savedItem.items) ? savedItem.items : [],
+        };
+        localStorage.setItem("mixcharm:edit", JSON.stringify(editPayload));
+      } catch {
+        // ignore
+      }
+      try {
+        window.dispatchEvent(new Event("cart:changed"));
+      } catch {
+        // ignore
+      }
+    } catch (err) {
+      // ignore persistence errors
     }
   };
 
