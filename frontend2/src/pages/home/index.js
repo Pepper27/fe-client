@@ -7,6 +7,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { AiOutlineLeft, AiOutlineRight } from "react-icons/ai";
 import { COMMITMENTS_DATA } from "../../data/commitment";
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../../utils/api";
 
 export const Home = () => {
@@ -42,11 +43,29 @@ export const Home = () => {
   }, []);
 
   const discoveryItems = [
-    { id: 1, title: "MÙA HÈ RỰC RỠ", image: "../client/image/khampha.jpg" },
-    { id: 2, title: "MÙA HÈ RỰC RỠ", image: "../client/image/khampha.jpg" },
-    { id: 3, title: "MÙA HÈ RỰC RỠ", image: "../client/image/khampha.jpg" },
-    { id: 4, title: "MÙA HÈ RỰC RỠ", image: "../client/image/khampha.jpg" },
+    // legacy static placeholders removed; collections will be fetched from API
   ];
+  
+  const [collections, setCollections] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.getCollections();
+        if (cancelled) return;
+        const items = res?.data && Array.isArray(res.data) ? res.data : [];
+        setCollections(items);
+      } catch (e) {
+        if (cancelled) return;
+        console.error('Failed to load collections', e);
+        setCollections([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   return (
     <>
       <ProductSignature />
@@ -163,22 +182,42 @@ export const Home = () => {
         />
         {/* Grid 4 sản phẩm */}
         <div className="discovery-grid">
-          {discoveryItems.map((item, index) => (
-            <div
-              key={item.id}
-              className="discovery-item"
-              data-aos="fade-up"
-              data-aos-delay={200 * (index + 1)}
-            >
-              <div className="image-box">
-                <img src={item.image} alt={item.title} />
+          {(collections || []).slice(0, 4).map((item, index) => {
+            const key = item._id || item.id || index;
+            const title = item.title || item.name || item.displayName || "";
+            // Prefer array `images` field, then common string fields.
+            let rawImage = null;
+            if (Array.isArray(item.images) && item.images.length) rawImage = item.images[0];
+            if (!rawImage) rawImage = item.avatar || item.image || item.coverImage || item.banner || item.thumbnail || null;
+
+            // Resolve URL: if absolute or root-relative use directly, otherwise fallback to provided string or placeholder
+            const image = typeof rawImage === 'string' && rawImage.trim()
+              ? (rawImage.match(/^https?:\/\//) || rawImage.startsWith('/') ? rawImage : rawImage)
+              : "../client/image/khampha.jpg";
+            const slug = item.slug || item._id || "";
+            return (
+              <div
+                key={key}
+                className="discovery-item"
+                data-aos="fade-up"
+                data-aos-delay={200 * (index + 1)}
+              >
+                <div className="image-box">
+                  <Link to={`/collections/${encodeURIComponent(String(slug))}`} aria-label={title}>
+                    <img src={image} alt={title} />
+                  </Link>
+                </div>
+                <Link className="item-title" to={`/collections/${encodeURIComponent(String(slug))}`}>
+                  {title}
+                </Link>
+                <div className="mt-button">
+                  <Link className="btn-link" to={`/collections/${encodeURIComponent(String(slug))}`}>
+                    MUA NGAY
+                  </Link>
+                </div>
               </div>
-              <span className="item-title">{item.title}</span>
-              <div className="mt-button">
-                <button className="btn-link">MUA NGAY</button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
       <section className="container commit-wrapper">
