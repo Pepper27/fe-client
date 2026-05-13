@@ -37,7 +37,10 @@ const DEFAULT_FILTER_OPTIONS = {
     { name: "Bạc", code: "#C0C0C0" },
     { name: "Xanh lá cây", code: "#008000" },
     { name: "Đỏ", code: "#B22222" },
-    { name: "Nhiều màu", gradient: "linear-gradient(45deg, black, yellow, green, purple)" },
+    {
+      name: "Nhiều màu",
+      gradient: "linear-gradient(45deg, black, yellow, green, purple)",
+    },
   ],
   size: [
     { name: "one size", value: "one-size" },
@@ -64,7 +67,12 @@ const DEFAULT_FILTER_OPTIONS = {
     "Dây chuyền",
     "Hoa tai",
   ],
-  theme: ["Biểu tượng", "Gia đình và bạn bè", "Thiên nhiên và vũ trụ", "Tình yêu"],
+  theme: [
+    "Biểu tượng",
+    "Gia đình và bạn bè",
+    "Thiên nhiên và vũ trụ",
+    "Tình yêu",
+  ],
   price: [
     "Dưới 1.000.000đ",
     "1.000.001đ - 2.500.000đ",
@@ -77,7 +85,12 @@ const DEFAULT_FILTER_OPTIONS = {
 const colors = DEFAULT_FILTER_OPTIONS.color;
 const sizes = DEFAULT_FILTER_OPTIONS.size;
 
-export default function Sidebar({ category: categoryProp, availableFilters, onFiltersChange, onSortChange }) {
+export default function Sidebar({
+  category: categoryProp,
+  availableFilters,
+  onFiltersChange,
+  onSortChange,
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   // Sidebar UI state: use maps so adding/removing sections is easy
@@ -92,7 +105,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     // Initialize filters from URL parameters
     try {
       const qs = new URLSearchParams(window.location.search || "");
-      const filtersParam = qs.get('filters');
+      const filtersParam = qs.get("filters");
       if (filtersParam) {
         const parsed = JSON.parse(filtersParam);
         const normalized = {};
@@ -122,11 +135,11 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           let priceLabel = "";
 
           if (min === 0) {
-            priceLabel = `Dưới ${max.toLocaleString('vi-VN')}đ`;
+            priceLabel = `Dưới ${max.toLocaleString("vi-VN")}đ`;
           } else if (max === Number.MAX_SAFE_INTEGER) {
-            priceLabel = `Trên ${min.toLocaleString('vi-VN')}đ`;
+            priceLabel = `Trên ${min.toLocaleString("vi-VN")}đ`;
           } else {
-            priceLabel = `${min.toLocaleString('vi-VN')}đ - ${max.toLocaleString('vi-VN')}đ`;
+            priceLabel = `${min.toLocaleString("vi-VN")}đ - ${max.toLocaleString("vi-VN")}đ`;
           }
 
           normalized.price = [priceLabel];
@@ -145,30 +158,36 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     sizes: availableFilters?.sizes || [],
     themes: availableFilters?.themes || [],
     collections: availableFilters?.collections || [],
-    categories: availableFilters?.categories || []
+    categories: availableFilters?.categories || [],
   });
 
   // Sync selectedFilters with URL so sidebar reflects current search params
   useEffect(() => {
     try {
-      const qs = new URLSearchParams(location.search || '');
-      const filtersParam = qs.get('filters');
+      const qs = new URLSearchParams(location.search || "");
+      const filtersParam = qs.get("filters");
       if (filtersParam) {
         const parsed = JSON.parse(filtersParam);
         const normalized = {};
 
-        if (parsed.categories) normalized.category = parsed.categories.map(String);
-        if (parsed.materials) normalized.material = parsed.materials.map(String);
+        if (parsed.categories)
+          normalized.category = parsed.categories.map(String);
+        if (parsed.materials)
+          normalized.material = parsed.materials.map(String);
         if (parsed.colors) normalized.color = parsed.colors.map(String);
         if (parsed.sizes) normalized.size = parsed.sizes.map(String);
         if (parsed.themes) normalized.theme = parsed.themes.map(String);
-        if (parsed.collections) normalized.collection = parsed.collections.map(String);
+        if (parsed.collections)
+          normalized.collection = parsed.collections.map(String);
         if (parsed.price) {
           const { min, max } = parsed.price;
-          let priceLabel = '';
-          if (min === 0) priceLabel = `Dưới ${Number(max).toLocaleString('vi-VN')}đ`;
-          else if (max === Number.MAX_SAFE_INTEGER) priceLabel = `Trên ${Number(min).toLocaleString('vi-VN')}đ`;
-          else priceLabel = `${Number(min).toLocaleString('vi-VN')}đ - ${Number(max).toLocaleString('vi-VN')}đ`;
+          let priceLabel = "";
+          if (min === 0)
+            priceLabel = `Dưới ${Number(max).toLocaleString("vi-VN")}đ`;
+          else if (max === Number.MAX_SAFE_INTEGER)
+            priceLabel = `Trên ${Number(min).toLocaleString("vi-VN")}đ`;
+          else
+            priceLabel = `${Number(min).toLocaleString("vi-VN")}đ - ${Number(max).toLocaleString("vi-VN")}đ`;
           normalized.price = [priceLabel];
         }
         setSelectedFilters(normalized);
@@ -178,16 +197,41 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       // No legacy filters JSON — parse short params
       const short = Object.fromEntries(qs.entries());
       const newSel = {};
-      if (short.type) newSel.category = String(short.type).split(',').map(s => s.trim()).filter(Boolean);
-      if (short.material) newSel.material = String(short.material).split(',').map(s => s.trim()).filter(Boolean);
-      if (short.color) newSel.color = String(short.color).split(',').map(s => s.trim()).filter(Boolean);
-      if (short.size) newSel.size = String(short.size).split(',').map(s => s.trim()).filter(Boolean);
-      if (short.collection) newSel.collection = String(short.collection).split(',').map(s => s.trim()).filter(Boolean);
+      if (short.type)
+        newSel.category = String(short.type)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      if (short.material)
+        newSel.material = String(short.material)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      if (short.color)
+        newSel.color = String(short.color)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      if (short.size)
+        newSel.size = String(short.size)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+      if (short.collection)
+        newSel.collection = String(short.collection)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
       if (short.min || short.max) {
-        const min = Number(short.min || 0), max = short.max ? Number(short.max) : Number.MAX_SAFE_INTEGER;
-        if (min === 0) newSel.price = [`Dưới ${max.toLocaleString('vi-VN')}đ`];
-        else if (max === Number.MAX_SAFE_INTEGER) newSel.price = [`Trên ${min.toLocaleString('vi-VN')}đ`];
-        else newSel.price = [`${min.toLocaleString('vi-VN')}đ - ${max.toLocaleString('vi-VN')}đ`];
+        const min = Number(short.min || 0),
+          max = short.max ? Number(short.max) : Number.MAX_SAFE_INTEGER;
+        if (min === 0) newSel.price = [`Dưới ${max.toLocaleString("vi-VN")}đ`];
+        else if (max === Number.MAX_SAFE_INTEGER)
+          newSel.price = [`Trên ${min.toLocaleString("vi-VN")}đ`];
+        else
+          newSel.price = [
+            `${min.toLocaleString("vi-VN")}đ - ${max.toLocaleString("vi-VN")}đ`,
+          ];
       }
       setSelectedFilters(newSel);
     } catch (e) {
@@ -195,23 +239,26 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     }
   }, [location.search]);
 
-  const toggleSection = (key) => setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleSection = (key) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   // Utility: produce a slug-like string from a label (ASCII-only, lowercased)
   const toSlug = (s) => {
-    if (!s && s !== 0) return '';
+    if (!s && s !== 0) return "";
     try {
-      return String(s)
-        .normalize('NFD')
-        // remove diacritics
-        .replace(/\p{Diacritic}/gu, '')
-        // remove invalid chars
-        .replace(/[^\w\s-]/g, '')
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, '-');
+      return (
+        String(s)
+          .normalize("NFD")
+          // remove diacritics
+          .replace(/\p{Diacritic}/gu, "")
+          // remove invalid chars
+          .replace(/[^\w\s-]/g, "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+      );
     } catch (e) {
-      return String(s).trim().toLowerCase().replace(/\s+/g, '-');
+      return String(s).trim().toLowerCase().replace(/\s+/g, "-");
     }
   };
 
@@ -219,11 +266,13 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     setSelectedFilters((prev) => {
       if (filterKey === "category") {
         const current = Array.isArray(prev[filterKey]) ? prev[filterKey] : [];
-        const isSame = current.length === 1 && String(current[0]) === String(value);
+        const isSame =
+          current.length === 1 && String(current[0]) === String(value);
         return { ...prev, [filterKey]: isSame ? [] : [value] };
       }
       const cur = new Set(prev[filterKey] || []);
-      if (cur.has(value)) cur.delete(value); else cur.add(value);
+      if (cur.has(value)) cur.delete(value);
+      else cur.add(value);
       return { ...prev, [filterKey]: Array.from(cur) };
     });
   };
@@ -239,15 +288,20 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       // Normalize lists so each option is an object { _id, name }
       const normalizeList = (list) => {
         if (!Array.isArray(list)) return [];
-        return list.map(item => {
-          if (item === null || item === undefined) return null;
-          if (typeof item === 'string') return { _id: item, name: item };
-          // item may already be an object; ensure it has _id and name
-          const id = item._id ?? item.id ?? item.value ?? item.name ?? null;
-          const name = item.name ?? item.title ?? String(id);
-          const slug = item.slug != null && String(item.slug).trim() ? String(item.slug).trim() : null;
-          return slug ? { _id: id, name, slug } : { _id: id, name };
-        }).filter(Boolean);
+        return list
+          .map((item) => {
+            if (item === null || item === undefined) return null;
+            if (typeof item === "string") return { _id: item, name: item };
+            // item may already be an object; ensure it has _id and name
+            const id = item._id ?? item.id ?? item.value ?? item.name ?? null;
+            const name = item.name ?? item.title ?? String(id);
+            const slug =
+              item.slug != null && String(item.slug).trim()
+                ? String(item.slug).trim()
+                : null;
+            return slug ? { _id: id, name, slug } : { _id: id, name };
+          })
+          .filter(Boolean);
       };
 
       const attrData = {
@@ -256,7 +310,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
         sizes: normalizeList(availableFilters.sizes),
         themes: normalizeList(availableFilters.themes),
         collections: normalizeList(availableFilters.collections),
-        categories: normalizeList(availableFilters.categories)
+        categories: normalizeList(availableFilters.categories),
       };
 
       // Annotate each normalized option with a `count` value taken from availableFilters
@@ -264,20 +318,37 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       // available, default count to 0 so the UI can display an explicit 0.
       const findCountInRaw = (rawList, normItem) => {
         if (!Array.isArray(rawList) || !normItem) return null;
-        const sv = String(normItem._id ?? normItem.name ?? '').trim();
+        const sv = String(normItem._id ?? normItem.name ?? "").trim();
 
         // Try to find by id-like fields
-        const byId = rawList.find(it => it && (String(it._id) === sv || String(it.id) === sv || String(it.value) === sv));
-        if (byId && (typeof byId.count === 'number')) return byId.count;
+        const byId = rawList.find(
+          (it) =>
+            it &&
+            (String(it._id) === sv ||
+              String(it.id) === sv ||
+              String(it.value) === sv),
+        );
+        if (byId && typeof byId.count === "number") return byId.count;
 
         // Try to find by name (case-insensitive)
-        const byName = rawList.find(it => {
+        const byName = rawList.find((it) => {
           if (!it) return false;
-          if (typeof it === 'string') return String(it).trim().toLowerCase() === String(normItem.name || '').trim().toLowerCase();
-          const name = it.name ?? it.title ?? '';
-          return String(name).trim().toLowerCase() === String(normItem.name || '').trim().toLowerCase();
+          if (typeof it === "string")
+            return (
+              String(it).trim().toLowerCase() ===
+              String(normItem.name || "")
+                .trim()
+                .toLowerCase()
+            );
+          const name = it.name ?? it.title ?? "";
+          return (
+            String(name).trim().toLowerCase() ===
+            String(normItem.name || "")
+              .trim()
+              .toLowerCase()
+          );
         });
-        if (byName && (typeof byName.count === 'number')) return byName.count;
+        if (byName && typeof byName.count === "number") return byName.count;
 
         // No explicit count available
         return null;
@@ -286,8 +357,12 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       Object.keys(attrData).forEach((k) => {
         const rawKey = k; // same key names from availableFilters
         const rawList = availableFilters[rawKey];
-        attrData[k] = (attrData[k] || []).map(item => ({ ...item, count: findCountInRaw(rawList, item) }));
-      });      setAttrOptions(attrData);
+        attrData[k] = (attrData[k] || []).map((item) => ({
+          ...item,
+          count: findCountInRaw(rawList, item),
+        }));
+      });
+      setAttrOptions(attrData);
     }
   }, [availableFilters]);
 
@@ -301,7 +376,9 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
     (async () => {
       // Find category slug for selected categories (sync helper)
       const findCategorySlug = (categoryId) => {
-        const category = (attrOptions.categories || []).find(cat => String(cat._id) === String(categoryId));
+        const category = (attrOptions.categories || []).find(
+          (cat) => String(cat._id) === String(categoryId),
+        );
         return category ? category.slug : null;
       };
 
@@ -314,16 +391,22 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
           const vals = selectedFilters[key] || [];
           if (!vals || !vals.length) return undefined;
           let listKey;
-          if (key === 'material') listKey = 'materials';
-          else if (key === 'theme') listKey = 'themes';
-          else if (key === 'collection') listKey = 'collections';
-          else if (key === 'category') listKey = 'categories';
+          if (key === "material") listKey = "materials";
+          else if (key === "theme") listKey = "themes";
+          else if (key === "collection") listKey = "collections";
+          else if (key === "category") listKey = "categories";
           else listKey = `${key}s`;
           const list = attrOptions[listKey] || [];
 
           // If category list is empty, attempt to fetch global categories as a fallback
-          let globalCats = Array.isArray(window._allCategories) ? window._allCategories : [];
-          if (key === 'category' && (!Array.isArray(list) || list.length === 0) && (!Array.isArray(globalCats) || globalCats.length === 0)) {
+          let globalCats = Array.isArray(window._allCategories)
+            ? window._allCategories
+            : [];
+          if (
+            key === "category" &&
+            (!Array.isArray(list) || list.length === 0) &&
+            (!Array.isArray(globalCats) || globalCats.length === 0)
+          ) {
             try {
               const res = await api.getCategories({ root: 0 });
               globalCats = Array.isArray(res?.data) ? res.data : [];
@@ -333,38 +416,84 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
             }
           }
 
-          const results = await Promise.all(vals.map(async (v) => {
-            // Try to find in normalized attrOptions first (match by id or name)
-            const found = (list || []).find((it) => String(it._id) === String(v) || String((it.name || it) || '').trim().toLowerCase() === String(v || '').trim().toLowerCase());
-            if (found) {
-              if (key === 'category' && found.slug) derivedCategorySlug = derivedCategorySlug || found.slug;
-              return String(found._id || found.id || found.name);
-            }
-
-            // Try global categories (from window._allCategories)
-            if (key === 'category' && Array.isArray(globalCats) && globalCats.length) {
-              const globalFound = globalCats.find(c => String(c._id) === String(v) || String((c.name || '')).trim().toLowerCase() === String(v || '').trim().toLowerCase() || String((c.slug || '')).trim().toLowerCase() === String(v || '').trim().toLowerCase());
-              if (globalFound) {
-                derivedCategorySlug = derivedCategorySlug || globalFound.slug || null;
-                return String(globalFound._id || globalFound.slug || globalFound.name || v);
+          const results = await Promise.all(
+            vals.map(async (v) => {
+              // Try to find in normalized attrOptions first (match by id or name)
+              const found = (list || []).find(
+                (it) =>
+                  String(it._id) === String(v) ||
+                  String(it.name || it || "")
+                    .trim()
+                    .toLowerCase() ===
+                    String(v || "")
+                      .trim()
+                      .toLowerCase(),
+              );
+              if (found) {
+                if (key === "category" && found.slug)
+                  derivedCategorySlug = derivedCategorySlug || found.slug;
+                return String(found._id || found.id || found.name);
               }
-            }
 
-            // Otherwise return raw value (fallback)
-            return String(v);
-          }));
+              // Try global categories (from window._allCategories)
+              if (
+                key === "category" &&
+                Array.isArray(globalCats) &&
+                globalCats.length
+              ) {
+                const globalFound = globalCats.find(
+                  (c) =>
+                    String(c._id) === String(v) ||
+                    String(c.name || "")
+                      .trim()
+                      .toLowerCase() ===
+                      String(v || "")
+                        .trim()
+                        .toLowerCase() ||
+                    String(c.slug || "")
+                      .trim()
+                      .toLowerCase() ===
+                      String(v || "")
+                        .trim()
+                        .toLowerCase(),
+                );
+                if (globalFound) {
+                  derivedCategorySlug =
+                    derivedCategorySlug || globalFound.slug || null;
+                  return String(
+                    globalFound._id ||
+                      globalFound.slug ||
+                      globalFound.name ||
+                      v,
+                  );
+                }
+              }
+
+              // Otherwise return raw value (fallback)
+              return String(v);
+            }),
+          );
 
           return results;
         };
 
-        const mat = await mapArray('material'); if (mat) out.materials = mat;
-        const col = await mapArray('color'); if (col) out.colors = col;
-        const sz = await mapArray('size'); if (sz) out.sizes = sz;
-        const th = await mapArray('theme'); if (th) out.themes = th;
-        const coll = await mapArray('collection'); if (coll) out.collections = coll;
-        const cat = await mapArray('category'); if (cat) out.categories = cat;
+        const mat = await mapArray("material");
+        if (mat) out.materials = mat;
+        const col = await mapArray("color");
+        if (col) out.colors = col;
+        const sz = await mapArray("size");
+        if (sz) out.sizes = sz;
+        const th = await mapArray("theme");
+        if (th) out.themes = th;
+        const coll = await mapArray("collection");
+        if (coll) out.collections = coll;
+        const cat = await mapArray("category");
+        if (cat) out.categories = cat;
 
-        if (Array.isArray(selectedFilters.price) && selectedFilters.price.length) {
+        if (
+          Array.isArray(selectedFilters.price) &&
+          selectedFilters.price.length
+        ) {
           const label = selectedFilters.price[0];
           if (label.indexOf("Dưới") === 0) {
             const n = Number(label.replace(/[^0-9]/g, "")) || 0;
@@ -373,12 +502,19 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
             const n = Number(label.replace(/[^0-9]/g, "")) || 0;
             out.price = { min: n, max: Number.MAX_SAFE_INTEGER };
           } else {
-            const parts = label.split("-").map((s) => Number(String(s).replace(/[^0-9]/g, "")));
-            if (parts.length === 2) out.price = { min: parts[0], max: parts[1] };
+            const parts = label
+              .split("-")
+              .map((s) => Number(String(s).replace(/[^0-9]/g, "")));
+            if (parts.length === 2)
+              out.price = { min: parts[0], max: parts[1] };
           }
         }
 
-        if (!out.categorySlug && typeof derivedCategorySlug === 'string' && derivedCategorySlug) {
+        if (
+          !out.categorySlug &&
+          typeof derivedCategorySlug === "string" &&
+          derivedCategorySlug
+        ) {
           out.categorySlug = derivedCategorySlug;
         }
 
@@ -388,16 +524,53 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       const backendFilters = await mapToBackend();
 
       // Keep both categories and categorySlug for backend compatibility
-      if (Array.isArray(selectedFilters.category) && selectedFilters.category.length > 0) {
+      if (
+        Array.isArray(selectedFilters.category) &&
+        selectedFilters.category.length > 0
+      ) {
         const categoryId = selectedFilters.category[0]; // Get first selected category
         let foundCat = null;
         // Try attrOptions first (by id, slug or name)
         if (Array.isArray(attrOptions.categories)) {
-          foundCat = (attrOptions.categories || []).find(cat => String(cat._id) === String(categoryId) || String((cat.slug || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase() || String((cat.name || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase());
+          foundCat = (attrOptions.categories || []).find(
+            (cat) =>
+              String(cat._id) === String(categoryId) ||
+              String(cat.slug || "")
+                .trim()
+                .toLowerCase() ===
+                String(categoryId || "")
+                  .trim()
+                  .toLowerCase() ||
+              String(cat.name || "")
+                .trim()
+                .toLowerCase() ===
+                String(categoryId || "")
+                  .trim()
+                  .toLowerCase(),
+          );
         }
         // Fallback to global category list
-        if (!foundCat && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-          foundCat = window._allCategories.find(c => String(c._id) === String(categoryId) || String((c.slug || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === String(categoryId || '').trim().toLowerCase());
+        if (
+          !foundCat &&
+          typeof window !== "undefined" &&
+          Array.isArray(window._allCategories)
+        ) {
+          foundCat = window._allCategories.find(
+            (c) =>
+              String(c._id) === String(categoryId) ||
+              String(c.slug || "")
+                .trim()
+                .toLowerCase() ===
+                String(categoryId || "")
+                  .trim()
+                  .toLowerCase() ||
+              String(c.name || "")
+                .trim()
+                .toLowerCase() ===
+                String(categoryId || "")
+                  .trim()
+                  .toLowerCase(),
+          );
         }
         if (foundCat && foundCat.slug) {
           backendFilters.categorySlug = foundCat.slug;
@@ -411,9 +584,12 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
         // ignore
       }
 
-      if (typeof onFiltersChange === 'function') {
+      if (typeof onFiltersChange === "function") {
         const payloadForParent = { ...backendFilters };
-        if (Array.isArray(selectedFilters.price) && selectedFilters.price.length) {
+        if (
+          Array.isArray(selectedFilters.price) &&
+          selectedFilters.price.length
+        ) {
           payloadForParent.price = selectedFilters.price;
         } else {
           delete payloadForParent.price;
@@ -424,123 +600,216 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       try {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            try {
-              // Build short query params (type, material, color, size, collection, min, max)
-              const shortParams = new URLSearchParams();
+          try {
+            // Build short query params (type, material, color, size, collection, min, max)
+            const shortParams = new URLSearchParams();
 
-               // type (category): prefer slug form for user-facing short param
-               const catVals = (backendFilters && Array.isArray(backendFilters.categories)) ? backendFilters.categories : undefined;
-               let typeCandidate = null;
-               if (Array.isArray(selectedFilters.category) && selectedFilters.category.length) {
-                 const sel = selectedFilters.category[0];
-                 // Try to find category in attrOptions by id/name/slug
-                 const byAttr = (attrOptions.categories || []).find(c => String(c._id) === String(sel) || String((c.name || '')).trim().toLowerCase() === String(sel || '').trim().toLowerCase() || String((c.slug || '')).trim().toLowerCase() === String(sel || '').trim().toLowerCase());
-                 if (byAttr) typeCandidate = byAttr.slug || toSlug(byAttr.name) || String(sel);
-                 else if (catVals && catVals.length) {
-                   const v = String(catVals[0]);
-                   const byAttr2 = (attrOptions.categories || []).find(c => String(c._id) === v || String((c.slug || '')).trim().toLowerCase() === v.trim().toLowerCase() || String((c.name || '')).trim().toLowerCase() === v.trim().toLowerCase());
-                   if (byAttr2) typeCandidate = byAttr2.slug || String(v);
-                   else typeCandidate = toSlug(v);
-                 } else {
-                   typeCandidate = toSlug(sel);
-                 }
-               } else if (backendFilters && backendFilters.categorySlug) {
-                 // fallback: use slug as type if nothing else
-                 typeCandidate = backendFilters.categorySlug;
-               }
-                if (typeCandidate) {
-                  // Ensure we don't write a raw backend id into `type`. If it looks
-                  // like an object id (hex-like) try to convert to a slug-like
-                  // short identifier using any available name/slug. Otherwise
-                  // fallback to toSlug() of the candidate.
-                  const asStr = String(typeCandidate);
-                  const looksLikeId = /^[0-9a-fA-F]{8,24}$/.test(asStr);
-                  let outType = asStr;
-                  if (looksLikeId) {
-                    // Try to find corresponding category in global list
-                    if (typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-                      const found = window._allCategories.find(c => String(c._id) === asStr || String(c.slug) === asStr);
-                      if (found && found.slug) outType = found.slug;
-                      else outType = toSlug(asStr);
-                    } else {
-                      outType = toSlug(asStr);
-                    }
-                  }
-                  shortParams.set('type', String(outType));
-                }
-
-              // If facet lists lack slug / ids mismatch, still persist Loại SP in URL
-              if (!shortParams.has('type')) {
-                if (backendFilters?.categorySlug) {
-                  shortParams.set('type', String(backendFilters.categorySlug));
-                } else if (Array.isArray(selectedFilters.category) && selectedFilters.category.length) {
-                  const sel = selectedFilters.category[0];
-                  const globals =
-                    typeof window !== 'undefined' && Array.isArray(window._allCategories)
-                      ? window._allCategories
-                      : [];
-                  const hit = globals.find(
-                    (c) =>
-                      String(c._id) === String(sel) ||
-                      String((c.slug || '').trim().toLowerCase()) === String(sel).trim().toLowerCase() ||
-                      String((c.name || '').trim().toLowerCase()) === String(sel).trim().toLowerCase()
+            // type (category): prefer slug form for user-facing short param
+            const catVals =
+              backendFilters && Array.isArray(backendFilters.categories)
+                ? backendFilters.categories
+                : undefined;
+            let typeCandidate = null;
+            if (
+              Array.isArray(selectedFilters.category) &&
+              selectedFilters.category.length
+            ) {
+              const sel = selectedFilters.category[0];
+              // Try to find category in attrOptions by id/name/slug
+              const byAttr = (attrOptions.categories || []).find(
+                (c) =>
+                  String(c._id) === String(sel) ||
+                  String(c.name || "")
+                    .trim()
+                    .toLowerCase() ===
+                    String(sel || "")
+                      .trim()
+                      .toLowerCase() ||
+                  String(c.slug || "")
+                    .trim()
+                    .toLowerCase() ===
+                    String(sel || "")
+                      .trim()
+                      .toLowerCase(),
+              );
+              if (byAttr)
+                typeCandidate =
+                  byAttr.slug || toSlug(byAttr.name) || String(sel);
+              else if (catVals && catVals.length) {
+                const v = String(catVals[0]);
+                const byAttr2 = (attrOptions.categories || []).find(
+                  (c) =>
+                    String(c._id) === v ||
+                    String(c.slug || "")
+                      .trim()
+                      .toLowerCase() === v.trim().toLowerCase() ||
+                    String(c.name || "")
+                      .trim()
+                      .toLowerCase() === v.trim().toLowerCase(),
+                );
+                if (byAttr2) typeCandidate = byAttr2.slug || String(v);
+                else typeCandidate = toSlug(v);
+              } else {
+                typeCandidate = toSlug(sel);
+              }
+            } else if (backendFilters && backendFilters.categorySlug) {
+              // fallback: use slug as type if nothing else
+              typeCandidate = backendFilters.categorySlug;
+            }
+            if (typeCandidate) {
+              // Ensure we don't write a raw backend id into `type`. If it looks
+              // like an object id (hex-like) try to convert to a slug-like
+              // short identifier using any available name/slug. Otherwise
+              // fallback to toSlug() of the candidate.
+              const asStr = String(typeCandidate);
+              const looksLikeId = /^[0-9a-fA-F]{8,24}$/.test(asStr);
+              let outType = asStr;
+              if (looksLikeId) {
+                // Try to find corresponding category in global list
+                if (
+                  typeof window !== "undefined" &&
+                  Array.isArray(window._allCategories)
+                ) {
+                  const found = window._allCategories.find(
+                    (c) => String(c._id) === asStr || String(c.slug) === asStr,
                   );
-                  if (hit?.slug) shortParams.set('type', String(hit.slug));
-                  else if (hit?.name) shortParams.set('type', toSlug(hit.name));
-                  else shortParams.set('type', toSlug(sel));
+                  if (found && found.slug) outType = found.slug;
+                  else outType = toSlug(asStr);
+                } else {
+                  outType = toSlug(asStr);
                 }
               }
+              shortParams.set("type", String(outType));
+            }
 
-              const writeCSV = (key, paramName) => {
-                const arr = selectedFilters[key] || [];
-                if (Array.isArray(arr) && arr.length) shortParams.set(paramName, arr.join(','));
-              };
-              writeCSV('material', 'material');
-              writeCSV('color', 'color');
-              writeCSV('size', 'size');
-              writeCSV('collection', 'collection');
-
-              if (backendFilters && backendFilters.price) {
-                if (backendFilters.price.min !== undefined && backendFilters.price.min !== null) shortParams.set('min', String(backendFilters.price.min));
-                if (backendFilters.price.max !== undefined && backendFilters.price.max !== null && backendFilters.price.max !== Number.MAX_SAFE_INTEGER) shortParams.set('max', String(backendFilters.price.max));
+            // If facet lists lack slug / ids mismatch, still persist Loại SP in URL
+            if (!shortParams.has("type")) {
+              if (backendFilters?.categorySlug) {
+                shortParams.set("type", String(backendFilters.categorySlug));
+              } else if (
+                Array.isArray(selectedFilters.category) &&
+                selectedFilters.category.length
+              ) {
+                const sel = selectedFilters.category[0];
+                const globals =
+                  typeof window !== "undefined" &&
+                  Array.isArray(window._allCategories)
+                    ? window._allCategories
+                    : [];
+                const hit = globals.find(
+                  (c) =>
+                    String(c._id) === String(sel) ||
+                    String((c.slug || "").trim().toLowerCase()) ===
+                      String(sel).trim().toLowerCase() ||
+                    String((c.name || "").trim().toLowerCase()) ===
+                      String(sel).trim().toLowerCase(),
+                );
+                if (hit?.slug) shortParams.set("type", String(hit.slug));
+                else if (hit?.name) shortParams.set("type", toSlug(hit.name));
+                else shortParams.set("type", toSlug(sel));
               }
+            }
 
-              let categorySlugCandidate = null;
-              if (backendFilters && backendFilters.categorySlug) {
-                categorySlugCandidate = backendFilters.categorySlug;
-              } else if (typeCandidate && typeof window !== 'undefined' && Array.isArray(window._allCategories)) {
-                const byGlobal = window._allCategories.find(c => String((c.name || '')).trim().toLowerCase() === String(typeCandidate || '').trim().toLowerCase() || String((c.slug || '')).trim().toLowerCase() === String(typeCandidate || '').trim().toLowerCase());
-                if (byGlobal && byGlobal.slug) categorySlugCandidate = byGlobal.slug;
+            const writeCSV = (key, paramName) => {
+              const arr = selectedFilters[key] || [];
+              if (Array.isArray(arr) && arr.length)
+                shortParams.set(paramName, arr.join(","));
+            };
+            writeCSV("material", "material");
+            writeCSV("color", "color");
+            writeCSV("size", "size");
+            writeCSV("collection", "collection");
+
+            if (backendFilters && backendFilters.price) {
+              if (
+                backendFilters.price.min !== undefined &&
+                backendFilters.price.min !== null
+              )
+                shortParams.set("min", String(backendFilters.price.min));
+              if (
+                backendFilters.price.max !== undefined &&
+                backendFilters.price.max !== null &&
+                backendFilters.price.max !== Number.MAX_SAFE_INTEGER
+              )
+                shortParams.set("max", String(backendFilters.price.max));
+            }
+
+            let categorySlugCandidate = null;
+            if (backendFilters && backendFilters.categorySlug) {
+              categorySlugCandidate = backendFilters.categorySlug;
+            } else if (
+              typeCandidate &&
+              typeof window !== "undefined" &&
+              Array.isArray(window._allCategories)
+            ) {
+              const byGlobal = window._allCategories.find(
+                (c) =>
+                  String(c.name || "")
+                    .trim()
+                    .toLowerCase() ===
+                    String(typeCandidate || "")
+                      .trim()
+                      .toLowerCase() ||
+                  String(c.slug || "")
+                    .trim()
+                    .toLowerCase() ===
+                    String(typeCandidate || "")
+                      .trim()
+                      .toLowerCase(),
+              );
+              if (byGlobal && byGlobal.slug)
+                categorySlugCandidate = byGlobal.slug;
+            }
+            if (categorySlugCandidate)
+              shortParams.set("categorySlug", categorySlugCandidate);
+
+            // Preserve unrelated existing params
+            const existing = new URLSearchParams(window.location.search || "");
+            // Preserve unrelated existing params. Note: do NOT strip existing
+            // categorySlug here — otherwise a header navigation that sets only
+            // categorySlug will be removed by Sidebar when no filters are
+            // selected. Keep categorySlug so short URLs from the header/menu
+            // remain stable.
+            existing.forEach((v, k) => {
+              if (
+                k === "filters" ||
+                k === "type" ||
+                k === "material" ||
+                k === "color" ||
+                k === "size" ||
+                k === "collection" ||
+                k === "min" ||
+                k === "max"
+              )
+                return;
+              shortParams.set(k, v);
+            });
+
+            const qsBuilt = shortParams.toString();
+            const newSearch = qsBuilt ? `?${qsBuilt}` : "";
+            // Replace URL whenever we built any query, or the address bar had no query yet.
+            const shouldReplace =
+              Boolean(qsBuilt) || window.location.search === "";
+            if (shouldReplace) {
+              const sx = window.scrollX || 0;
+              const sy = window.scrollY || 0;
+              try {
+                navigate(`${window.location.pathname}${newSearch}`, {
+                  replace: true,
+                });
+              } catch (e) {
+                window.history.replaceState(
+                  {},
+                  "",
+                  `${window.location.pathname}${newSearch}`,
+                );
               }
-              if (categorySlugCandidate) shortParams.set('categorySlug', categorySlugCandidate);
-
-              // Preserve unrelated existing params
-               const existing = new URLSearchParams(window.location.search || '');
-               // Preserve unrelated existing params. Note: do NOT strip existing
-               // categorySlug here — otherwise a header navigation that sets only
-               // categorySlug will be removed by Sidebar when no filters are
-               // selected. Keep categorySlug so short URLs from the header/menu
-               // remain stable.
-               existing.forEach((v, k) => {
-                 if (k === 'filters' || k === 'type' || k === 'material' || k === 'color' || k === 'size' || k === 'collection' || k === 'min' || k === 'max') return;
-                 shortParams.set(k, v);
-               });
-
-               const qsBuilt = shortParams.toString();
-               const newSearch = qsBuilt ? `?${qsBuilt}` : '';
-               // Replace URL whenever we built any query, or the address bar had no query yet.
-               const shouldReplace = Boolean(qsBuilt) || window.location.search === '';
-               if (shouldReplace) {
-                 const sx = window.scrollX || 0; const sy = window.scrollY || 0;
-                 try {
-                   navigate(`${window.location.pathname}${newSearch}`, { replace: true });
-                 } catch (e) {
-                   window.history.replaceState({}, '', `${window.location.pathname}${newSearch}`);
-                 }
-                 window.scrollTo(sx, sy);
-               }
-            } catch(e) { /* ignore */ }
-          }, 200);
+              window.scrollTo(sx, sy);
+            }
+          } catch (e) {
+            /* ignore */
+          }
+        }, 200);
       } catch (e) {
         // ignore
       }
@@ -565,7 +834,9 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
             <p className="sort-label">Sắp xếp</p>
             <p className="sort-value">{selectedSort.label}</p>
           </div>
-          <MdKeyboardArrowRight className={`sort-icon ${sortOpen ? "rotate" : ""}`} />
+          <MdKeyboardArrowRight
+            className={`sort-icon ${sortOpen ? "rotate" : ""}`}
+          />
         </button>
         {sortOpen && (
           <ul className="sort-menu">
@@ -585,17 +856,25 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
       </div>
       {/* Render filter sections based on category metadata or defaults */}
       {(() => {
-        const visible = Array.isArray(categoryProp?.visibleFilters) && categoryProp.visibleFilters.length
-          ? categoryProp.visibleFilters
-          : DEFAULT_VISIBLE_FILTERS;
+        const visible =
+          Array.isArray(categoryProp?.visibleFilters) &&
+          categoryProp.visibleFilters.length
+            ? categoryProp.visibleFilters
+            : DEFAULT_VISIBLE_FILTERS;
 
         const getOptions = (key) => {
           // Determine candidate keys in availableFilters: support both singular and plural keys
-          const pluralKey = key === 'category' ? 'categories' : key === 'material' ? 'materials' : `${key}s`;
+          const pluralKey =
+            key === "category"
+              ? "categories"
+              : key === "material"
+                ? "materials"
+                : `${key}s`;
           const candidates = [];
           if (availableFilters) {
             if (availableFilters[key]) candidates.push(availableFilters[key]);
-            if (availableFilters[pluralKey]) candidates.push(availableFilters[pluralKey]);
+            if (availableFilters[pluralKey])
+              candidates.push(availableFilters[pluralKey]);
           }
 
           // Prefer facet lists only when non-empty; otherwise fall through so category.children /
@@ -605,7 +884,9 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
               const v = availableFilters[key];
               if (Array.isArray(v) && v.length) return v;
             }
-            if (Object.prototype.hasOwnProperty.call(availableFilters, pluralKey)) {
+            if (
+              Object.prototype.hasOwnProperty.call(availableFilters, pluralKey)
+            ) {
               const v = availableFilters[pluralKey];
               if (Array.isArray(v) && v.length) return v;
             }
@@ -613,121 +894,233 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
 
           // Next, check category-specific filterOptions
           const fromCategory = categoryProp?.filterOptions?.[key];
-          if (Array.isArray(fromCategory) && fromCategory.length) return fromCategory;
+          if (Array.isArray(fromCategory) && fromCategory.length)
+            return fromCategory;
 
           // Fallback to default options
           switch (key) {
-            case 'material':
+            case "material":
               return DEFAULT_FILTER_OPTIONS.material || [];
-            case 'color':
+            case "color":
               return DEFAULT_FILTER_OPTIONS.color || [];
-            case 'size':
+            case "size":
               return DEFAULT_FILTER_OPTIONS.size || [];
-            case 'theme':
+            case "theme":
               return DEFAULT_FILTER_OPTIONS.theme || [];
-            case 'collection':
+            case "collection":
               return DEFAULT_FILTER_OPTIONS.collection || [];
-            case 'category':
+            case "category":
               return DEFAULT_FILTER_OPTIONS.category || [];
-            case 'price':
+            case "price":
               return DEFAULT_FILTER_OPTIONS.price || [];
             default:
               return DEFAULT_FILTER_OPTIONS[key] || [];
           }
         };
 
-        const isSelected = (key, value) => (selectedFilters[key] || []).includes(value);
+        const isSelected = (key, value) => {
+          const arr = selectedFilters[key] || [];
+          const v = String(value);
+          if (arr.includes(v) || arr.includes(value)) return true;
+          if (key !== "category") return false;
 
-          // Calculate product count for a filter option. Prefer the normalized
-          // attrOptions (which we annotated with counts) when available. If not
-          // present, fall back to availableFilters raw data. If neither exists,
-          // return null for unknown (e.g., price ranges).
-          const getOptionCount = (key, value) => {
-            // Price ranges or unknown keys
-            if (key === 'price') return null;
+          // Category can be represented by id OR slug OR name (short URL params).
+          // Try to resolve the category object by id/slug/name and check equivalents.
+          const pool = [
+            ...(Array.isArray(attrOptions.categories)
+              ? attrOptions.categories
+              : []),
+            ...(typeof window !== "undefined" &&
+            Array.isArray(window._allCategories)
+              ? window._allCategories
+              : []),
+          ];
 
-            // Try to find in normalized attrOptions
-            const listKey = key === 'material' ? 'materials' : key === 'collection' ? 'collections' : key === 'category' ? 'categories' : `${key}s`;
-            const normList = attrOptions[listKey];
-            if (Array.isArray(normList) && normList.length) {
-              const found = normList.find(it => String(it._id) === String(value) || String(it.name || '').trim().toLowerCase() === String(value).trim().toLowerCase());
-              if (found) {
-                // If count is explicitly numeric, return it. If count is present but not numeric
-                // (null/undefined), treat as unknown (null) so UI doesn't show (0).
-                return (typeof found.count === 'number') ? found.count : null;
-              }
+          const lowered = v.trim().toLowerCase();
+          const found = pool.find((c) => {
+            if (!c) return false;
+            const id = String(c._id || c.id || "");
+            const slug = String(c.slug || "")
+              .trim()
+              .toLowerCase();
+            const name = String(c.name || "")
+              .trim()
+              .toLowerCase();
+            return id === v || slug === lowered || name === lowered;
+          });
+
+          const candidates = new Set([v, lowered]);
+          if (found) {
+            if (found._id) candidates.add(String(found._id));
+            if (found.id) candidates.add(String(found.id));
+            if (found.slug) candidates.add(String(found.slug));
+            if (found.name) {
+              candidates.add(String(found.name));
+              candidates.add(toSlug(found.name));
             }
+          }
 
-            // Fall back to availableFilters raw lists (older behavior)
-            if (!availableFilters) return 1; // optimistic default to enable selection while loading
+          for (const sel of arr) {
+            const s = String(sel);
+            if (candidates.has(s) || candidates.has(s.trim().toLowerCase()))
+              return true;
+          }
+          return false;
+        };
 
-            const findOption = (filterArray, searchValue) => {
-              if (!filterArray) return null;
-              const sv = String(searchValue || '').trim();
-              let option = filterArray.find(item => String(item._id || item.id || item.value || item).toString() === sv);
-              if (!option) {
-                option = filterArray.find(item => String(item.name || item.title || item || '').trim().toLowerCase() === sv.toLowerCase());
-              }
-              return option || null;
-            };
+        // Calculate product count for a filter option. Prefer the normalized
+        // attrOptions (which we annotated with counts) when available. If not
+        // present, fall back to availableFilters raw data. If neither exists,
+        // return null for unknown (e.g., price ranges).
+        const getOptionCount = (key, value) => {
+          // Price ranges or unknown keys
+          if (key === "price") return null;
 
-            switch (key) {
-              case 'material':
-                if (availableFilters?.materials) {
-                  const materialOption = findOption(availableFilters.materials, value);
-                  return (materialOption && typeof materialOption.count === 'number') ? materialOption.count : null;
-                }
-                return null;
-              case 'color':
-                if (availableFilters?.colors) {
-                  const colorOption = findOption(availableFilters.colors, value);
-                  return (colorOption && typeof colorOption.count === 'number') ? colorOption.count : null;
-                }
-                return null;
-              case 'size':
-                if (availableFilters?.sizes) {
-                  const sizeOption = findOption(availableFilters.sizes, value);
-                  return (sizeOption && typeof sizeOption.count === 'number') ? sizeOption.count : null;
-                }
-                return null;
-              case 'theme':
-                if (availableFilters?.themes) {
-                  const themeOption = findOption(availableFilters.themes, value);
-                  return (themeOption && typeof themeOption.count === 'number') ? themeOption.count : null;
-                }
-                return null;
-              case 'collection':
-                if (availableFilters?.collections) {
-                  const collectionOption = findOption(availableFilters.collections, value);
-                  return (collectionOption && typeof collectionOption.count === 'number') ? collectionOption.count : null;
-                }
-                return null;
-              case 'category':
-                if (availableFilters?.categories) {
-                  const categoryOption = findOption(availableFilters.categories, value);
-                  return (categoryOption && typeof categoryOption.count === 'number') ? categoryOption.count : null;
-                }
-                return null;
-              default:
-                return null;
+          // Try to find in normalized attrOptions
+          const listKey =
+            key === "material"
+              ? "materials"
+              : key === "collection"
+                ? "collections"
+                : key === "category"
+                  ? "categories"
+                  : `${key}s`;
+          const normList = attrOptions[listKey];
+          if (Array.isArray(normList) && normList.length) {
+            const found = normList.find(
+              (it) =>
+                String(it._id) === String(value) ||
+                String(it.name || "")
+                  .trim()
+                  .toLowerCase() === String(value).trim().toLowerCase(),
+            );
+            if (found) {
+              // If count is explicitly numeric, return it. If count is present but not numeric
+              // (null/undefined), treat as unknown (null) so UI doesn't show (0).
+              return typeof found.count === "number" ? found.count : null;
             }
+          }
+
+          // Fall back to availableFilters raw lists (older behavior)
+          if (!availableFilters) return 1; // optimistic default to enable selection while loading
+
+          const findOption = (filterArray, searchValue) => {
+            if (!filterArray) return null;
+            const sv = String(searchValue || "").trim();
+            let option = filterArray.find(
+              (item) =>
+                String(item._id || item.id || item.value || item).toString() ===
+                sv,
+            );
+            if (!option) {
+              option = filterArray.find(
+                (item) =>
+                  String(item.name || item.title || item || "")
+                    .trim()
+                    .toLowerCase() === sv.toLowerCase(),
+              );
+            }
+            return option || null;
           };
+
+          switch (key) {
+            case "material":
+              if (availableFilters?.materials) {
+                const materialOption = findOption(
+                  availableFilters.materials,
+                  value,
+                );
+                return materialOption &&
+                  typeof materialOption.count === "number"
+                  ? materialOption.count
+                  : null;
+              }
+              return null;
+            case "color":
+              if (availableFilters?.colors) {
+                const colorOption = findOption(availableFilters.colors, value);
+                return colorOption && typeof colorOption.count === "number"
+                  ? colorOption.count
+                  : null;
+              }
+              return null;
+            case "size":
+              if (availableFilters?.sizes) {
+                const sizeOption = findOption(availableFilters.sizes, value);
+                return sizeOption && typeof sizeOption.count === "number"
+                  ? sizeOption.count
+                  : null;
+              }
+              return null;
+            case "theme":
+              if (availableFilters?.themes) {
+                const themeOption = findOption(availableFilters.themes, value);
+                return themeOption && typeof themeOption.count === "number"
+                  ? themeOption.count
+                  : null;
+              }
+              return null;
+            case "collection":
+              if (availableFilters?.collections) {
+                const collectionOption = findOption(
+                  availableFilters.collections,
+                  value,
+                );
+                return collectionOption &&
+                  typeof collectionOption.count === "number"
+                  ? collectionOption.count
+                  : null;
+              }
+              return null;
+            case "category":
+              if (availableFilters?.categories) {
+                const categoryOption = findOption(
+                  availableFilters.categories,
+                  value,
+                );
+                return categoryOption &&
+                  typeof categoryOption.count === "number"
+                  ? categoryOption.count
+                  : null;
+              }
+              return null;
+            default:
+              return null;
+          }
+        };
 
         const renderSection = (key) => {
           const opts = getOptions(key);
           const open = openSections[key] !== false; // default true
           switch (key) {
-            case 'category':
-            case 'material':
-            case 'collection':
-            case 'theme':
-            case 'classification':
-            case 'price':
+            case "category":
+            case "material":
+            case "collection":
+            case "theme":
+            case "classification":
+            case "price":
               return (
                 <div className="filter-section" key={key}>
-                  <div className="filter-section__header" onClick={() => toggleSection(key)}>
-                    <h3 className="filter-section__title">{key === 'material' ? 'Chất liệu' : key === 'price' ? 'Mức giá' : key === 'category' ? 'Loại sản phẩm' : key === 'theme' ? 'Chủ đề' : key === 'collection' ? 'Bộ sưu tập' : 'Phân loại'}</h3>
-                    <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
+                  <div
+                    className="filter-section__header"
+                    onClick={() => toggleSection(key)}
+                  >
+                    <h3 className="filter-section__title">
+                      {key === "material"
+                        ? "Chất liệu"
+                        : key === "price"
+                          ? "Mức giá"
+                          : key === "category"
+                            ? "Loại sản phẩm"
+                            : key === "theme"
+                              ? "Chủ đề"
+                              : key === "collection"
+                                ? "Bộ sưu tập"
+                                : "Phân loại"}
+                    </h3>
+                    <span className="filter-section__toggle">
+                      {open ? <FaMinus /> : <FaPlus />}
+                    </span>
                   </div>
                   {open && (
                     <div className="filter-section__body">
@@ -735,27 +1128,38 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                         // label may be object { _id, name } or string
                         let value, display;
 
-                        if (key === 'price') {
+                        if (key === "price") {
                           display =
-                            label && typeof label === 'object' && label.label != null
+                            label &&
+                            typeof label === "object" &&
+                            label.label != null
                               ? String(label.label)
                               : String(label);
                           value = display;
                         } else {
                           // Standard handling for other filter types
-                          value = (label && (label._id || label.id)) ? String(label._id || label.id) : String(label);
-                          display = (label && (label.name || label.title)) ? (label.name || label.title) : String(label);
+                          value =
+                            label && (label._id || label.id)
+                              ? String(label._id || label.id)
+                              : String(label);
+                          display =
+                            label && (label.name || label.title)
+                              ? label.name || label.title
+                              : String(label);
                         }
 
                         const count = getOptionCount(key, value);
                         const isDisabled =
-                          typeof count === 'number' &&
+                          typeof count === "number" &&
                           count === 0 &&
-                          key !== 'collection' &&
-                          key !== 'category';
+                          key !== "collection" &&
+                          key !== "category";
 
                         return (
-                          <label className={`filter-checkbox ${isDisabled ? 'disabled' : ''}`} key={value}>
+                          <label
+                            className={`filter-checkbox ${isDisabled ? "disabled" : ""}`}
+                            key={value}
+                          >
                             <input
                               type="checkbox"
                               checked={isSelected(key, value)}
@@ -763,7 +1167,7 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                               disabled={isDisabled}
                             />
                             <span>{display}</span>
-                            {typeof count === 'number' && (
+                            {typeof count === "number" && (
                               <span className="filter-count">({count})</span>
                             )}
                           </label>
@@ -773,17 +1177,25 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                   )}
                 </div>
               );
-            case 'color':
+            case "color":
               return (
                 <div className="filter-section" key={key}>
-                  <div className="filter-section__header" onClick={() => toggleSection(key)}>
+                  <div
+                    className="filter-section__header"
+                    onClick={() => toggleSection(key)}
+                  >
                     <h3 className="filter-section__title">Màu sắc</h3>
-                    <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
+                    <span className="filter-section__toggle">
+                      {open ? <FaMinus /> : <FaPlus />}
+                    </span>
                   </div>
                   {open && (
                     <div className="filter-section__body color-list">
                       {(opts || []).map((color) => {
-                        const value = (color && (color._id || color.id)) ? String(color._id || color.id) : String(color.name || color);
+                        const value =
+                          color && (color._id || color.id)
+                            ? String(color._id || color.id)
+                            : String(color.name || color);
                         const name = color.name || color;
                         const selected = isSelected(key, value);
                         const count = getOptionCount(key, value);
@@ -791,17 +1203,28 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                         return (
                           <button
                             type="button"
-                            className={`color-option ${count === 0 ? 'disabled' : ''}`}
+                            className={`color-option ${count === 0 ? "disabled" : ""}`}
                             key={value}
                             onClick={() => toggleOption(key, value)}
-                            disabled={typeof count === 'number' ? count === 0 : false}
+                            disabled={
+                              typeof count === "number" ? count === 0 : false
+                            }
                           >
-                            <span className={`color-swatch ${selected ? 'is-selected' : ''}`}>
-                              <span className="color-swatch__fill" style={{ background: color.gradient ? color.gradient : color.code }} />
+                            <span
+                              className={`color-swatch ${selected ? "is-selected" : ""}`}
+                            >
+                              <span
+                                className="color-swatch__fill"
+                                style={{
+                                  background: color.gradient
+                                    ? color.gradient
+                                    : color.code,
+                                }}
+                              />
                             </span>
                             <div className="color-info">
                               <span>{name}</span>
-                              {typeof count === 'number' && (
+                              {typeof count === "number" && (
                                 <span className="color-count">({count})</span>
                               )}
                             </div>
@@ -812,17 +1235,25 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                   )}
                 </div>
               );
-            case 'size':
+            case "size":
               return (
                 <div className="filter-section" key={key}>
-                  <div className="filter-section__header" onClick={() => toggleSection(key)}>
+                  <div
+                    className="filter-section__header"
+                    onClick={() => toggleSection(key)}
+                  >
                     <h3 className="filter-section__title">Size</h3>
-                    <span className="filter-section__toggle">{open ? <FaMinus /> : <FaPlus />}</span>
+                    <span className="filter-section__toggle">
+                      {open ? <FaMinus /> : <FaPlus />}
+                    </span>
                   </div>
                   {open && (
                     <div className="filter-section__body size-grid">
                       {(opts || []).map((s) => {
-                        const value = (s && (s._id || s.id)) ? String(s._id || s.id) : String(s.name || s);
+                        const value =
+                          s && (s._id || s.id)
+                            ? String(s._id || s.id)
+                            : String(s.name || s);
                         const name = s.name || s;
                         const selected = isSelected(key, value);
                         const count = getOptionCount(key, value);
@@ -831,12 +1262,14 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
                           <button
                             type="button"
                             key={value}
-                            className={`size-pill ${selected ? 'is-selected' : ''} ${count === 0 ? 'disabled' : ''}`}
+                            className={`size-pill ${selected ? "is-selected" : ""} ${count === 0 ? "disabled" : ""}`}
                             onClick={() => toggleOption(key, value)}
-                            disabled={typeof count === 'number' ? count === 0 : false}
+                            disabled={
+                              typeof count === "number" ? count === 0 : false
+                            }
                           >
                             {name}
-                            {typeof count === 'number' && (
+                            {typeof count === "number" && (
                               <span className="size-count">({count})</span>
                             )}
                           </button>
@@ -854,5 +1287,5 @@ export default function Sidebar({ category: categoryProp, availableFilters, onFi
         return visible.map((k) => renderSection(k));
       })()}
     </div>
-  )
+  );
 }

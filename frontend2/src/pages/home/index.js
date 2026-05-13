@@ -5,14 +5,14 @@ import { Navigation } from "swiper/modules";
 import { ProductCard } from "../../components/product-card";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { AiOutlineLeft, AiOutlineRight } from "react-icons/ai";
-import { COMMITMENTS_DATA } from "../../data/commitment";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../utils/api";
 
 export const Home = () => {
   const [products, setProducts] = useState([]);
-  const [collections, setCollections] = useState([]);
+  const [recentlyViewed, setRecentlyViewed] = useState([]);
+  const [blogs, setBlogs] = useState([]);
   const [promoCollection, setPromoCollection] = useState(null);
 
   useEffect(() => {
@@ -34,16 +34,24 @@ export const Home = () => {
         if (cancelled) return;
         setProducts(merged);
 
-        // Always fetch collections from backend so ordering by createdAt is correct.
+        // Recently viewed (guest + logged in)
         try {
-          const res = await api.getCollections({ limit: 4 });
+          const rv = await api.getRecentlyViewed({ limit: 20 });
           if (cancelled) return;
-          const items = res?.data && Array.isArray(res.data) ? res.data : [];
-          setCollections(items);
-        } catch (e) {
+          setRecentlyViewed(Array.isArray(rv?.data) ? rv.data : []);
+        } catch {
           if (cancelled) return;
-          console.error("Failed to load collections", e);
-          setCollections([]);
+          setRecentlyViewed([]);
+        }
+
+        // Blogs for discovery slider
+        try {
+          const b = await api.getBlogs({ page: 1, limit: 12 });
+          if (cancelled) return;
+          setBlogs(Array.isArray(b?.data) ? b.data : []);
+        } catch {
+          if (cancelled) return;
+          setBlogs([]);
         }
 
         // Promo: newest collection that contains a video
@@ -223,78 +231,130 @@ export const Home = () => {
           data-aos="fade-up"
           data-aos-delay="400"
         />
-        {/* Grid 4 sản phẩm */}
+        {/* Bài viết (kéo ngang như mục đã xem) */}
         <div className="discovery-grid">
-          {(collections || []).slice(0, 4).map((item, index) => {
-            const key = item._id || item.id || index;
-            const title = item.title || item.name || item.displayName || "";
-            // Prefer array `images` field, then common string fields.
-            let rawImage = null;
-            if (Array.isArray(item.images) && item.images.length)
-              rawImage = item.images[0];
-            if (!rawImage)
-              rawImage =
-                item.avatar ||
-                item.poster ||
-                item.image ||
-                item.coverImage ||
-                item.banner ||
-                item.thumbnail ||
-                null;
-
-            // Resolve URL: if absolute or root-relative use directly, otherwise fallback to provided string or placeholder
-            const image =
-              typeof rawImage === "string" && rawImage.trim()
-                ? rawImage.match(/^https?:\/\//) || rawImage.startsWith("/")
+          <Swiper
+            modules={[Navigation]}
+            navigation={{
+              prevEl: ".custom-prev-blog",
+              nextEl: ".custom-next-blog",
+            }}
+            slidesPerView={4}
+            spaceBetween={10}
+            slidesPerGroup={1}
+            speed={600}
+            grabCursor={true}
+            className="discoverySwiper"
+            breakpoints={{
+              320: { slidesPerView: 1.2, spaceBetween: 12 },
+              640: { slidesPerView: 2.2, spaceBetween: 12 },
+              1024: { slidesPerView: 3.2 },
+              1280: { slidesPerView: 4 },
+            }}
+          >
+            {(blogs || []).map((item, index) => {
+              const key = item._id || item.id || index;
+              const title = item.name || item.title || "";
+              const rawImage = item.avatar || null;
+              const image =
+                typeof rawImage === "string" && rawImage.trim()
                   ? rawImage
-                  : rawImage
-                : "../client/image/khampha.jpg";
-            const slug = item.slug || item._id || "";
-            return (
-              <div
-                key={key}
-                className="discovery-item"
-                data-aos="fade-up"
-                data-aos-delay={200 * (index + 1)}
-              >
-                <div className="image-box">
-                  <Link
-                    to={`/products/collections/${encodeURIComponent(String(slug))}`}
-                    aria-label={title}
+                  : "../client/image/khampha.jpg";
+              const slug = item.slug || item._id || "";
+              return (
+                <SwiperSlide key={key}>
+                  <div
+                    className="discovery-item"
+                    data-aos="fade-up"
+                    data-aos-delay={200 * (index + 1)}
                   >
-                    <img src={image} alt={title} />
-                  </Link>
-                </div>
-                <Link
-                  className="item-title"
-                  to={`/products/collections/${encodeURIComponent(String(slug))}`}
-                >
-                  {title}
-                </Link>
-                <div className="mt-button">
-                  <Link
-                    className="btn-link"
-                    to={`/products/collections/${encodeURIComponent(String(slug))}`}
-                  >
-                    MUA NGAY
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
+                    <div className="image-box">
+                      <Link
+                        to={`/blogs/${encodeURIComponent(String(slug))}`}
+                        aria-label={title}
+                      >
+                        <img src={image} alt={title} />
+                      </Link>
+                    </div>
+                    <Link
+                      className="item-title"
+                      to={`/blogs/${encodeURIComponent(String(slug))}`}
+                    >
+                      {title}
+                    </Link>
+                    <div className="mt-button">
+                      <Link
+                        className="btn-link"
+                        to={`/blogs/${encodeURIComponent(String(slug))}`}
+                      >
+                        ĐỌC NGAY
+                      </Link>
+                    </div>
+                  </div>
+                </SwiperSlide>
+              );
+            })}
+
+            <button className="custom-prev-blog swiper-btn">
+              <AiOutlineLeft />
+            </button>
+            <button className="custom-next-blog swiper-btn">
+              <AiOutlineRight />
+            </button>
+          </Swiper>
         </div>
       </section>
-      <section className="container commit-wrapper">
-        {COMMITMENTS_DATA.map((item) => (
-          <div key={item.id} className="commit-item">
-            <div className="icon-box">
-              <img src={item.icon} alt={item.title} />
-            </div>
-            <div className="commit-title">{item.title}</div>
-            <div className="commit-desc">{item.description}</div>
+
+      {recentlyViewed.length ? (
+        <div className="container product-slider-wrapper">
+          <div>
+            <span className="slider-title">đã xem gần đây</span>
           </div>
-        ))}
-      </section>
+
+          <Swiper
+            modules={[Navigation]}
+            navigation={{
+              prevEl: ".custom-prev-recent",
+              nextEl: ".custom-next-recent",
+            }}
+            slidesPerView={5}
+            spaceBetween={5}
+            slidesPerGroup={1}
+            speed={600}
+            grabCursor={true}
+            className="pandoraSwiper"
+            breakpoints={{
+              320: { slidesPerView: 1.5, spaceBetween: 12 },
+              640: { slidesPerView: 2.5 },
+              1024: { slidesPerView: 4 },
+              1280: { slidesPerView: 5 },
+            }}
+          >
+            {recentlyViewed.map((it) => {
+              const p = it?.product || {};
+              return (
+                <SwiperSlide key={String(it?._id || it?.productId)}>
+                  <ProductCard
+                    id={String(it?.productId)}
+                    slug={p.slug}
+                    name={p.name}
+                    price={p.price ?? 0}
+                    images={p.image || ""}
+                  />
+                </SwiperSlide>
+              );
+            })}
+
+            <button className="custom-prev-recent swiper-btn">
+              <AiOutlineLeft />
+            </button>
+
+            <button className="custom-next-recent swiper-btn">
+              <AiOutlineRight />
+            </button>
+          </Swiper>
+        </div>
+      ) : null}
     </>
   );
 };

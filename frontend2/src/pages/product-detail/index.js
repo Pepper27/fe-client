@@ -65,6 +65,19 @@ export default function ProductDetailPage() {
     };
   }, [slug]);
 
+  // Track recently viewed (guest + logged in)
+  useEffect(() => {
+    const productId = product?._id;
+    if (!productId) return;
+    (async () => {
+      try {
+        await api.trackRecentlyViewed({ productId: String(productId) });
+      } catch {
+        // ignore tracking errors
+      }
+    })();
+  }, [product?._id]);
+
   // Resolve collection names for detail/spec section.
   // Backend may return collections as populated objects OR as ids.
   useEffect(() => {
@@ -141,6 +154,15 @@ export default function ProductDetailPage() {
       Boolean(v?.size || v?.sizeCm || v?.sizeLabel || v?.label),
     );
   }, [variants]);
+
+  // Charms don't use size on PDP
+  const isCharmCategory = useMemo(() => {
+    const catSlug = String(product?.category?.slug || "").toLowerCase();
+    const catName = String(product?.category?.name || "").toLowerCase();
+    return catSlug.includes("charm") || catName.includes("charm");
+  }, [product?.category?.slug, product?.category?.name]);
+
+  const effectiveHasVariantSizes = hasVariantSizes && !isCharmCategory;
 
   // Helper function to get material color
   const getMaterialColor = (label) => {
@@ -390,8 +412,10 @@ export default function ProductDetailPage() {
     if (!selectedMaterial && materials.length)
       setSelectedMaterial(materials[0].id);
     // Only default-select a size when variants actually support sizes
-    if (hasVariantSizes && !selectedSize && sizes.length)
+    if (effectiveHasVariantSizes && !selectedSize && sizes.length)
       setSelectedSize(String(sizes[0]));
+
+    if (isCharmCategory && selectedSize) setSelectedSize(null);
 
     // derive default color id (slug) from variants for the selected material (or first variant)
     if (!selectedColor) {
@@ -433,6 +457,8 @@ export default function ProductDetailPage() {
     sizes,
     variants,
     selectedSize,
+    effectiveHasVariantSizes,
+    isCharmCategory,
   ]);
 
   const selectedVariant = useMemo(() => {
@@ -1194,7 +1220,7 @@ export default function ProductDetailPage() {
           )}
 
           {/* CHỌN SIZE - only show when variants expose sizes */}
-          {hasVariantSizes && (
+          {effectiveHasVariantSizes && (
             <div className="option-section">
               <h2 className="option-label">Chọn kích thước</h2>
               <div className="size-list sizes-square">

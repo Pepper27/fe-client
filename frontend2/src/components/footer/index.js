@@ -15,26 +15,26 @@ export const Footer = () => {
     const CONTACT_INFO = {
         address: "Khương Đình - Thanh Xuân - Hà Nội",
         phone: "0914913491",
-        email: "contact@petcare.com.vn"
+        email: "contact@kb.com.vn"
     };
     return (
         <footer className="footer-main">
             <div className="container">
-                {/* Newsletter Section */}
+                {/* Newsletter Section
                 <div className="newsletter-box">
                     <div className="newsletter-text">
-                        Đăng ký ngay để không bỏ lỡ các <br /> Chương trình - Mã giảm giá của Pet Care
+                        Đăng ký ngay để không bỏ lỡ các <br /> Chương trình - Mã giảm giá của Kim Bảo
                     </div>
                     <div className="newsletter-form">
                         <input type="email" placeholder="Nhập email của bạn..." />
                         <button>Đăng ký ngay</button>
                     </div>
-                </div>
+                </div> */}
 
                 {/* Info Grid */}
                 <div className="footer-grid">
                     <div className="footer-column">
-                        <h4>Liên hệ pet care</h4>
+                        <h4>Liên hệ Kim Bảo</h4>
                         <div className="content-list">
                             <span><FaLocationDot /> {CONTACT_INFO.address}</span>
                             <span><FaPhoneFlip /> Hotline: {CONTACT_INFO.phone}</span>
@@ -43,9 +43,9 @@ export const Footer = () => {
                     </div>
 
                     <div className="footer-column">
-                        <h4>SƠ LƯỢC VỀ PET Care</h4>
+                        <h4>SƠ LƯỢC VỀ Kim Bảo</h4>
                         <p className="description">
-                            Pet Care là trại nhân giống cung cấp thú cảnh lớn tại Việt Nam...
+                            Kim Bảo là thương hiệu chuyên cung cấp các sản phẩm trang sức cao cấp tại Việt Nam...
                         </p>
                     </div>
 
@@ -74,7 +74,7 @@ export const Footer = () => {
 
                 {/* Bottom Copyright */}
                 <div className="footer-bottom">
-                    <span>Copyright 2025 @ PetCare</span>
+                    <span>Copyright 2025 @ Kim Bảo</span>
                     <div className="bottom-links">
                         <a href="/">Điều khoản dịch vụ</a>
                         <a href="/">Chính sách bảo mật</a>

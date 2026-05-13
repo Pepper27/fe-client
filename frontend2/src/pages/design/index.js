@@ -30,7 +30,9 @@ const readEditPayload = () => {
 
 const firstImage = (product, variantCode) => {
   const variants = product?.variants || [];
-  const byCode = variantCode ? variants.find((v) => String(v?.code) === String(variantCode)) : null;
+  const byCode = variantCode
+    ? variants.find((v) => String(v?.code) === String(variantCode))
+    : null;
   const v = byCode || variants[0] || null;
   const img = v?.images?.[0] || null;
   return typeof img === "string" && img.trim() ? img : null;
@@ -45,10 +47,18 @@ const loadImage = (url) =>
     img.src = url;
   });
 
+const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+
+const degToRad = (deg) => (Number(deg) * Math.PI) / 180;
+
 const findVariantByCode = (product, code) => {
   const variants = Array.isArray(product?.variants) ? product.variants : [];
   if (!code) return variants[0] || null;
-  return variants.find((v) => String(v?.code) === String(code)) || variants[0] || null;
+  return (
+    variants.find((v) => String(v?.code) === String(code)) ||
+    variants[0] ||
+    null
+  );
 };
 
 const isInStock = (variant) => {
@@ -59,6 +69,21 @@ const isInStock = (variant) => {
 export default function DesignBuilder() {
   const navigate = useNavigate();
   const location = useLocation();
+  const qs = useMemo(
+    () => new URLSearchParams(location.search || ""),
+    [location.search],
+  );
+  const pageMode = String(qs.get("mode") || "").toLowerCase();
+  const isTryOn = pageMode === "tryon" || pageMode === "try-on";
+
+  const toggleTryOnMode = () => {
+    const basePath = "/design/mix";
+    if (isTryOn) {
+      navigate(basePath, { replace: false });
+    } else {
+      navigate(`${basePath}?mode=tryon`, { replace: false });
+    }
+  };
   const [typeCode, setTypeCode] = useState("vong-tay-mem");
   const [sizeCm, setSizeCm] = useState(17);
 
@@ -112,9 +137,7 @@ export default function DesignBuilder() {
 
   // If coming from the design list (edit flow), hydrate initial state from localStorage.
   useEffect(() => {
-    const qs = new URLSearchParams(location.search || "");
-    const mode = String(qs.get("mode") || "").toLowerCase();
-    if (mode !== "edit") return;
+    if (pageMode !== "edit") return;
 
     const payload = readEditPayload();
     if (!payload) {
@@ -131,7 +154,11 @@ export default function DesignBuilder() {
     const nextBraceletId = b?.productId ? String(b.productId) : null;
 
     // Prime the ref so the size/material sync effect won't clear items on hydrate.
-    if (nextBraceletId) lastBraceletSelectionRef.current = { braceletId: nextBraceletId, sizeCm: nextSize };
+    if (nextBraceletId)
+      lastBraceletSelectionRef.current = {
+        braceletId: nextBraceletId,
+        sizeCm: nextSize,
+      };
 
     setTypeCode(nextType);
     setSizeCm(nextSize);
@@ -149,7 +176,10 @@ export default function DesignBuilder() {
         charmProductId,
         charmVariantCode,
         // offsets are persisted in BE (optional)
-        offsetN: it?.offsetN && typeof it.offsetN === "object" ? it.offsetN : { x: 0, y: 0 },
+        offsetN:
+          it?.offsetN && typeof it.offsetN === "object"
+            ? it.offsetN
+            : { x: 0, y: 0 },
       };
     }
     setItemsBySlot(nextItems);
@@ -158,6 +188,46 @@ export default function DesignBuilder() {
     navigate("/design/mix", { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Try-on background (wrist photo)
+  const [wristUrl, setWristUrl] = useState("");
+  const [wristImg, setWristImg] = useState(null);
+  const [wristFit, setWristFit] = useState("cover"); // cover | contain
+  const fileInputRef = useRef(null);
+
+  // Transform for the whole bracelet+charms group in try-on mode
+  // Stored in normalized canvas coords (relative to css size)
+  const [groupTf, setGroupTf] = useState({ xN: 0, yN: 0, scale: 1, rot: 0 });
+  const pointersRef = useRef(new Map());
+  const gestureRef = useRef(null);
+
+  useEffect(() => {
+    if (!wristUrl) {
+      setWristImg(null);
+      return;
+    }
+    // Revoke previous blob url when replaced.
+    return () => {
+      try {
+        if (String(wristUrl).startsWith("blob:")) URL.revokeObjectURL(wristUrl);
+      } catch {}
+    };
+  }, [wristUrl]);
+
+  useEffect(() => {
+    if (!wristUrl) return;
+    let cancelled = false;
+    loadImage(wristUrl)
+      .then((img) => {
+        if (!cancelled) setWristImg(img);
+      })
+      .catch(() => {
+        if (!cancelled) setWristImg(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [wristUrl]);
 
   const items = useMemo(() => {
     return Object.values(itemsBySlot)
@@ -177,7 +247,10 @@ export default function DesignBuilder() {
     const m = new Map();
     for (const s of SIZES) {
       const anyInStock = (bracelet.variants || []).some(
-        (v) => Number(v?.size) === Number(s) && String(v?.code || "").trim() && isInStock(v)
+        (v) =>
+          Number(v?.size) === Number(s) &&
+          String(v?.code || "").trim() &&
+          isInStock(v),
       );
       m.set(Number(s), anyInStock);
     }
@@ -229,7 +302,12 @@ export default function DesignBuilder() {
 
     const safeMat = String(braceletMaterial || "").trim();
     const matchMat = safeMat
-      ? vs.find((v) => String(v?.material || "").trim().toLowerCase() === safeMat.toLowerCase() && isInStock(v))
+      ? vs.find(
+          (v) =>
+            String(v?.material || "")
+              .trim()
+              .toLowerCase() === safeMat.toLowerCase() && isInStock(v),
+        )
       : null;
     const firstInStock = vs.find((v) => isInStock(v)) || null;
     const next = matchMat || firstInStock || vs[0];
@@ -277,9 +355,15 @@ export default function DesignBuilder() {
   const braceletPrice = Number(validation?.pricing?.braceletPrice);
   const charmsPrice = Number(validation?.pricing?.charmsPrice);
   const totalPrice = Number(validation?.pricing?.total);
-  const braceletPriceShown = Number.isFinite(braceletPrice) ? braceletPrice : braceletPriceLocal;
-  const charmsPriceShown = Number.isFinite(charmsPrice) ? charmsPrice : charmsPriceLocal;
-  const totalPriceShown = Number.isFinite(totalPrice) ? totalPrice : braceletPriceShown + charmsPriceShown;
+  const braceletPriceShown = Number.isFinite(braceletPrice)
+    ? braceletPrice
+    : braceletPriceLocal;
+  const charmsPriceShown = Number.isFinite(charmsPrice)
+    ? charmsPrice
+    : charmsPriceLocal;
+  const totalPriceShown = Number.isFinite(totalPrice)
+    ? totalPrice
+    : braceletPriceShown + charmsPriceShown;
 
   useEffect(() => {
     let cancelled = false;
@@ -300,7 +384,8 @@ export default function DesignBuilder() {
             pendingEditRef.current = null;
             setBracelet(found);
             // Keep variantCode if provided (builder's size/material sync will reconcile if needed).
-            if (pending?.bracelet?.variantCode) setBraceletVariantCode(String(pending.bracelet.variantCode));
+            if (pending?.bracelet?.variantCode)
+              setBraceletVariantCode(String(pending.bracelet.variantCode));
             lastBraceletSelectionRef.current = {
               braceletId: String(found?._id || wantId),
               sizeCm: Number(pending?.bracelet?.sizeCm) || sizeCm,
@@ -313,7 +398,10 @@ export default function DesignBuilder() {
           }
         }
 
-        if (bracelet && !list.some((p) => String(p._id) === String(bracelet._id))) {
+        if (
+          bracelet &&
+          !list.some((p) => String(p._id) === String(bracelet._id))
+        ) {
           setBracelet(null);
           setBraceletVariantCode("");
           setItemsBySlot({});
@@ -404,17 +492,23 @@ export default function DesignBuilder() {
     }
     let cancelled = false;
     const t = setTimeout(() => {
-        api
-          .validateMix({
-            bracelet: { productId: bracelet._id, variantCode: braceletVariantCode, sizeCm },
-            // Include offsetN so cart/design snapshots can persist drag positions.
-            items: items.map(({ slotIndex, charmProductId, charmVariantCode, offsetN }) => ({
+      api
+        .validateMix({
+          bracelet: {
+            productId: bracelet._id,
+            variantCode: braceletVariantCode,
+            sizeCm,
+          },
+          // Include offsetN so cart/design snapshots can persist drag positions.
+          items: items.map(
+            ({ slotIndex, charmProductId, charmVariantCode, offsetN }) => ({
               slotIndex,
               charmProductId,
               charmVariantCode,
               offsetN: offsetN || { x: 0, y: 0 },
-            })),
-          })
+            }),
+          ),
+        })
         .then((res) => {
           if (!cancelled) setValidation(res);
         })
@@ -446,12 +540,12 @@ export default function DesignBuilder() {
     const w = cssW;
     const h = cssH;
 
-    const removeWhiteBg = (img, key) => {
+    const removeWhiteBg = (img, key, opts = {}) => {
       const cache = processedCharmRef.current;
       const cached = cache.get(key);
       if (cached) return cached;
 
-      const size = 256;
+      const size = Math.max(64, Math.min(2048, Number(opts.size) || 256));
       const off = document.createElement("canvas");
       off.width = size;
       off.height = size;
@@ -485,7 +579,12 @@ export default function DesignBuilder() {
         Math.round((a[1] + b[1] + c0[1] + d[1]) / 4),
         Math.round((a[2] + b[2] + c0[2] + d[2]) / 4),
       ];
-      const bg = avg3(sample(0, 0), sample(size - 1, 0), sample(0, size - 1), sample(size - 1, size - 1));
+      const bg = avg3(
+        sample(0, 0),
+        sample(size - 1, 0),
+        sample(0, size - 1),
+        sample(size - 1, size - 1),
+      );
       const dist = (r0, g0, b0) => {
         const dr = r0 - bg[0];
         const dg = g0 - bg[1];
@@ -623,22 +722,132 @@ export default function DesignBuilder() {
       return off;
     };
 
-    ctx.clearRect(0, 0, w, h);
-    // Soft backdrop.
-    const grad = ctx.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, "#ffffff");
-    grad.addColorStop(1, "#f6f6f6");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
+    // Bracelet photos tend to have thin details; the flood-fill + crop approach above can create artifacts.
+    // For bracelets, do a simple near-white chroma-key without cropping.
+    const removeNearWhiteBg = (img, key, opts = {}) => {
+      const cache = processedCharmRef.current;
+      const cached = cache.get(key);
+      if (cached) return cached;
 
-    const braceletThumb = bracelet ? braceletImages.get(String(bracelet._id)) : null;
+      const size = Math.max(128, Math.min(2048, Number(opts.size) || 1024));
+      const off = document.createElement("canvas");
+      off.width = size;
+      off.height = size;
+      const c = off.getContext("2d");
+      c.clearRect(0, 0, size, size);
+
+      // Draw contain
+      const pad = 8;
+      const tw = size - pad * 2;
+      const th = size - pad * 2;
+      const r = img.width / Math.max(img.height, 1);
+      const dw = Math.min(tw, th * r);
+      const dh = dw / r;
+      const dx = (size - dw) / 2;
+      const dy = (size - dh) / 2;
+      c.drawImage(img, dx, dy, dw, dh);
+
+      const data = c.getImageData(0, 0, size, size);
+      const arr = data.data;
+      for (let i = 0; i < arr.length; i += 4) {
+        const a0 = arr[i + 3];
+        if (a0 < 10) continue;
+        const r0 = arr[i];
+        const g0 = arr[i + 1];
+        const b0 = arr[i + 2];
+        const maxc = Math.max(r0, g0, b0);
+        const minc = Math.min(r0, g0, b0);
+        const chroma = maxc - minc;
+        // remove only very near-white / light gray
+        if (minc > 235 && chroma < 18) arr[i + 3] = 0;
+      }
+      c.putImageData(data, 0, 0);
+      cache.set(key, off);
+      return off;
+    };
+
+    const drawBraceletWarped = (ctx, img, dx, dy, dw, dh, opts = {}) => {
+      const slices = Math.max(12, Math.min(120, Number(opts.slices) || 60));
+      const warpY = Number(opts.warpY) || dh * 0.08;
+      const centerBoost = Number(opts.centerBoost) || 0.22;
+      const edgeMin = Number(opts.edgeMin) || 0.86;
+
+      // Draw vertical slices with varying scale+offset to fake perspective.
+      for (let i = 0; i < slices; i++) {
+        const u0 = i / slices;
+        const u1 = (i + 1) / slices;
+        const u = (u0 + u1) / 2;
+
+        // k: 1 at center, 0 at edges
+        const k = Math.cos((u - 0.5) * Math.PI);
+        const scale = edgeMin + centerBoost * k;
+        const yOff = (1 - k) * warpY;
+
+        const sx = Math.floor(u0 * img.width);
+        const sw = Math.max(1, Math.floor(u1 * img.width) - sx);
+
+        const dx0 = dx + u0 * dw;
+        const dw0 = (sw / img.width) * dw;
+        const dh0 = dh * scale;
+        const dy0 = dy + (dh - dh0) / 2 + yOff;
+
+        ctx.drawImage(img, sx, 0, sw, img.height, dx0, dy0, dw0, dh0);
+      }
+    };
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Backdrop: wrist photo in try-on mode, otherwise the soft gradient.
+    if (isTryOn && wristImg) {
+      const iw = wristImg.width || 1;
+      const ih = wristImg.height || 1;
+      const s =
+        wristFit === "contain"
+          ? Math.min(w / iw, h / ih)
+          : Math.max(w / iw, h / ih);
+      const dw = iw * s;
+      const dh = ih * s;
+      const dx = (w - dw) / 2;
+      const dy = (h - dh) / 2;
+      ctx.drawImage(wristImg, dx, dy, dw, dh);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(1, "#f6f6f6");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    }
+
+    // Try-on: apply group transform so the whole design can be moved/zoomed/rotated.
+    ctx.save();
+    if (isTryOn && wristImg) {
+      const cx = w / 2 + (Number(groupTf.xN) || 0) * w;
+      const cy = h / 2 + (Number(groupTf.yN) || 0) * h;
+      ctx.translate(cx, cy);
+      ctx.rotate(Number(groupTf.rot) || 0);
+      const sc = Number(groupTf.scale) || 1;
+      ctx.scale(sc, sc);
+      ctx.translate(-w / 2, -h / 2);
+    }
+
+    const braceletThumb = bracelet
+      ? braceletImages.get(String(bracelet._id))
+      : null;
     const drawBox = { x: 0, y: 0, w: w, h: h };
     if (braceletThumb) {
+      // Bracelet photos often have a white background; remove it (light-touch) so we don't cover the wrist photo.
+      const braceletKey = `bracelet:nw:${braceletThumb.src || ""}`;
+      const braceletProcessed =
+        isTryOn && wristImg
+          ? removeNearWhiteBg(braceletThumb, braceletKey, { size: 1024 })
+          : braceletThumb;
+
       // Draw bracelet image centered (contain) with subtle shadow.
-      const pad = 22;
+      const pad = isTryOn && wristImg ? 40 : 22;
       const targetW = w - pad * 2;
       const targetH = h - pad * 2;
-      const ratio = braceletThumb.width / Math.max(braceletThumb.height, 1);
+      const ratio =
+        braceletProcessed.width / Math.max(braceletProcessed.height, 1);
       const dw = Math.min(targetW, targetH * ratio);
       const dh = dw / ratio;
       const dx = (w - dw) / 2;
@@ -649,11 +858,37 @@ export default function DesignBuilder() {
       drawBox.h = dh;
 
       ctx.save();
-      ctx.shadowColor = "rgba(0,0,0,0.10)";
-      ctx.shadowBlur = 18;
-      ctx.shadowOffsetY = 8;
       ctx.globalAlpha = 1;
-      ctx.drawImage(braceletThumb, dx, dy, dw, dh);
+
+      if (isTryOn && wristImg) {
+        // Contact shadow (huge realism boost).
+        ctx.save();
+        ctx.globalCompositeOperation = "multiply";
+        ctx.shadowColor = "rgba(0,0,0,0.22)";
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 6;
+        ctx.filter = "blur(0.6px)";
+        drawBraceletWarped(ctx, braceletProcessed, dx, dy, dw, dh, {
+          slices: 64,
+        });
+        ctx.restore();
+
+        // Actual bracelet (slight blur to match camera noise).
+        ctx.shadowColor = "rgba(0,0,0,0.14)";
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+        ctx.filter = "blur(0.35px)";
+        drawBraceletWarped(ctx, braceletProcessed, dx, dy, dw, dh, {
+          slices: 64,
+        });
+        ctx.filter = "none";
+      } else {
+        ctx.shadowColor = "rgba(0,0,0,0.10)";
+        ctx.shadowBlur = 18;
+        ctx.shadowOffsetY = 8;
+        ctx.drawImage(braceletProcessed, dx, dy, dw, dh);
+      }
+
       ctx.restore();
     } else {
       // Fallback bracelet schematic
@@ -692,8 +927,12 @@ export default function DesignBuilder() {
       for (let i = 0; i < points.length; i++) {
         const p = points[i];
         const isClipZone = clipZones.has(i);
-        ctx.fillStyle = isClipZone ? "rgba(245, 158, 11, 0.22)" : "rgba(17, 24, 39, 0.08)";
-        ctx.strokeStyle = isClipZone ? "rgba(245, 158, 11, 0.55)" : "rgba(17, 24, 39, 0.18)";
+        ctx.fillStyle = isClipZone
+          ? "rgba(245, 158, 11, 0.22)"
+          : "rgba(17, 24, 39, 0.08)";
+        ctx.strokeStyle = isClipZone
+          ? "rgba(245, 158, 11, 0.55)"
+          : "rgba(17, 24, 39, 0.18)";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
@@ -710,11 +949,11 @@ export default function DesignBuilder() {
       const charmImg = charmImages.get(String(it.charmProductId)) || null;
       if (charmImg) {
         const key = `${it.charmProductId}:${charmImg.src || ""}`;
-        const processed = removeWhiteBg(charmImg, key);
+        const processed = removeWhiteBg(charmImg, key, { size: 256 });
 
         // Draw charm with rotation along the bracelet curve.
         const base = Math.min(drawBox.w || w, drawBox.h || h, w, h);
-        const size = Math.max(34, Math.round(base * 0.10));
+        const size = Math.max(34, Math.round(base * 0.1));
         const rot = p.theta + Math.PI / 2;
 
         const offN = it?.offsetN || { x: 0, y: 0 };
@@ -750,7 +989,22 @@ export default function DesignBuilder() {
     }
 
     renderModelRef.current = model;
-  }, [validation, items, bracelet, braceletImages, charmImages, showGuides, canvasCssSize]);
+
+    // End try-on transform wrapper
+    ctx.restore();
+  }, [
+    validation,
+    items,
+    bracelet,
+    braceletImages,
+    charmImages,
+    showGuides,
+    canvasCssSize,
+    isTryOn,
+    wristImg,
+    wristFit,
+    groupTf,
+  ]);
 
   useEffect(() => {
     const el = canvasWrapRef.current;
@@ -768,26 +1022,44 @@ export default function DesignBuilder() {
   const selectBracelet = (p) => {
     const vs = Array.isArray(p?.variants) ? p.variants : [];
     const hasStockForSize = (s) =>
-      vs.some((v) => Number(v?.size) === Number(s) && String(v?.code || "").trim() && isInStock(v));
+      vs.some(
+        (v) =>
+          Number(v?.size) === Number(s) &&
+          String(v?.code || "").trim() &&
+          isInStock(v),
+      );
 
     const desiredSize = hasStockForSize(sizeCm)
       ? sizeCm
-      : (SIZES.find((s) => hasStockForSize(s)) || sizeCm);
+      : SIZES.find((s) => hasStockForSize(s)) || sizeCm;
 
     if (!hasStockForSize(sizeCm) && desiredSize !== sizeCm) {
-      toast.error(`Size ${sizeCm} hết hàng. Đã chuyển sang size ${desiredSize}.`);
+      toast.error(
+        `Size ${sizeCm} hết hàng. Đã chuyển sang size ${desiredSize}.`,
+      );
       setSizeCm(desiredSize);
     }
 
     setBracelet(p);
-    const bySize = vs.find((v) => Number(v?.size) === Number(desiredSize) && String(v?.code || "").trim() && isInStock(v));
-    const fallbackBySize = vs.find((v) => Number(v?.size) === Number(desiredSize) && String(v?.code || "").trim());
+    const bySize = vs.find(
+      (v) =>
+        Number(v?.size) === Number(desiredSize) &&
+        String(v?.code || "").trim() &&
+        isInStock(v),
+    );
+    const fallbackBySize = vs.find(
+      (v) =>
+        Number(v?.size) === Number(desiredSize) && String(v?.code || "").trim(),
+    );
     const chosen = bySize || fallbackBySize || null;
     setBraceletVariantCode(String(chosen?.code || ""));
     setBraceletMaterial(String(chosen?.material || ""));
     setItemsBySlot({});
 
-    lastBraceletSelectionRef.current = { braceletId: String(p?._id || ""), sizeCm: desiredSize };
+    lastBraceletSelectionRef.current = {
+      braceletId: String(p?._id || ""),
+      sizeCm: desiredSize,
+    };
   };
 
   const selectCharm = (p) => {
@@ -839,8 +1111,56 @@ export default function DesignBuilder() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x0 = e.clientX - rect.left;
+    const y0 = e.clientY - rect.top;
+
+    // Track pointers for pinch/rotate in try-on mode.
+    pointersRef.current.set(e.pointerId, { x: x0, y: y0 });
+
+    const toDesignSpace = (x, y) => {
+      if (!(isTryOn && wristImg)) return { x, y };
+      const w = rect.width;
+      const h = rect.height;
+      const cx = w / 2 + (Number(groupTf.xN) || 0) * w;
+      const cy = h / 2 + (Number(groupTf.yN) || 0) * h;
+      let px = x - cx;
+      let py = y - cy;
+      const rot = Number(groupTf.rot) || 0;
+      const sc = Number(groupTf.scale) || 1;
+      // inverse rotate
+      const c = Math.cos(-rot);
+      const s = Math.sin(-rot);
+      const rx = px * c - py * s;
+      const ry = px * s + py * c;
+      // inverse scale
+      px = rx / Math.max(sc, 1e-6);
+      py = ry / Math.max(sc, 1e-6);
+      // back to canvas
+      return { x: px + w / 2, y: py + h / 2 };
+    };
+
+    // If we have 2 pointers: start pinch/rotate gesture for the whole group.
+    if (isTryOn && wristImg && pointersRef.current.size >= 2) {
+      const pts = Array.from(pointersRef.current.values());
+      const p1 = pts[0];
+      const p2 = pts[1];
+      const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      gestureRef.current = {
+        kind: "pinch",
+        startMid: mid,
+        startDist: Math.hypot(dx, dy) || 1,
+        startAng: Math.atan2(dy, dx),
+        startTf: { ...groupTf },
+      };
+      try {
+        canvas.setPointerCapture(e.pointerId);
+      } catch {}
+      return;
+    }
+
+    const { x, y } = toDesignSpace(x0, y0);
 
     // Hit-test: pick nearest charm under pointer.
     let hit = null;
@@ -856,7 +1176,23 @@ export default function DesignBuilder() {
         break;
       }
     }
-    if (!hit) return;
+    if (!hit) {
+      // In try-on mode, dragging empty space moves the whole design group.
+      if (isTryOn && wristImg) {
+        gestureRef.current = {
+          kind: "drag",
+          startX: x0,
+          startY: y0,
+          startTf: { ...groupTf },
+          w: rect.width,
+          h: rect.height,
+        };
+        try {
+          canvas.setPointerCapture(e.pointerId);
+        } catch {}
+      }
+      return;
+    }
 
     const current = itemsBySlot[hit.slotIndex];
     const offN = current?.offsetN || { x: 0, y: 0 };
@@ -876,13 +1212,87 @@ export default function DesignBuilder() {
   };
 
   const onCanvasPointerMove = (e) => {
-    const d = dragRef.current;
-    if (!d) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x0 = e.clientX - rect.left;
+    const y0 = e.clientY - rect.top;
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: x0, y: y0 });
+    }
+
+    const g = gestureRef.current;
+
+    // Drag the whole group in try-on mode
+    if (isTryOn && wristImg && g && g.kind === "drag") {
+      const dx = (x0 - g.startX) / Math.max(g.w, 1);
+      const dy = (y0 - g.startY) / Math.max(g.h, 1);
+      setGroupTf((prev) => ({
+        ...prev,
+        xN: (g.startTf.xN || 0) + dx,
+        yN: (g.startTf.yN || 0) + dy,
+      }));
+      return;
+    }
+
+    // Pinch/rotate the whole group in try-on mode
+    if (
+      isTryOn &&
+      wristImg &&
+      g &&
+      g.kind === "pinch" &&
+      pointersRef.current.size >= 2
+    ) {
+      const pts = Array.from(pointersRef.current.values());
+      const p1 = pts[0];
+      const p2 = pts[1];
+      const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      const ang = Math.atan2(dy, dx);
+
+      const dMidX = (mid.x - g.startMid.x) / Math.max(rect.width, 1);
+      const dMidY = (mid.y - g.startMid.y) / Math.max(rect.height, 1);
+      const nextScale = clamp(
+        (g.startTf.scale || 1) * (dist / g.startDist),
+        0.4,
+        2.5,
+      );
+      const nextRot = (g.startTf.rot || 0) + (ang - g.startAng);
+
+      setGroupTf((prev) => ({
+        ...prev,
+        xN: (g.startTf.xN || 0) + dMidX,
+        yN: (g.startTf.yN || 0) + dMidY,
+        scale: nextScale,
+        rot: nextRot,
+      }));
+      return;
+    }
+
+    const d = dragRef.current;
+    if (!d) return;
+    const toDesignSpace = (x, y) => {
+      if (!(isTryOn && wristImg)) return { x, y };
+      const w = rect.width;
+      const h = rect.height;
+      const cx = w / 2 + (Number(groupTf.xN) || 0) * w;
+      const cy = h / 2 + (Number(groupTf.yN) || 0) * h;
+      let px = x - cx;
+      let py = y - cy;
+      const rot = Number(groupTf.rot) || 0;
+      const sc = Number(groupTf.scale) || 1;
+      const c = Math.cos(-rot);
+      const s = Math.sin(-rot);
+      const rx = px * c - py * s;
+      const ry = px * s + py * c;
+      px = rx / Math.max(sc, 1e-6);
+      py = ry / Math.max(sc, 1e-6);
+      return { x: px + w / 2, y: py + h / 2 };
+    };
+
+    const { x, y } = toDesignSpace(x0, y0);
     const dxPx = x - d.startX;
     const dyPx = y - d.startY;
     const nx = d.startOffN.x + dxPx / Math.max(d.w, 1);
@@ -904,8 +1314,19 @@ export default function DesignBuilder() {
     });
   };
 
-  const onCanvasPointerUp = () => {
+  const onCanvasPointerUp = (e) => {
     dragRef.current = null;
+    // Remove this pointer from tracking.
+    if (e && typeof e.pointerId === "number") {
+      pointersRef.current.delete(e.pointerId);
+    } else {
+      pointersRef.current.clear();
+    }
+
+    // End gesture when fewer than 2 pointers remain.
+    if (pointersRef.current.size < 2) {
+      gestureRef.current = null;
+    }
   };
 
   const removeFromSlot = (slotIndex) => {
@@ -933,13 +1354,19 @@ export default function DesignBuilder() {
     }
 
     const payload = {
-      bracelet: { productId: bracelet._id, variantCode: braceletVariantCode, sizeCm },
-      items: items.map(({ slotIndex, charmProductId, charmVariantCode, offsetN }) => ({
-        slotIndex,
-        charmProductId,
-        charmVariantCode,
-        offsetN: offsetN || { x: 0, y: 0 },
-      })),
+      bracelet: {
+        productId: bracelet._id,
+        variantCode: braceletVariantCode,
+        sizeCm,
+      },
+      items: items.map(
+        ({ slotIndex, charmProductId, charmVariantCode, offsetN }) => ({
+          slotIndex,
+          charmProductId,
+          charmVariantCode,
+          offsetN: offsetN || { x: 0, y: 0 },
+        }),
+      ),
     };
 
     const res = editBundleId
@@ -960,7 +1387,12 @@ export default function DesignBuilder() {
     // Persist a copy of this design in localStorage so design list remains
     try {
       const saved = loadSaved();
-      const returnedBundleId = editBundleId || res?.bundleId || res?.data?.bundleId || (res?.bundle?._id) || null;
+      const returnedBundleId =
+        editBundleId ||
+        res?.bundleId ||
+        res?.data?.bundleId ||
+        res?.bundle?._id ||
+        null;
       const savedItem = {
         bundleId: returnedBundleId,
         bracelet: payload.bracelet,
@@ -969,7 +1401,8 @@ export default function DesignBuilder() {
         savedAt: Date.now(),
         priceSnapshot: res?.pricing || res?.data?.pricing || null,
       };
-      if (!savedItem.bundleId) savedItem._localId = `local-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      if (!savedItem.bundleId)
+        savedItem._localId = `local-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
       const next = [savedItem];
       for (const s of saved) {
@@ -977,7 +1410,11 @@ export default function DesignBuilder() {
         const newKey = savedItem.bundleId || savedItem._localId || null;
         if (!sKey) continue;
         if (newKey && sKey === newKey) continue;
-        if (editBundleId && (s.bundleId === editBundleId || s._localId === editBundleId)) continue;
+        if (
+          editBundleId &&
+          (s.bundleId === editBundleId || s._localId === editBundleId)
+        )
+          continue;
         next.push(s);
       }
 
@@ -1048,19 +1485,104 @@ export default function DesignBuilder() {
     <div className="container mixcharm-page">
       <div className="mixcharm-titleRow">
         <h1 className="mixcharm-title">Mix Charm</h1>
-        <button type="button" className="mixcharm-btn" onClick={() => navigate("/design")}>Danh sách design</button>
+        <button
+          type="button"
+          className="mixcharm-btn"
+          onClick={() => navigate("/design")}
+        >
+          Danh sách design
+        </button>
       </div>
       <div className="mixcharm-actions">
-        <button type="button" onClick={() => setShowGuides((v) => !v)} className="mixcharm-btn">
+        <button
+          type="button"
+          onClick={toggleTryOnMode}
+          className="mixcharm-btn"
+        >
+          {isTryOn ? "Tắt Try-on" : "Bật Try-on"}
+        </button>
+        {isTryOn ? (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files && e.target.files[0];
+                if (!f) return;
+                const next = URL.createObjectURL(f);
+                setWristUrl(next);
+                // Sensible defaults so bracelet doesn't start oversized.
+                setGroupTf({
+                  xN: 0,
+                  yN: 0.12,
+                  scale: 0.62,
+                  rot: degToRad(-10),
+                });
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="mixcharm-btn"
+            >
+              {wristUrl ? "Đổi ảnh cổ tay" : "Upload ảnh cổ tay"}
+            </button>
+            {wristUrl ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setWristUrl("");
+                  setGroupTf({ xN: 0, yN: 0, scale: 1, rot: 0 });
+                }}
+                className="mixcharm-btn"
+              >
+                Xoá ảnh
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() =>
+                setWristFit((v) => (v === "cover" ? "contain" : "cover"))
+              }
+              className="mixcharm-btn"
+              title="Cover: lấp đầy | Fit: không cắt"
+            >
+              {wristFit === "cover" ? "Cover" : "Fit"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setGroupTf({ xN: 0, yN: 0, scale: 1, rot: 0 })}
+              className="mixcharm-btn"
+              title="Reset vị trí/zoom/xoay"
+            >
+              Reset vị trí
+            </button>
+          </>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setShowGuides((v) => !v)}
+          className="mixcharm-btn"
+        >
           {showGuides ? "Ẩn điểm gắn" : "Hiện điểm gắn"}
         </button>
-        <button type="button" onClick={resetCharmPositions} className="mixcharm-btn">
+        <button
+          type="button"
+          onClick={resetCharmPositions}
+          className="mixcharm-btn"
+        >
           Reset vị trí charm
         </button>
         <button type="button" onClick={downloadPng} className="mixcharm-btn">
-          Tải ảnh thiết kế
+          {isTryOn ? "Tải ảnh đeo thử" : "Tải ảnh thiết kế"}
         </button>
-        <button type="button" onClick={addToCart} className="mixcharm-btn mixcharm-btnPrimary">
+        <button
+          type="button"
+          onClick={addToCart}
+          className="mixcharm-btn mixcharm-btnPrimary"
+        >
           {editBundleId ? "Lưu design" : "Thêm vào giỏ"}
         </button>
       </div>
@@ -1075,7 +1597,10 @@ export default function DesignBuilder() {
               onPointerMove={onCanvasPointerMove}
               onPointerUp={onCanvasPointerUp}
               onPointerCancel={onCanvasPointerUp}
-              style={{ touchAction: "none", cursor: items.length ? "grab" : "default" }}
+              style={{
+                touchAction: "none",
+                cursor: items.length ? "grab" : "default",
+              }}
             />
           </div>
 
@@ -1083,16 +1608,27 @@ export default function DesignBuilder() {
             <div className="mixcharm-panelTitle">Thông tin mix</div>
             <div style={{ marginTop: 10, fontSize: 14, color: "#111827" }}>
               <div>
-                Slot: <span style={{ fontWeight: 800 }}>{slotCount || "-"}</span> | Recommended:{" "}
-                <span style={{ fontWeight: 800 }}>{validation?.recommendedCharms ?? "-"}</span>
+                Slot:{" "}
+                <span style={{ fontWeight: 800 }}>{slotCount || "-"}</span> |
+                Recommended:{" "}
+                <span style={{ fontWeight: 800 }}>
+                  {validation?.recommendedCharms ?? "-"}
+                </span>
               </div>
-              <div className="mixcharm-note" style={{ marginTop: 4 }}>Kéo charm trực tiếp trên ảnh để chỉnh vị trí.</div>
+              <div className="mixcharm-note" style={{ marginTop: 4 }}>
+                Kéo charm trực tiếp trên ảnh để chỉnh vị trí.
+              </div>
               {validation?.clipZones?.length ? (
                 <div style={{ marginTop: 6 }}>
-                  Clip zones: <span style={{ fontWeight: 800 }}>{validation.clipZones.join(", ")}</span>
+                  Clip zones:{" "}
+                  <span style={{ fontWeight: 800 }}>
+                    {validation.clipZones.join(", ")}
+                  </span>
                 </div>
               ) : null}
-              <div className="mixcharm-note" style={{ marginTop: 6 }}>Click slot để đặt charm. Click charm để xóa.</div>
+              <div className="mixcharm-note" style={{ marginTop: 6 }}>
+                Click slot để đặt charm. Click charm để xóa.
+              </div>
             </div>
 
             <div className="mixcharm-slotGrid">
@@ -1104,7 +1640,9 @@ export default function DesignBuilder() {
                   "mixcharm-slotBtn" +
                   (filled ? " mixcharm-slotBtnFilled" : "") +
                   (!filled && !canPlace ? " mixcharm-slotBtnDisabled" : "") +
-                  (!filled && canPlace && isClipZone ? " mixcharm-slotBtnClip" : "");
+                  (!filled && canPlace && isClipZone
+                    ? " mixcharm-slotBtnClip"
+                    : "");
                 return (
                   <button
                     key={i}
@@ -1132,7 +1670,8 @@ export default function DesignBuilder() {
                     type="button"
                     onClick={() => setTypeCode(t.code)}
                     className={
-                      "mixcharm-chipBtn" + (typeCode === t.code ? " mixcharm-chipBtnActive" : "")
+                      "mixcharm-chipBtn" +
+                      (typeCode === t.code ? " mixcharm-chipBtnActive" : "")
                     }
                   >
                     {t.label}
@@ -1143,27 +1682,29 @@ export default function DesignBuilder() {
               <div className="mixcharm-panel" style={{ marginTop: 12 }}>
                 <div className="mixcharm-panelTitle">Size (cm)</div>
                 <div className="mixcharm-chipRow">
-                  {SIZES.map((s) => (
+                  {SIZES.map((s) =>
                     (() => {
-                      const disabled = bracelet ? !braceletSizeStock.get(Number(s)) : false;
+                      const disabled = bracelet
+                        ? !braceletSizeStock.get(Number(s))
+                        : false;
                       const cls =
                         "mixcharm-chipBtn" +
                         (sizeCm === s ? " mixcharm-chipBtnActive" : "") +
                         (disabled ? " mixcharm-chipBtnDisabled" : "");
                       return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSizeCm(s)}
-                      className={cls}
-                      disabled={disabled}
-                      title={disabled ? `Size ${s} hết hàng` : `Size ${s}`}
-                    >
-                      {s}
-                    </button>
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setSizeCm(s)}
+                          className={cls}
+                          disabled={disabled}
+                          title={disabled ? `Size ${s} hết hàng` : `Size ${s}`}
+                        >
+                          {s}
+                        </button>
                       );
-                    })()
-                  ))}
+                    })(),
+                  )}
                 </div>
               </div>
 
@@ -1171,7 +1712,10 @@ export default function DesignBuilder() {
                 <div className="mixcharm-panel" style={{ marginTop: 12 }}>
                   <div className="mixcharm-panelTitle">Chất liệu</div>
                   <div className="mixcharm-chipRow">
-                    {(braceletMaterialOptions.length ? braceletMaterialOptions : []).map((opt) => (
+                    {(braceletMaterialOptions.length
+                      ? braceletMaterialOptions
+                      : []
+                    ).map((opt) => (
                       <button
                         key={opt.material}
                         type="button"
@@ -1181,13 +1725,17 @@ export default function DesignBuilder() {
                         }}
                         className={
                           "mixcharm-chipBtn" +
-                          (String(braceletMaterial || "").toLowerCase() === String(opt.material || "").toLowerCase()
+                          (String(braceletMaterial || "").toLowerCase() ===
+                          String(opt.material || "").toLowerCase()
                             ? " mixcharm-chipBtnActive"
-                            : "")
-                          +
+                            : "") +
                           (!opt.inStock ? " mixcharm-chipBtnDisabled" : "")
                         }
-                        title={!opt.inStock ? `${opt.material} hết hàng` : opt.material}
+                        title={
+                          !opt.inStock
+                            ? `${opt.material} hết hàng`
+                            : opt.material
+                        }
                         disabled={!opt.inStock}
                       >
                         {opt.material}
@@ -1203,13 +1751,19 @@ export default function DesignBuilder() {
               ) : null}
             </div>
 
-            {validation && validation.valid === false && Array.isArray(validation.errors) && validation.errors.length ? (
+            {validation &&
+            validation.valid === false &&
+            Array.isArray(validation.errors) &&
+            validation.errors.length ? (
               <div className="mixcharm-error">
                 <div style={{ fontWeight: 900 }}>Lỗi mix</div>
-                <ul style={{ marginTop: 8, paddingLeft: 18, listStyle: "disc" }}>
+                <ul
+                  style={{ marginTop: 8, paddingLeft: 18, listStyle: "disc" }}
+                >
                   {validation.errors.slice(0, 6).map((e, idx) => (
                     <li key={idx}>
-                      {e.message} <span style={{ opacity: 0.7 }}>({e.field})</span>
+                      {e.message}{" "}
+                      <span style={{ opacity: 0.7 }}>({e.field})</span>
                     </li>
                   ))}
                 </ul>
@@ -1226,11 +1780,22 @@ export default function DesignBuilder() {
                 {typeCode} bracelet {sizeCm ? `size ${sizeCm}` : ""}
               </div>
               {braceletVariantCode || Number.isFinite(braceletPrice) ? (
-                <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
                   <div className="mixcharm-muted">
-                    Vòng: {bracelet?.name || typeCode}{braceletVariantCode ? ` (${braceletVariantCode})` : ""}
+                    Vòng: {bracelet?.name || typeCode}
+                    {braceletVariantCode ? ` (${braceletVariantCode})` : ""}
                   </div>
-                   <div style={{ fontWeight: 900 }}>{formatPrice(braceletPriceShown)}</div>
+                  <div style={{ fontWeight: 900 }}>
+                    {formatPrice(braceletPriceShown)}
+                  </div>
                 </div>
               ) : null}
               <div style={{ marginTop: 10 }}>
@@ -1238,20 +1803,52 @@ export default function DesignBuilder() {
                   items.map((it) => (
                     <div
                       key={it.slotIndex}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 6 }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        marginTop: 6,
+                      }}
                     >
-                      <div className="mixcharm-muted" style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        className="mixcharm-muted"
+                        style={{ flex: 1, minWidth: 0 }}
+                      >
                         {(() => {
                           const p = charmById.get(String(it.charmProductId));
                           const v = findVariantByCode(p, it.charmVariantCode);
                           const price = Number(v?.price) || 0;
                           const name = p?.name || "Charm";
                           return (
-                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-                              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                Slot {it.slotIndex}: {name}{it.charmVariantCode ? ` (${it.charmVariantCode})` : ""}
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "baseline",
+                                justifyContent: "space-between",
+                                gap: 12,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                Slot {it.slotIndex}: {name}
+                                {it.charmVariantCode
+                                  ? ` (${it.charmVariantCode})`
+                                  : ""}
                               </div>
-                              <div style={{ fontWeight: 900, whiteSpace: "nowrap" }}>{formatPrice(price)}</div>
+                              <div
+                                style={{
+                                  fontWeight: 900,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {formatPrice(price)}
+                              </div>
                             </div>
                           );
                         })()}
@@ -1259,7 +1856,11 @@ export default function DesignBuilder() {
                       <button
                         type="button"
                         className="mixcharm-btn"
-                        style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: 999,
+                          fontSize: 12,
+                        }}
                         onClick={() => removeFromSlot(it.slotIndex)}
                       >
                         Xóa
@@ -1270,18 +1871,40 @@ export default function DesignBuilder() {
                   <div className="mixcharm-muted">Chưa có charm nào.</div>
                 )}
               </div>
-              <div style={{ marginTop: 14, borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div
+                style={{
+                  marginTop: 14,
+                  borderTop: "1px solid #f3f4f6",
+                  paddingTop: 12,
+                }}
+              >
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
                   <div style={{ fontWeight: 900 }}>Bracelet</div>
-                  <div style={{ fontWeight: 900 }}>{formatPrice(braceletPriceShown)}</div>
+                  <div style={{ fontWeight: 900 }}>
+                    {formatPrice(braceletPriceShown)}
+                  </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div
+                  style={{ display: "flex", justifyContent: "space-between" }}
+                >
                   <div style={{ fontWeight: 900 }}>Charms</div>
-                  <div style={{ fontWeight: 900 }}>{formatPrice(charmsPriceShown)}</div>
+                  <div style={{ fontWeight: 900 }}>
+                    {formatPrice(charmsPriceShown)}
+                  </div>
                 </div>
-                <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between" }}>
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
                   <div style={{ fontWeight: 900 }}>Total</div>
-                  <div style={{ fontWeight: 900 }}>{formatPrice(totalPriceShown)}</div>
+                  <div style={{ fontWeight: 900 }}>
+                    {formatPrice(totalPriceShown)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1296,11 +1919,14 @@ export default function DesignBuilder() {
         </div>
 
         {loadingBracelets ? (
-          <div className="mixcharm-note" style={{ marginTop: 10 }}>Đang tải...</div>
+          <div className="mixcharm-note" style={{ marginTop: 10 }}>
+            Đang tải...
+          </div>
         ) : bracelets.length ? (
           <div className="mixcharm-carousel" role="list">
             {bracelets.map((p) => {
-              const selected = bracelet && String(bracelet._id) === String(p._id);
+              const selected =
+                bracelet && String(bracelet._id) === String(p._id);
               return (
                 <MiniCard
                   key={p._id}
@@ -1312,7 +1938,9 @@ export default function DesignBuilder() {
             })}
           </div>
         ) : (
-          <div className="mixcharm-note" style={{ marginTop: 10 }}>Không có vòng trong loại này.</div>
+          <div className="mixcharm-note" style={{ marginTop: 10 }}>
+            Không có vòng trong loại này.
+          </div>
         )}
 
         {/* {bracelet ? (
@@ -1342,12 +1970,22 @@ export default function DesignBuilder() {
         {charms.length ? (
           <div className="mixcharm-carousel" role="list">
             {charms.map((p) => {
-              const selected = selectedCharm && String(selectedCharm._id) === String(p._id);
-              return <MiniCard key={p._id} product={p} selected={selected} onClick={() => selectCharm(p)} />;
+              const selected =
+                selectedCharm && String(selectedCharm._id) === String(p._id);
+              return (
+                <MiniCard
+                  key={p._id}
+                  product={p}
+                  selected={selected}
+                  onClick={() => selectCharm(p)}
+                />
+              );
             })}
           </div>
         ) : (
-          <div className="mixcharm-note" style={{ marginTop: 10 }}>Không có charms.</div>
+          <div className="mixcharm-note" style={{ marginTop: 10 }}>
+            Không có charms.
+          </div>
         )}
 
         {/* {selectedCharm ? (
@@ -1367,7 +2005,6 @@ export default function DesignBuilder() {
           </div>
         ) : null} */}
       </div>
-
     </div>
   );
 }

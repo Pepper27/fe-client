@@ -71,6 +71,18 @@ const readClientToken = () => {
   }
 };
 
+const withClientAuth = (options = {}) => {
+  const token = readClientToken();
+  if (!token) return options;
+  return {
+    ...options,
+    headers: {
+      ...(options.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};
+
 export const api = {
   getCategories: ({ root } = {}) => {
     const qs = new URLSearchParams();
@@ -116,6 +128,36 @@ export const api = {
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`${V1_PUBLIC}/products${suffix}`);
   },
+
+  getRecentlyViewed: ({ limit } = {}) => {
+    const qs = new URLSearchParams();
+    if (limit !== undefined) qs.set("limit", String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`${V1_PUBLIC}/recently-viewed${suffix}`, withClientAuth());
+  },
+
+  trackRecentlyViewed: ({ productId, variantCode } = {}) => {
+    return request(
+      `${V1_PUBLIC}/recently-viewed`,
+      withClientAuth({
+        method: "POST",
+        body: JSON.stringify({ productId, variantCode }),
+      }),
+    );
+  },
+
+  getBlogs: ({ page, limit } = {}) => {
+    const qs = new URLSearchParams();
+    if (page !== undefined) qs.set("page", String(page));
+    if (limit !== undefined) qs.set("limit", String(limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return request(`${V1_PUBLIC}/blogs${suffix}`);
+  },
+
+  getBlogBySlug: (slug) =>
+    request(
+      `${V1_PUBLIC}/blogs/slug/${encodeURIComponent(String(slug || "").trim())}`,
+    ),
   getProductsByCollection: ({
     collectionId,
     page,
