@@ -24,6 +24,13 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [addingBuyNow, setAddingBuyNow] = useState(false);
   const [addingCart, setAddingCart] = useState(false);
+  const [collectionNames, setCollectionNames] = useState([]);
+
+  // product.description is stored as HTML from the admin editor
+  const descriptionHtml = useMemo(() => {
+    const raw = product?.description;
+    return typeof raw === "string" ? raw : "";
+  }, [product?.description]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +64,69 @@ export default function ProductDetailPage() {
       cancelled = true;
     };
   }, [slug]);
+
+  // Resolve collection names for detail/spec section.
+  // Backend may return collections as populated objects OR as ids.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cols = Array.isArray(product?.collections)
+        ? product.collections
+        : [];
+
+      // 1) Populated objects
+      const populatedNames = cols
+        .map((c) =>
+          c && typeof c === "object"
+            ? c.name || c.title || c.displayName || ""
+            : "",
+        )
+        .filter(Boolean);
+      if (populatedNames.length) {
+        setCollectionNames(populatedNames);
+        return;
+      }
+
+      // 2) ids -> lookup from collections list
+      const ids = cols
+        .map((c) => (c && typeof c === "object" ? c._id || c.id : c))
+        .filter(Boolean)
+        .map((v) => String(v));
+      if (!ids.length) {
+        const single = product?.collection;
+        const singleName =
+          (single && typeof single === "object" ? single.name : null) ||
+          (typeof single === "string" ? single : null);
+        setCollectionNames(singleName ? [singleName] : []);
+        return;
+      }
+
+      try {
+        if (
+          !Array.isArray(window._allCollections) ||
+          !window._allCollections.length
+        ) {
+          const res = await api.getCollections();
+          window._allCollections = Array.isArray(res?.data) ? res.data : [];
+        }
+        if (cancelled) return;
+        const all = Array.isArray(window._allCollections)
+          ? window._allCollections
+          : [];
+        const names = ids
+          .map((id) => all.find((c) => String(c?._id || c?.id || "") === id))
+          .map((c) => c?.name)
+          .filter(Boolean);
+        setCollectionNames(names);
+      } catch {
+        if (!cancelled) setCollectionNames([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.collections, product?.collection]);
 
   // derive variants and attribute lists from product data
   // Memoize variants so it is stable for useMemo/useEffect dependencies
@@ -1290,15 +1360,35 @@ export default function ProductDetailPage() {
           <div className="product-description">
             <h2 className="description-title">Chi tiết sản phẩm</h2>
             <div className="description-text">
-              <div className="bold">{product.description}</div>
+              <div
+                className="bold"
+                dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+              />
             </div>
             <ul className="spec-list">
               <li>
                 <span className="label">Bộ sưu tập:</span>{" "}
-                {Array.isArray(product?.collections) &&
-                product.collections.length
-                  ? product.collections[0].name
-                  : product?.collection?.name || product?.collection || "-"}
+                {(() => {
+                  const cols = Array.isArray(product?.collections)
+                    ? product.collections
+                    : [];
+                  const directNames = cols
+                    .map((c) =>
+                      c && typeof c === "object" ? c.name || "" : "",
+                    )
+                    .filter(Boolean);
+                  if (directNames.length) return directNames.join(", ");
+
+                  if (collectionNames && collectionNames.length)
+                    return collectionNames.join(", ");
+
+                  const single = product?.collection;
+                  const singleName =
+                    (single && typeof single === "object"
+                      ? single.name
+                      : null) || (typeof single === "string" ? single : null);
+                  return singleName || "-";
+                })()}
               </li>
               <li>
                 <span className="label">Mã sản phẩm:</span>{" "}

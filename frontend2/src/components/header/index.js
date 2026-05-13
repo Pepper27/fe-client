@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import { HeaderTop } from "./headerTop";
 import { HeaderMenu } from "./headerMenu";
+import "./index.scss";
 
 export const Header = () => {
   // Tạo trạng thái đóng mở menu
@@ -18,7 +19,7 @@ export const Header = () => {
     <header className="main-header">
       {/* Truyền hàm mở menu vào HeaderTop */}
       <HeaderTop onOpenMenu={toggleMenu} />
-      
+
       {/* Truyền trạng thái và hàm đóng vào HeaderMenu */}
       <HeaderMenu isOpen={isMenuOpen} onClose={closeMenu} />
     </header>

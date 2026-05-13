@@ -13,6 +13,7 @@ import { api } from "../../utils/api";
 export const Home = () => {
   const [products, setProducts] = useState([]);
   const [collections, setCollections] = useState([]);
+  const [promoCollection, setPromoCollection] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +44,23 @@ export const Home = () => {
           if (cancelled) return;
           console.error("Failed to load collections", e);
           setCollections([]);
+        }
+
+        // Promo: newest collection that contains a video
+        try {
+          const resPromo = await api.getCollections({
+            limit: 1,
+            hasVideo: true,
+          });
+          if (cancelled) return;
+          const promo =
+            Array.isArray(resPromo?.data) && resPromo.data.length
+              ? resPromo.data[0]
+              : null;
+          setPromoCollection(promo);
+        } catch (e) {
+          if (cancelled) return;
+          setPromoCollection(null);
         }
       } catch (e) {
         if (cancelled) return;
@@ -128,29 +146,65 @@ export const Home = () => {
       </div>
       <section className="container">
         <div className="collection-promo-wrapper">
-          <video
-            className="promo-video"
-            src="../client/image/vid.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-          />
+          {promoCollection?.video ? (
+            <video
+              className="promo-video"
+              src={promoCollection.video}
+              poster={
+                promoCollection.poster || promoCollection.avatar || undefined
+              }
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+          ) : (
+            <video
+              className="promo-video"
+              src="../client/image/vid.mp4"
+              autoPlay
+              muted
+              loop
+              playsInline
+            />
+          )}
           <div className="promo-content">
-            <h2 className="promo-title">CHẠM YÊU THƯƠNG - KHẮC CẢM XÚC</h2>
-            <p className="promo-description">
-              Hãy để Pandora cùng bạn khắc ghi từng khoảnh khắc mùa hè với những
-              thiết kế trang sức đầy cảm hứng – từ ánh vàng rực rỡ như nắng sớm
-              đến những viên đá xanh biển như làn sóng vỗ về.
-            </p>
-            <p className="promo-description">
-              Mỗi charm, mỗi vòng tay là một mảnh ghép kể nên câu chuyện cá
-              nhân, để bạn đeo cả mùa hè trên cổ tay, và mang theo cảm xúc đi
-              suốt hành trình...
-            </p>
-            <button className="promo-button">
-              <span>KHÁM PHÁ NGAY</span>
-            </button>
+            <h2 className="promo-title">
+              {promoCollection?.name || "CHẠM YÊU THƯƠNG - KHẮC CẢM XÚC"}
+            </h2>
+            {promoCollection?.description ? (
+              <div
+                className="promo-description"
+                dangerouslySetInnerHTML={{
+                  __html: String(promoCollection.description),
+                }}
+              />
+            ) : (
+              <>
+                <p className="promo-description">
+                  Hãy để Pandora cùng bạn khắc ghi từng khoảnh khắc mùa hè với
+                  những thiết kế trang sức đầy cảm hứng – từ ánh vàng rực rỡ như
+                  nắng sớm đến những viên đá xanh biển như làn sóng vỗ về.
+                </p>
+                <p className="promo-description">
+                  Mỗi charm, mỗi vòng tay là một mảnh ghép kể nên câu chuyện cá
+                  nhân, để bạn đeo cả mùa hè trên cổ tay, và mang theo cảm xúc
+                  đi suốt hành trình...
+                </p>
+              </>
+            )}
+            {promoCollection?.slug ? (
+              <Link
+                className="promo-button"
+                to={`/products/collections/${encodeURIComponent(String(promoCollection.slug))}`}
+              >
+                <span>KHÁM PHÁ NGAY</span>
+              </Link>
+            ) : (
+              <button className="promo-button" type="button">
+                <span>KHÁM PHÁ NGAY</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -181,6 +235,7 @@ export const Home = () => {
             if (!rawImage)
               rawImage =
                 item.avatar ||
+                item.poster ||
                 item.image ||
                 item.coverImage ||
                 item.banner ||
