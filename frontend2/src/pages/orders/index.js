@@ -44,19 +44,27 @@ export default function OrdersPage() {
   // Load profile via v1 bearer; if not logged in, show guest email flow.
   useEffect(() => {
     let cancelled = false;
-    api
-      .v1AuthMe()
-      .then((res) => {
-        if (cancelled) return;
-        const me = res?.data;
-        if (!me) return;
-        setMe(me);
-      })
-      .catch(() => {
-        // ignore
-      });
+
+    const refreshMe = () => {
+      api
+        .v1AuthMe()
+        .then((res) => {
+          if (cancelled) return;
+          setMe(res?.data || null);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          // If token missing/expired after logout, switch to guest mode.
+          setMe(null);
+        });
+    };
+
+    refreshMe();
+    const onAuthChanged = () => refreshMe();
+    window.addEventListener("auth:changed", onAuthChanged);
     return () => {
       cancelled = true;
+      window.removeEventListener("auth:changed", onAuthChanged);
     };
   }, []);
 
@@ -262,11 +270,21 @@ export default function OrdersPage() {
                           </div>
                           <div className="orders-itemMeta">
                             {(() => {
-                              const size = line?.size || line?.sizeText || line?.sizeCm || null;
+                              const size =
+                                line?.size ||
+                                line?.sizeText ||
+                                line?.sizeCm ||
+                                null;
                               const material = line?.material || null;
                               const color = line?.color || null;
-                              const parts = [size, material, color].filter(Boolean);
-                              return parts.length ? parts.join(' · ') : (line?.variantId ? `SKU ${String(line.variantId).slice(-6)}` : "");
+                              const parts = [size, material, color].filter(
+                                Boolean,
+                              );
+                              return parts.length
+                                ? parts.join(" · ")
+                                : line?.variantId
+                                  ? `SKU ${String(line.variantId).slice(-6)}`
+                                  : "";
                             })()}
                           </div>
                         </div>
@@ -286,40 +304,54 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="orders-orderActions">
+                        <button
+                          type="button"
+                          className="orders-btn"
+                          onClick={() =>
+                            navigate(
+                              `/orders/detail/${encodeURIComponent(o.orderCode)}`,
+                            )
+                          }
+                        >
+                          Xem chi tiết
+                        </button>
+                        {["pending", "confirmed"].includes(o.status) ? (
                           <button
                             type="button"
-                            className="orders-btn"
-                            onClick={() =>
-                              navigate(
-                                `/orders/detail/${encodeURIComponent(o.orderCode)}`,
+                            className="orders-btn orders-btnSecondary"
+                            onClick={async () => {
+                              if (
+                                !window.confirm(
+                                  "Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?",
+                                )
                               )
-                            }
-                          >
-                            Xem chi tiết
-                          </button>
-                          {(["pending", "confirmed"].includes(o.status)) ? (
-                            <button
-                              type="button"
-                              className="orders-btn orders-btnSecondary"
-                              onClick={async () => {
-                                if (!window.confirm("Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?")) return;
-                                try {
-                                  const res = await api.v1ClientCancelOrder(o.orderCode, { reason: "Khách huỷ (list)" });
-                                  // Update list snapshot
-                                  setOrders((prev) => prev.map((p) => (p._id === res?.data?._id ? res.data : p)));
-                                  toast.success("Huỷ đơn thành công");
-                                } catch (e) {
-                                  if (e?.status === 409) {
-                                    toast.error("Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.");
-                                  } else {
-                                    toast.error(e?.message || "Huỷ đơn thất bại");
-                                  }
+                                return;
+                              try {
+                                const res = await api.v1ClientCancelOrder(
+                                  o.orderCode,
+                                  { reason: "Khách huỷ (list)" },
+                                );
+                                // Update list snapshot
+                                setOrders((prev) =>
+                                  prev.map((p) =>
+                                    p._id === res?.data?._id ? res.data : p,
+                                  ),
+                                );
+                                toast.success("Huỷ đơn thành công");
+                              } catch (e) {
+                                if (e?.status === 409) {
+                                  toast.error(
+                                    "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.",
+                                  );
+                                } else {
+                                  toast.error(e?.message || "Huỷ đơn thất bại");
                                 }
-                              }}
-                            >
-                              Huỷ
-                            </button>
-                          ) : null}
+                              }
+                            }}
+                          >
+                            Huỷ
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   );
@@ -356,7 +388,6 @@ export default function OrdersPage() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

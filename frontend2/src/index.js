@@ -106,6 +106,7 @@ function renderApp() {
       </Routes>
       <Toaster
         position="top-right"
+        containerStyle={{ zIndex: 2147483647 }}
         toastOptions={{
           duration: 3000,
           success: { duration: 2800 },
