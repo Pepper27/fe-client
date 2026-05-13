@@ -158,9 +158,10 @@ export const api = {
   getColors: () => request(`${V1_PUBLIC}/colors`),
   getSizes: () => request(`${V1_PUBLIC}/sizes`),
   getThemes: () => request(`${V1_PUBLIC}/themes`),
-  getCollections: ({ limit } = {}) => {
+  getCollections: ({ limit, hasVideo } = {}) => {
     const qs = new URLSearchParams();
     if (limit !== undefined) qs.set("limit", String(limit));
+    if (hasVideo !== undefined) qs.set("hasVideo", hasVideo ? "1" : "0");
     const suffix = qs.toString() ? `?${qs.toString()}` : "";
     return request(`${V1_PUBLIC}/collections${suffix}`);
   },

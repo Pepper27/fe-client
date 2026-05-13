@@ -201,6 +201,7 @@ function ProductsPage() {
               setCollectionMeta({
                 name: titleFromQuery || null,
                 avatar: bannerFromQuery || null,
+                poster: bannerFromQuery || null,
                 slug: collectionSlug,
               });
             } else {
@@ -598,6 +599,7 @@ function ProductsPage() {
     category?.banner ||
     category?.avatar ||
     collectionMeta?.avatar ||
+    collectionMeta?.poster ||
     "/client/image/vongtay.jpg";
 
   const pageTitle =
