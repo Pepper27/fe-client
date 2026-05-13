@@ -23,6 +23,14 @@ const V1_PUBLIC = "/api/v1/public";
 const V1_CLIENT = "/api/v1/client";
 
 const request = async (path, options = {}) => {
+  const timeoutMs =
+    options.timeoutMs !== undefined ? Number(options.timeoutMs) : undefined;
+  const controller = new AbortController();
+  const timeoutId =
+    timeoutMs && Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
   // Add cache-busting parameter to GET requests
   let finalPath = path;
   if (!options.method || options.method === "GET") {
@@ -34,14 +42,25 @@ const request = async (path, options = {}) => {
     }
   }
 
-  const res = await fetch(`${getApiBase()}${finalPath}`, {
-    credentials: "include",
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers || {}),
-    },
-  });
+  let res;
+  try {
+    res = await fetch(`${getApiBase()}${finalPath}`, {
+      credentials: "include",
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
+    });
+  } catch (e) {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (e && e.name === "AbortError") {
+      throw new Error("Request timeout");
+    }
+    throw e;
+  }
+  if (timeoutId) clearTimeout(timeoutId);
 
   const text = await res.text();
   let data;
@@ -363,11 +382,43 @@ export const api = {
     request(`/api/public/auth/forgot-password`, {
       method: "POST",
       body: JSON.stringify({ email }),
+      timeoutMs: 20000,
     }),
   authResetPassword: ({ email, otp, newPassword }) =>
     request(`/api/public/auth/reset-password`, {
       method: "POST",
       body: JSON.stringify({ email, otp, newPassword }),
+    }),
+
+  authOauthGoogle: ({ accessToken, idToken } = {}) =>
+    request(`/api/public/auth/oauth/google`, {
+      method: "POST",
+      body: JSON.stringify({ accessToken, idToken }),
+    }).then((res) => {
+      const token = res?.token;
+      if (token) {
+        try {
+          localStorage.setItem("clientAccessToken", String(token));
+        } catch {
+          // ignore
+        }
+      }
+      return res;
+    }),
+  authOauthFacebook: ({ accessToken } = {}) =>
+    request(`/api/public/auth/oauth/facebook`, {
+      method: "POST",
+      body: JSON.stringify({ accessToken }),
+    }).then((res) => {
+      const token = res?.token;
+      if (token) {
+        try {
+          localStorage.setItem("clientAccessToken", String(token));
+        } catch {
+          // ignore
+        }
+      }
+      return res;
     }),
 
   // v1 bearer auth (token stored in localStorage)

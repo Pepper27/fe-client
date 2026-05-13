@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { IoCloseOutline } from "react-icons/io5";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
@@ -34,6 +34,113 @@ export default function Authentication() {
   const [forgotOtp, setForgotOtp] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
 
+  const googleTokenClientRef = useRef(null);
+  const fbReadyRef = useRef(false);
+
+  const loadScriptOnce = (src, id) => {
+    return new Promise((resolve, reject) => {
+      if (typeof document === "undefined") return resolve(false);
+      if (id && document.getElementById(id)) return resolve(true);
+      const existing = Array.from(document.getElementsByTagName("script")).find(
+        (s) => s && s.src === src,
+      );
+      if (existing) return resolve(true);
+
+      const script = document.createElement("script");
+      if (id) script.id = id;
+      script.src = src;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => reject(new Error(`Không tải được script: ${src}`));
+      document.head.appendChild(script);
+    });
+  };
+
+  const afterAuthSuccess = async () => {
+    const resMe = await api.authMe();
+    setMe(resMe?.data || null);
+
+    // Merge local wishlist into server wishlist (preserve local items saved before login)
+    try {
+      const local = (await import("../../utils/wishlist")).getWishlist();
+      const serverRes = await api.wishlistList().catch(() => null);
+      const serverRows = Array.isArray(serverRes?.data) ? serverRes.data : [];
+      const serverIds = new Set(
+        serverRows.map((r) => String(r?.productId || "")),
+      );
+      const toAdd = (local || []).filter(
+        (it) => it && it.id && !serverIds.has(String(it.id)),
+      );
+      for (const item of toAdd) {
+        try {
+          await api.wishlistAdd({
+            productId: String(item.id),
+            variantCode: "",
+          });
+        } catch {
+          // ignore per-item failures
+        }
+      }
+      try {
+        await syncWishlistFromServer();
+      } catch {
+        // ignore
+      }
+    } catch {
+      // ignore
+    }
+
+    window.dispatchEvent(new Event("auth:changed"));
+    navigate("/", { replace: true });
+  };
+
+  useEffect(() => {
+    const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    if (googleClientId) {
+      loadScriptOnce("https://accounts.google.com/gsi/client", "google-gsi")
+        .then(() => {
+          if (!window.google?.accounts?.oauth2?.initTokenClient) return;
+          if (googleTokenClientRef.current) return;
+          googleTokenClientRef.current =
+            window.google.accounts.oauth2.initTokenClient({
+              client_id: googleClientId,
+              scope: "openid email profile",
+              callback: () => {},
+            });
+        })
+        .catch(() => {
+          // ignore; button will show error on click
+        });
+    }
+
+    const fbAppId = process.env.REACT_APP_FACEBOOK_APP_ID;
+    if (fbAppId) {
+      // Facebook SDK requires fbAsyncInit before script load.
+      window.fbAsyncInit = function () {
+        try {
+          window.FB.init({
+            appId: fbAppId,
+            cookie: true,
+            xfbml: false,
+            version: "v20.0",
+          });
+          fbReadyRef.current = true;
+        } catch {
+          fbReadyRef.current = false;
+        }
+      };
+
+      loadScriptOnce(
+        "https://connect.facebook.net/en_US/sdk.js",
+        "facebook-sdk",
+      ).catch(() => {
+        // ignore; button will show error on click
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const heading = useMemo(
     () =>
       activeTab === "register" ? "TẠO TÀI KHOẢN CỦA TÔI" : "TÀI KHOẢN CỦA TÔI",
@@ -42,18 +149,26 @@ export default function Authentication() {
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .authMe()
-      .then((res) => {
-        if (cancelled) return;
-        setMe(res?.data || null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setMe(null);
-      });
+
+    const refreshMe = () => {
+      api
+        .authMe()
+        .then((res) => {
+          if (cancelled) return;
+          setMe(res?.data || null);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setMe(null);
+        });
+    };
+
+    refreshMe();
+    const onAuthChanged = () => refreshMe();
+    window.addEventListener("auth:changed", onAuthChanged);
     return () => {
       cancelled = true;
+      window.removeEventListener("auth:changed", onAuthChanged);
     };
   }, []);
 
@@ -72,35 +187,8 @@ export default function Authentication() {
     setBusy(true);
     try {
       await api.authLogin({ email, password });
-      const resMe = await api.authMe();
-      setMe(resMe?.data || null);
-      // Merge local wishlist into server wishlist (preserve local items saved before login)
-      try {
-        const local = (await import("../../utils/wishlist")).getWishlist();
-        // fetch server list
-        const serverRes = await api.wishlistList().catch(() => null);
-        const serverRows = Array.isArray(serverRes?.data) ? serverRes.data : [];
-        const serverIds = new Set(serverRows.map((r) => String(r?.productId || "")));
-        const toAdd = (local || []).filter((it) => it && it.id && !serverIds.has(String(it.id)));
-        for (const item of toAdd) {
-          try {
-            await api.wishlistAdd({ productId: String(item.id), variantCode: "" });
-          } catch (e) {
-            // ignore per-item failures
-          }
-        }
-        // Refresh local wishlist from server
-        try {
-          await syncWishlistFromServer();
-        } catch {
-          // ignore
-        }
-      } catch (e) {
-        // ignore merge errors
-      }
       toast.success("Đăng nhập thành công");
-      window.dispatchEvent(new Event("auth:changed"));
-      navigate("/", { replace: true });
+      await afterAuthSuccess();
     } catch (err) {
       showError(err, "Đăng nhập thất bại");
     } finally {
@@ -114,11 +202,25 @@ export default function Authentication() {
     const fullName = String(registerForm.fullName || "").trim();
     const email = String(registerForm.email || "").trim();
     const phone = String(registerForm.phone || "").trim();
+    const birthday = String(registerForm.birthday || "").trim();
     const password = String(registerForm.password || "");
     const confirmPassword = String(registerForm.confirmPassword || "");
 
-    if (!fullName) return toast.error("Vui lòng nhập họ và tên");
+    const emailLower = email.toLowerCase();
+    const phoneDigits = phone.replace(/[^0-9+]/g, "");
+
+    if (!fullName || fullName.length < 2)
+      return toast.error("Vui lòng nhập họ và tên");
     if (!email) return toast.error("Vui lòng nhập email");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower))
+      return toast.error("Email không hợp lệ");
+    if (!phone) return toast.error("Vui lòng nhập số điện thoại");
+    if (!/^(\+?84|0)\d{8,10}$/.test(phoneDigits))
+      return toast.error("Số điện thoại không hợp lệ");
+    if (birthday) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (birthday > today) return toast.error("Ngày sinh không hợp lệ");
+    }
     if (!password) return toast.error("Vui lòng nhập mật khẩu");
     if (password.length < 6) return toast.error("Mật khẩu tối thiểu 6 ký tự");
     if (password !== confirmPassword)
@@ -168,7 +270,8 @@ export default function Authentication() {
     if (!email) return toast.error("Vui lòng nhập email");
     if (!otp) return toast.error("Vui lòng nhập OTP");
     if (!newPassword) return toast.error("Vui lòng nhập mật khẩu mới");
-    if (newPassword.length < 6) return toast.error("Mật khẩu tối thiểu 6 ký tự");
+    if (newPassword.length < 6)
+      return toast.error("Mật khẩu tối thiểu 6 ký tự");
 
     setBusy(true);
     try {
@@ -177,6 +280,101 @@ export default function Authentication() {
       setIsForgotOpen(false);
     } catch (err) {
       showError(err, "Đổi mật khẩu thất bại");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onGoogleLogin = async () => {
+    if (busy) return;
+    const googleClientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    if (!googleClientId) return toast.error("Thiếu REACT_APP_GOOGLE_CLIENT_ID");
+
+    setBusy(true);
+    try {
+      await loadScriptOnce(
+        "https://accounts.google.com/gsi/client",
+        "google-gsi",
+      );
+      if (!window.google?.accounts?.oauth2?.initTokenClient)
+        throw new Error("Google SDK chưa sẵn sàng");
+
+      const tokenClient =
+        googleTokenClientRef.current ||
+        window.google.accounts.oauth2.initTokenClient({
+          client_id: googleClientId,
+          scope: "openid email profile",
+          callback: () => {},
+        });
+      googleTokenClientRef.current = tokenClient;
+
+      const accessToken = await new Promise((resolve, reject) => {
+        tokenClient.callback = (resp) => {
+          const token = resp && resp.access_token;
+          if (!token) return reject(new Error("Không lấy được token Google"));
+          resolve(token);
+        };
+        try {
+          tokenClient.requestAccessToken({ prompt: "consent" });
+        } catch (e) {
+          reject(e);
+        }
+      });
+
+      await api.authOauthGoogle({ accessToken });
+      toast.success("Đăng nhập Google thành công");
+      await afterAuthSuccess();
+    } catch (err) {
+      showError(err, "Đăng nhập Google thất bại");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFacebookLogin = async () => {
+    if (busy) return;
+    const fbAppId = process.env.REACT_APP_FACEBOOK_APP_ID;
+    if (!fbAppId) return toast.error("Thiếu REACT_APP_FACEBOOK_APP_ID");
+
+    setBusy(true);
+    try {
+      await loadScriptOnce(
+        "https://connect.facebook.net/en_US/sdk.js",
+        "facebook-sdk",
+      );
+      if (!window.FB) throw new Error("Facebook SDK chưa sẵn sàng");
+      if (!fbReadyRef.current) {
+        try {
+          window.FB.init({
+            appId: fbAppId,
+            cookie: true,
+            xfbml: false,
+            version: "v20.0",
+          });
+          fbReadyRef.current = true;
+        } catch {
+          // ignore
+        }
+      }
+
+      const accessToken = await new Promise((resolve, reject) => {
+        window.FB.login(
+          (response) => {
+            const token = response?.authResponse?.accessToken;
+            if (!token) {
+              return reject(new Error("Bạn đã hủy đăng nhập Facebook"));
+            }
+            resolve(token);
+          },
+          { scope: "email,public_profile" },
+        );
+      });
+
+      await api.authOauthFacebook({ accessToken });
+      toast.success("Đăng nhập Facebook thành công");
+      await afterAuthSuccess();
+    } catch (err) {
+      showError(err, "Đăng nhập Facebook thất bại");
     } finally {
       setBusy(false);
     }
@@ -202,7 +400,6 @@ export default function Authentication() {
             </div>
           </div>
         ) : null}
-
 
         <div className="auth-tabs" role="tablist" aria-label="Tài khoản">
           <Link
@@ -265,11 +462,21 @@ export default function Authentication() {
                 {busy ? "ĐANG XỬ LÝ..." : "ĐĂNG NHẬP"}
               </button>
               <div className="divider-text">Hoặc</div>
-              <button type="button" className="social-btn google-btn">
+              <button
+                type="button"
+                className="social-btn google-btn"
+                onClick={onGoogleLogin}
+                disabled={busy}
+              >
                 <FaGoogle className="social-icon" aria-hidden="true" />
                 ĐĂNG NHẬP GOOGLE
               </button>
-              <button type="button" className="social-btn facebook-btn">
+              <button
+                type="button"
+                className="social-btn facebook-btn"
+                onClick={onFacebookLogin}
+                disabled={busy}
+              >
                 <FaFacebookF className="social-icon" aria-hidden="true" />
                 ĐĂNG NHẬP FACEBOOK
               </button>
@@ -311,6 +518,7 @@ export default function Authentication() {
                 placeholder="Ngày/tháng/năm"
                 aria-label="Ngày sinh"
                 value={registerForm.birthday}
+                max={new Date().toISOString().slice(0, 10)}
                 onChange={(e) =>
                   setRegisterForm((p) => ({ ...p, birthday: e.target.value }))
                 }
@@ -366,11 +574,21 @@ export default function Authentication() {
                 {busy ? "ĐANG XỬ LÝ..." : "ĐĂNG KÝ"}
               </button>
               <div className="divider-text">Hoặc</div>
-              <button type="button" className="social-btn google-btn">
+              <button
+                type="button"
+                className="social-btn google-btn"
+                onClick={onGoogleLogin}
+                disabled={busy}
+              >
                 <FaGoogle className="social-icon" aria-hidden="true" />
                 ĐĂNG KÝ GOOGLE
               </button>
-              <button type="button" className="social-btn facebook-btn">
+              <button
+                type="button"
+                className="social-btn facebook-btn"
+                onClick={onFacebookLogin}
+                disabled={busy}
+              >
                 <FaFacebookF className="social-icon" aria-hidden="true" />
                 ĐĂNG KÝ FACEBOOK
               </button>
@@ -436,7 +654,6 @@ export default function Authentication() {
                 />
               </>
             ) : null}
-
 
             <button
               type="button"
