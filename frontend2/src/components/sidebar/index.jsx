@@ -197,11 +197,22 @@ export default function Sidebar({
       // No legacy filters JSON — parse short params
       const short = Object.fromEntries(qs.entries());
       const newSel = {};
-      if (short.type)
-        newSel.category = String(short.type)
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
+      if (short.type) {
+        // If URL has both type and categorySlug and they are the same, treat it as
+        // navigation (parent category listing) instead of an explicit category filter.
+        const tp = String(short.type || "")
+          .trim()
+          .toLowerCase();
+        const cs = String(short.categorySlug || "")
+          .trim()
+          .toLowerCase();
+        if (!cs || tp !== cs) {
+          newSel.category = String(short.type)
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+      }
       if (short.material)
         newSel.material = String(short.material)
           .split(",")
