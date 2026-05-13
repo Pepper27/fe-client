@@ -29,6 +29,7 @@ import ProductCreatePage from "./pages/admin/ProductCreatePage";
 import TestAPICall from "./components/TestAPICall";
 import SimpleAPITest from "./components/SimpleAPITest";
 import BestSellersPage from "./pages/product-bestseller/BestSellersPage";
+import BlogDetailPage from "./pages/blog-detail";
 
 // Load runtime config (public/config.json) so the API base can be injected at deploy time
 async function loadRuntimeConfig() {
@@ -87,6 +88,7 @@ function renderApp() {
           element={<Products />}
         />
         <Route path="/products/best-sellers" element={<BestSellersPage />} />
+        <Route path="/blogs/:slug" element={<BlogDetailPage />} />
         <Route path="/product/:slug" element={<ProductDetailPageWrapper />} />
         <Route path="/collections/:slug" element={<CollectionRedirect />} />
         <Route path="/wishlist" element={<Wishlist />} />
