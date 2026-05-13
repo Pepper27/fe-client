@@ -11,11 +11,9 @@ export function getApiBase() {
   )
     return process.env.REACT_APP_API_BASE;
 
-  // For development, use the hardcoded URL
-  // In production, this should be set via environment variable or config.json
-  return process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "http://localhost:3000";
+  // Default dev API (backend default port in this repo)
+  // Prefer setting REACT_APP_API_BASE or public/config.json in production.
+  return "http://localhost:3861";
 }
 
 // Prefer v1 endpoints for new work.

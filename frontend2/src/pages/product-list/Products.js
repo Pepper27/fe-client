@@ -6,6 +6,8 @@ import { api } from "../../utils/api";
 import { mapQueryToFilters } from "../../utils/productsUrl";
 import "./products.scss";
 
+const PAGE_SIZE = 25;
+
 function ProductsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,29 @@ function ProductsPage() {
             // Build object from short query params
             const shortObj = Object.fromEntries(qs.entries());
             filtersParam = mapQueryToFilters(shortObj);
+
+            // If the URL redundantly sets type=<categorySlug> (common for header links),
+            // don't force an exact category-id filter. Let backend handle parent
+            // categorySlug filtering (incl. child categories) so the listing isn't empty.
+            try {
+              const cs = String(qs.get("categorySlug") || "")
+                .trim()
+                .toLowerCase();
+              const tp = String(qs.get("type") || "")
+                .trim()
+                .toLowerCase();
+              if (
+                cs &&
+                tp &&
+                cs === tp &&
+                filtersParam &&
+                Array.isArray(filtersParam.categories)
+              ) {
+                delete filtersParam.categories;
+              }
+            } catch {
+              // ignore
+            }
 
             // Resolve short category slugs/names into backend category ids and
             // prefer setting categorySlug to the selected child slug when user
@@ -142,7 +167,7 @@ function ProductsPage() {
             ? await api.getProductsByCollection({
                 collectionId: collectionSlug,
                 page: 1,
-                limit: 24,
+                limit: PAGE_SIZE,
                 q,
                 categorySlug: categorySlug,
                 filters: filtersParam,
@@ -150,7 +175,7 @@ function ProductsPage() {
               })
             : await api.getProducts({
                 page: 1,
-                limit: 24,
+                limit: PAGE_SIZE,
                 q,
                 categorySlug: categorySlug,
                 filters: filtersParam,
@@ -171,9 +196,9 @@ function ProductsPage() {
           // Store filters data for sidebar (backend already provides counts)
           setAvailableFilters(normalizedFilters);
 
-          // Set hasMore to check if there are more products to load
+          // Set hasMore based on server paging (avoid depending on client-side filtering)
           const totalPages = res?.meta?.totalPages || 1;
-          setHasMore(productsData.length === 24 && page < totalPages);
+          setHasMore(1 < totalPages);
         } catch (err) {
           console.error("Error fetching products:", err);
           // Fallback to getting bracelets and charms if products endpoint fails
@@ -535,6 +560,28 @@ function ProductsPage() {
         } else {
           const shortObj = Object.fromEntries(qs.entries());
           filtersParam = mapQueryToFilters(shortObj);
+
+          // Same guard as initial fetch: when type equals categorySlug, don't force
+          // categories filter (it can empty the list).
+          try {
+            const cs = String(qs.get("categorySlug") || "")
+              .trim()
+              .toLowerCase();
+            const tp = String(qs.get("type") || "")
+              .trim()
+              .toLowerCase();
+            if (
+              cs &&
+              tp &&
+              cs === tp &&
+              filtersParam &&
+              Array.isArray(filtersParam.categories)
+            ) {
+              delete filtersParam.categories;
+            }
+          } catch {
+            // ignore
+          }
         }
       } catch (e) {
         filtersParam = undefined;
@@ -567,7 +614,7 @@ function ProductsPage() {
 
       const res = await api.getProducts({
         page: nextPage,
-        limit: 24,
+        limit: PAGE_SIZE,
         q,
         categorySlug,
         filters: filtersParam,
