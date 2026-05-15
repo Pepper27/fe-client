@@ -22,6 +22,12 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [quantityText, setQuantityText] = useState("1");
 
+  const uiQty = useMemo(() => {
+    if (quantityText === "") return quantity;
+    const n = Math.floor(Number(quantityText));
+    return Number.isFinite(n) && n > 0 ? n : quantity;
+  }, [quantityText, quantity]);
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [addingBuyNow, setAddingBuyNow] = useState(false);
@@ -1409,9 +1415,9 @@ export default function ProductDetailPage() {
                 type="button"
                 className="qty-btn"
                 onClick={() =>
-                  commitQuantityText(String(Math.max(1, (Number(quantity) || 1) - 1)))
+                  commitQuantityText(String(Math.max(1, (Number(uiQty) || 1) - 1)))
                 }
-                disabled={quantity <= 1}
+                disabled={uiQty <= 1}
                 aria-label="Giảm số lượng"
               >
                 -
@@ -1454,12 +1460,12 @@ export default function ProductDetailPage() {
                   commitQuantityText(
                     String(
                       maxQty > 0
-                        ? Math.min((Number(quantity) || 1) + 1, maxQty)
-                        : (Number(quantity) || 1) + 1,
+                        ? Math.min((Number(uiQty) || 1) + 1, maxQty)
+                        : (Number(uiQty) || 1) + 1,
                     ),
                   )
                 }
-                disabled={maxQty > 0 ? quantity >= maxQty : false}
+                disabled={maxQty > 0 ? uiQty >= maxQty : false}
                 aria-label="Tăng số lượng"
               >
                 +
