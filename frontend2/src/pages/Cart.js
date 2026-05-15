@@ -46,6 +46,139 @@ export default function Cart() {
   const [openBundle, setOpenBundle] = useState({});
   const [productMetaMap, setProductMetaMap] = useState(new Map());
 
+  const getProductForId = (productId) => {
+    const pid = productId ? String(productId) : "";
+    if (!pid) return null;
+    return productMetaMap.get(pid) || charmById.get(pid) || null;
+  };
+
+  const canonVariantKey = (productObj, variantIdentifier) => {
+    if (!productObj) return variantIdentifier == null ? "" : String(variantIdentifier);
+    const v = findVariant(productObj, variantIdentifier);
+    return String(v?._id || v?.id || v?.variantCode || v?.code || variantIdentifier || "");
+  };
+
+  const getStockQty = (productObj, variantIdentifier) => {
+    const v = productObj ? findVariant(productObj, variantIdentifier) : null;
+    return typeof v?.quantity === "number" ? v.quantity : null;
+  };
+
+  const countInCart = ({ productId, variantIdentifier, excludeLineId, excludeBundleId } = {}) => {
+    const pid = productId ? String(productId) : "";
+    if (!pid) return 0;
+    const productObj = getProductForId(pid);
+    const wantKey = variantIdentifier == null ? "" : canonVariantKey(productObj, variantIdentifier);
+
+    const matchesVariant = (val) => {
+      if (!wantKey) return true;
+      if (val == null) return false;
+      const key = canonVariantKey(productObj, val);
+      return key === wantKey;
+    };
+
+    let total = 0;
+
+    const productsNow = Array.isArray(cart?.products) ? cart.products : [];
+    for (const pl of productsNow) {
+      if (excludeLineId && String(pl?._id) === String(excludeLineId)) continue;
+      if (String(pl?.productId || "") !== pid) continue;
+      if (!matchesVariant(pl?.variantId)) continue;
+      total += Number(pl?.quantity) || 0;
+    }
+
+    const bundlesNow = Array.isArray(cart?.bundles) ? cart.bundles : [];
+    for (const b of bundlesNow) {
+      if (excludeBundleId && String(b?.bundleId) === String(excludeBundleId)) continue;
+      const bQty = Number(b?.quantity) || 0;
+      if (!bQty) continue;
+
+      // bracelet counts once per bundle
+      if (String(b?.bracelet?.productId || "") === pid) {
+        const brVar = b?.bracelet?.variantCode || b?.bracelet?.variantId || null;
+        if (matchesVariant(brVar)) total += 1 * bQty;
+      }
+
+      // items can contain the same product multiple times (multiple slots)
+      const items = Array.isArray(b?.items) ? b.items : [];
+      let occ = 0;
+      for (const it of items) {
+        if (String(it?.charmProductId || "") !== pid) continue;
+        const itVar = it?.charmVariantCode || it?.variantCode || it?.variantId || null;
+        if (!matchesVariant(itVar)) continue;
+        occ += 1;
+      }
+      if (occ) total += occ * bQty;
+    }
+
+    return total;
+  };
+
+  const getMaxForProductLine = (pl) => {
+    const pid = pl?.productId ? String(pl.productId) : "";
+    if (!pid) return null;
+    const productObj = getProductForId(pid);
+    const stock = getStockQty(productObj, String(pl?.variantId || ""));
+    if (stock == null) return null;
+    const usedOther = countInCart({
+      productId: pid,
+      variantIdentifier: String(pl?.variantId || ""),
+      excludeLineId: pl?._id,
+    });
+    return Math.max(0, stock - usedOther);
+  };
+
+  const getMaxForBundle = (bundle) => {
+    if (!bundle) return null;
+    const constraints = [];
+    const bundleId = bundle?.bundleId;
+
+    // bracelet
+    const brPid = bundle?.bracelet?.productId ? String(bundle.bracelet.productId) : null;
+    if (brPid) {
+      const brMeta = getProductForId(brPid);
+      const brVar = bundle?.bracelet?.variantCode || bundle?.bracelet?.variantId || null;
+      const stock = getStockQty(brMeta, brVar);
+      if (stock != null) {
+        const usedOther = countInCart({
+          productId: brPid,
+          variantIdentifier: brVar,
+          excludeBundleId: bundleId,
+        });
+        const remaining = Math.max(0, stock - usedOther);
+        constraints.push(Math.floor(remaining / 1));
+      }
+    }
+
+    // charms
+    const items = Array.isArray(bundle?.items) ? bundle.items : [];
+    const occByKey = new Map();
+    for (const it of items) {
+      const pid = it?.charmProductId ? String(it.charmProductId) : null;
+      if (!pid) continue;
+      const vid = it?.charmVariantCode || it?.variantCode || it?.variantId || null;
+      const vKey = vid == null ? "" : String(vid);
+      const key = `${pid}::${vKey}`;
+      occByKey.set(key, (occByKey.get(key) || 0) + 1);
+    }
+    for (const [key, occ] of occByKey.entries()) {
+      const [pid, vKey] = key.split("::");
+      const p = getProductForId(pid);
+      const stock = getStockQty(p, vKey);
+      if (stock == null || occ <= 0) continue;
+      const usedOther = countInCart({
+        productId: pid,
+        variantIdentifier: vKey,
+        excludeBundleId: bundleId,
+      });
+      const remaining = Math.max(0, stock - usedOther);
+      constraints.push(Math.floor(remaining / occ));
+    }
+
+    if (!constraints.length) return null;
+    const min = Math.min(...constraints);
+    return Number.isFinite(min) ? Math.max(0, min) : null;
+  };
+
   const refresh = async () => {
     setLoading(true);
     try {
@@ -69,6 +202,7 @@ export default function Cart() {
         new Set([
           ...products.map((p) => String(p.productId)),
           ...bundles.map((b) => String(b?.bracelet?.productId || '')),
+          ...bundles.flatMap((b) => (Array.isArray(b?.items) ? b.items.map((it) => String(it?.charmProductId || '')) : [])),
         ].filter(Boolean)),
       );
       if (ids.length) {
@@ -137,48 +271,7 @@ export default function Cart() {
   const patchQty = async (bundleId, quantity) => {
     const bundlesNow = cart?.bundles || [];
     const bundle = bundlesNow.find((b) => String(b?.bundleId) === String(bundleId)) || null;
-
-    const getBundleMaxQty = (b) => {
-      if (!b) return null;
-      const constraints = [];
-
-      // Bracelet stock
-      const braceletPid = b?.bracelet?.productId ? String(b.bracelet.productId) : null;
-      if (braceletPid) {
-        const braceletMeta = productMetaMap.get(braceletPid) || null;
-        const braceletVarId = b?.bracelet?.variantCode || b?.bracelet?.variantId || null;
-        const v = braceletMeta ? findVariant(braceletMeta, braceletVarId) : null;
-        const stock = typeof v?.quantity === 'number' ? v.quantity : null;
-        if (stock != null) constraints.push(Math.floor(Math.max(0, stock) / 1));
-      }
-
-      // Charm stocks (count occurrences within this bundle)
-      const items = Array.isArray(b?.items) ? b.items : [];
-      const occByKey = new Map();
-      for (const it of items) {
-        const pid = it?.charmProductId ? String(it.charmProductId) : null;
-        if (!pid) continue;
-        const vid = it?.charmVariantCode || it?.variantCode || it?.variantId || null;
-        const vKey = vid == null ? '' : String(vid);
-        const key = `${pid}::${vKey}`;
-        occByKey.set(key, (occByKey.get(key) || 0) + 1);
-      }
-      for (const [key, occ] of occByKey.entries()) {
-        const [pid, vKey] = key.split('::');
-        const p = charmById.get(String(pid)) || null;
-        const v = p ? findVariant(p, vKey) : null;
-        const stock = typeof v?.quantity === 'number' ? v.quantity : null;
-        if (stock != null && occ > 0) {
-          constraints.push(Math.floor(Math.max(0, stock) / occ));
-        }
-      }
-
-      if (!constraints.length) return null;
-      const min = Math.min(...constraints);
-      return Number.isFinite(min) ? min : null;
-    };
-
-    const max = getBundleMaxQty(bundle);
+    const max = getMaxForBundle(bundle);
     const safeQty = Math.max(1, Math.floor(Number(quantity) || 1));
     const nextQty = max != null ? Math.min(safeQty, max) : safeQty;
     if (max != null && safeQty > max) {
@@ -206,9 +299,7 @@ export default function Cart() {
   const patchProductQty = async (lineId, quantity) => {
     const productsNow = cart?.products || [];
     const pl = productsNow.find((p) => String(p?._id) === String(lineId)) || null;
-    const meta = pl ? (productMetaMap.get(String(pl.productId)) || null) : null;
-    const variant = meta ? findVariant(meta, String(pl?.variantId || '')) : null;
-    const max = typeof variant?.quantity === 'number' ? variant.quantity : null;
+    const max = pl ? getMaxForProductLine(pl) : null;
 
     const safeQty = Math.max(1, Math.floor(Number(quantity) || 1));
     const nextQty = max != null ? Math.min(safeQty, Math.max(0, max)) : safeQty;
@@ -445,8 +536,10 @@ export default function Cart() {
                            // derive human-friendly variant label (size)
                            const variantSize = variant?.size || variant?.sizeCm || variant?.sizeLabel || variant?.label || null;
                            const categoryLabel = (meta?.category && (meta.category.name || meta.category.slug)) || '';
-                          return (
-                            <div key={pl._id} className="cart2-bundle" style={{ padding: '16px', borderRadius: 12, background: '#fbfdff', border: '1px solid #e6eef6' }}>
+                           const maxLineQty = getMaxForProductLine(pl);
+                           const disablePlus = maxLineQty != null ? (pl.quantity || 1) >= maxLineQty : false;
+                           return (
+                             <div key={pl._id} className="cart2-bundle" style={{ padding: '16px', borderRadius: 12, background: '#fbfdff', border: '1px solid #e6eef6' }}>
                               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                   <input type="checkbox" checked={prodChecked} onChange={() => toggleProductLine(pl._id)} style={{ width: 18, height: 18, marginRight: 12 }} />
@@ -461,11 +554,11 @@ export default function Cart() {
                                   <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div>
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                                        <button type="button" onClick={() => patchProductQty(pl._id, Math.max((pl.quantity || 1) - 1, 1))} disabled={(pl.quantity || 1) <= 1}>-</button>
-                                        <div style={{ minWidth: 36, textAlign: 'center', fontWeight: 700 }}>{pl.quantity || 1}</div>
-                                        <button type="button" onClick={() => patchProductQty(pl._id, (pl.quantity || 1) + 1)}>+</button>
-                                      </div>
-                                    </div>
+                                         <button type="button" onClick={() => patchProductQty(pl._id, Math.max((pl.quantity || 1) - 1, 1))} disabled={(pl.quantity || 1) <= 1}>-</button>
+                                         <div style={{ minWidth: 36, textAlign: 'center', fontWeight: 700 }}>{pl.quantity || 1}</div>
+                                         <button type="button" onClick={() => patchProductQty(pl._id, (pl.quantity || 1) + 1)} disabled={disablePlus}>+</button>
+                                       </div>
+                                     </div>
                                     <div style={{ textAlign: 'right', minWidth: 160 }}>
                                        <div style={{ fontWeight: 900, fontSize: 18 }}>{formatPrice(Number(pl.price) || 0)}</div>
                                     </div>
@@ -513,8 +606,10 @@ export default function Cart() {
                              ? firstImage(firstCharm, firstItem?.charmVariantCode) || (firstCharm?.variants && firstCharm.variants[0] && firstCharm.variants[0].images && firstCharm.variants[0].images[0]) || null
                              : null;
 
-                          return (
-                            <div key={id} className="cart2-bundle">
+                           const maxBundleQty = getMaxForBundle(b);
+                           const disableBundlePlus = maxBundleQty != null ? (b.quantity || 1) >= maxBundleQty : false;
+                           return (
+                             <div key={id} className="cart2-bundle">
                               <div className="cart2-bundleTop">
                                 <input
                                   type="checkbox"
@@ -671,6 +766,7 @@ export default function Cart() {
                                         onClick={() =>
                                           patchQty(id, (b.quantity || 1) + 1)
                                         }
+                                        disabled={disableBundlePlus}
                                       >
                                         +
                                       </button>
