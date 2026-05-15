@@ -71,49 +71,62 @@ function renderApp() {
   const root = ReactDOM.createRoot(document.getElementById("root"));
   root.render(
     <BrowserRouter>
-      <Header />
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <>
-              <BannerImage />
-              <Home />
-            </>
-          }
+      <div className="app-container">
+        <Header />
+        <div className="main-content">
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <>
+                  <BannerImage />
+                  <Home />
+                </>
+              }
+            />
+            <Route path="/products" element={<Products />} />
+            <Route
+              path="/products/collections/:collectionSlug"
+              element={<Products />}
+            />
+            <Route
+              path="/products/best-sellers"
+              element={<BestSellersPage />}
+            />
+            <Route path="/blogs/:slug" element={<BlogDetailPage />} />
+            <Route
+              path="/product/:slug"
+              element={<ProductDetailPageWrapper />}
+            />
+            <Route path="/collections/:slug" element={<CollectionRedirect />} />
+            <Route path="/wishlist" element={<Wishlist />} />
+            <Route path="/authen" element={<Authentication />} />
+            <Route path="/design" element={<DesignList />} />
+            <Route path="/design/mix" element={<DesignBuilder />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/zalopay/return" element={<ZaloPayReturn />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route
+              path="/orders/detail/:orderCode"
+              element={<OrderDetailPage />}
+            />
+            <Route path="/admin/tao-san-pham" element={<ProductCreatePage />} />
+            <Route path="/test-api" element={<TestAPICall />} />
+            <Route path="/simple-test" element={<SimpleAPITest />} />
+          </Routes>
+        </div>
+        <Toaster
+          position="top-right"
+          containerStyle={{ zIndex: 2147483647 }}
+          toastOptions={{
+            duration: 3000,
+            success: { duration: 2800 },
+            error: { duration: 3600 },
+          }}
         />
-        <Route path="/products" element={<Products />} />
-        <Route
-          path="/products/collections/:collectionSlug"
-          element={<Products />}
-        />
-        <Route path="/products/best-sellers" element={<BestSellersPage />} />
-        <Route path="/blogs/:slug" element={<BlogDetailPage />} />
-        <Route path="/product/:slug" element={<ProductDetailPageWrapper />} />
-        <Route path="/collections/:slug" element={<CollectionRedirect />} />
-        <Route path="/wishlist" element={<Wishlist />} />
-        <Route path="/authen" element={<Authentication />} />
-        <Route path="/design" element={<DesignList />} />
-        <Route path="/design/mix" element={<DesignBuilder />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/zalopay/return" element={<ZaloPayReturn />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/orders/detail/:orderCode" element={<OrderDetailPage />} />
-        <Route path="/admin/tao-san-pham" element={<ProductCreatePage />} />
-        <Route path="/test-api" element={<TestAPICall />} />
-        <Route path="/simple-test" element={<SimpleAPITest />} />
-      </Routes>
-      <Toaster
-        position="top-right"
-        containerStyle={{ zIndex: 2147483647 }}
-        toastOptions={{
-          duration: 3000,
-          success: { duration: 2800 },
-          error: { duration: 3600 },
-        }}
-      />
-      <Footer />
+        <Footer />
+      </div>
     </BrowserRouter>,
   );
 }

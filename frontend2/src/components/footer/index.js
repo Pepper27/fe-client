@@ -65,10 +65,9 @@ export const Footer = () => {
                             <div className="icon-circle fb"><FaFacebookF /></div>
                             <div className="icon-circle zalo"><SiZalo /></div>
                         </div>
-                        <div className="payment-methods">
+                        {/* <div className="payment-methods">
                             <img src="/client/image/icon-visa.svg" alt="visa" />
-                            {/* Thêm các icon khác tương tự */}
-                        </div>
+                        </div> */}
                     </div>
                 </div>
 
