@@ -120,6 +120,52 @@
 .stock-note { margin-top:12px }
 .stock-low { color:#e53935; font-weight:800; font-size:18px }
 
+/* Quantity */
+.qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.qty-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+}
+
+.qty-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qty-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.qty-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qty-input {
+  width: 64px;
+  height: 36px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 700;
+}
+
 /* ===== SIZE ===== */
 .option-section {
   margin-top: 10px;
@@ -253,5 +299,9 @@
 
   .action-buttons {
     flex-direction: column;
+  }
+
+  .qty-row {
+    justify-content: flex-start;
   }
 }

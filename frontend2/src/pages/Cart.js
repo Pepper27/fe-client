@@ -135,15 +135,65 @@ export default function Cart() {
   }, []);
 
   const patchQty = async (bundleId, quantity) => {
+    const bundlesNow = cart?.bundles || [];
+    const bundle = bundlesNow.find((b) => String(b?.bundleId) === String(bundleId)) || null;
+
+    const getBundleMaxQty = (b) => {
+      if (!b) return null;
+      const constraints = [];
+
+      // Bracelet stock
+      const braceletPid = b?.bracelet?.productId ? String(b.bracelet.productId) : null;
+      if (braceletPid) {
+        const braceletMeta = productMetaMap.get(braceletPid) || null;
+        const braceletVarId = b?.bracelet?.variantCode || b?.bracelet?.variantId || null;
+        const v = braceletMeta ? findVariant(braceletMeta, braceletVarId) : null;
+        const stock = typeof v?.quantity === 'number' ? v.quantity : null;
+        if (stock != null) constraints.push(Math.floor(Math.max(0, stock) / 1));
+      }
+
+      // Charm stocks (count occurrences within this bundle)
+      const items = Array.isArray(b?.items) ? b.items : [];
+      const occByKey = new Map();
+      for (const it of items) {
+        const pid = it?.charmProductId ? String(it.charmProductId) : null;
+        if (!pid) continue;
+        const vid = it?.charmVariantCode || it?.variantCode || it?.variantId || null;
+        const vKey = vid == null ? '' : String(vid);
+        const key = `${pid}::${vKey}`;
+        occByKey.set(key, (occByKey.get(key) || 0) + 1);
+      }
+      for (const [key, occ] of occByKey.entries()) {
+        const [pid, vKey] = key.split('::');
+        const p = charmById.get(String(pid)) || null;
+        const v = p ? findVariant(p, vKey) : null;
+        const stock = typeof v?.quantity === 'number' ? v.quantity : null;
+        if (stock != null && occ > 0) {
+          constraints.push(Math.floor(Math.max(0, stock) / occ));
+        }
+      }
+
+      if (!constraints.length) return null;
+      const min = Math.min(...constraints);
+      return Number.isFinite(min) ? min : null;
+    };
+
+    const max = getBundleMaxQty(bundle);
+    const safeQty = Math.max(1, Math.floor(Number(quantity) || 1));
+    const nextQty = max != null ? Math.min(safeQty, max) : safeQty;
+    if (max != null && safeQty > max) {
+      toast.error(`Số lượng tối đa theo tồn kho là ${max}`);
+    }
+
     // Optimistic update: update local state immediately, call API in background
     const prev = cart;
     try {
       setCart((c) => {
         if (!c) return c;
-        const next = { ...c, bundles: (c.bundles || []).map((b) => (String(b.bundleId) === String(bundleId) ? { ...b, quantity } : b)) };
+        const next = { ...c, bundles: (c.bundles || []).map((b) => (String(b.bundleId) === String(bundleId) ? { ...b, quantity: nextQty } : b)) };
         return next;
       });
-      await api.patchBundle(bundleId, { quantity });
+      await api.patchBundle(bundleId, { quantity: nextQty });
       // no full refresh to avoid full page/network churn
     } catch (e) {
       // revert
@@ -154,14 +204,26 @@ export default function Cart() {
 
   // Update quantity for legacy product line
   const patchProductQty = async (lineId, quantity) => {
+    const productsNow = cart?.products || [];
+    const pl = productsNow.find((p) => String(p?._id) === String(lineId)) || null;
+    const meta = pl ? (productMetaMap.get(String(pl.productId)) || null) : null;
+    const variant = meta ? findVariant(meta, String(pl?.variantId || '')) : null;
+    const max = typeof variant?.quantity === 'number' ? variant.quantity : null;
+
+    const safeQty = Math.max(1, Math.floor(Number(quantity) || 1));
+    const nextQty = max != null ? Math.min(safeQty, Math.max(0, max)) : safeQty;
+    if (max != null && safeQty > max) {
+      toast.error(`Số lượng tối đa theo tồn kho là ${max}`);
+    }
+
     const prev = cart;
     try {
       setCart((c) => {
         if (!c) return c;
-        const next = { ...c, products: (c.products || []).map((p) => (String(p._id) === String(lineId) ? { ...p, quantity } : p)) };
+        const next = { ...c, products: (c.products || []).map((p) => (String(p._id) === String(lineId) ? { ...p, quantity: nextQty } : p)) };
         return next;
       });
-      await api.patchProduct(lineId, { quantity });
+      await api.patchProduct(lineId, { quantity: nextQty });
       toast.success("Cập nhật giỏ hàng thành công");
     } catch (e) {
       setCart(prev);

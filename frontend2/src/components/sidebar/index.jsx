@@ -436,9 +436,9 @@ export default function Sidebar({
                   String(it.name || it || "")
                     .trim()
                     .toLowerCase() ===
-                    String(v || "")
-                      .trim()
-                      .toLowerCase(),
+                  String(v || "")
+                    .trim()
+                    .toLowerCase(),
               );
               if (found) {
                 if (key === "category" && found.slug)
@@ -458,24 +458,24 @@ export default function Sidebar({
                     String(c.name || "")
                       .trim()
                       .toLowerCase() ===
-                      String(v || "")
-                        .trim()
-                        .toLowerCase() ||
+                    String(v || "")
+                      .trim()
+                      .toLowerCase() ||
                     String(c.slug || "")
                       .trim()
                       .toLowerCase() ===
-                      String(v || "")
-                        .trim()
-                        .toLowerCase(),
+                    String(v || "")
+                      .trim()
+                      .toLowerCase(),
                 );
                 if (globalFound) {
                   derivedCategorySlug =
                     derivedCategorySlug || globalFound.slug || null;
                   return String(
                     globalFound._id ||
-                      globalFound.slug ||
-                      globalFound.name ||
-                      v,
+                    globalFound.slug ||
+                    globalFound.name ||
+                    v,
                   );
                 }
               }
@@ -549,15 +549,15 @@ export default function Sidebar({
               String(cat.slug || "")
                 .trim()
                 .toLowerCase() ===
-                String(categoryId || "")
-                  .trim()
-                  .toLowerCase() ||
+              String(categoryId || "")
+                .trim()
+                .toLowerCase() ||
               String(cat.name || "")
                 .trim()
                 .toLowerCase() ===
-                String(categoryId || "")
-                  .trim()
-                  .toLowerCase(),
+              String(categoryId || "")
+                .trim()
+                .toLowerCase(),
           );
         }
         // Fallback to global category list
@@ -572,15 +572,15 @@ export default function Sidebar({
               String(c.slug || "")
                 .trim()
                 .toLowerCase() ===
-                String(categoryId || "")
-                  .trim()
-                  .toLowerCase() ||
+              String(categoryId || "")
+                .trim()
+                .toLowerCase() ||
               String(c.name || "")
                 .trim()
                 .toLowerCase() ===
-                String(categoryId || "")
-                  .trim()
-                  .toLowerCase(),
+              String(categoryId || "")
+                .trim()
+                .toLowerCase(),
           );
         }
         if (foundCat && foundCat.slug) {
@@ -633,15 +633,15 @@ export default function Sidebar({
                   String(c.name || "")
                     .trim()
                     .toLowerCase() ===
-                    String(sel || "")
-                      .trim()
-                      .toLowerCase() ||
+                  String(sel || "")
+                    .trim()
+                    .toLowerCase() ||
                   String(c.slug || "")
                     .trim()
                     .toLowerCase() ===
-                    String(sel || "")
-                      .trim()
-                      .toLowerCase(),
+                  String(sel || "")
+                    .trim()
+                    .toLowerCase(),
               );
               if (byAttr)
                 typeCandidate =
@@ -704,16 +704,16 @@ export default function Sidebar({
                 const sel = selectedFilters.category[0];
                 const globals =
                   typeof window !== "undefined" &&
-                  Array.isArray(window._allCategories)
+                    Array.isArray(window._allCategories)
                     ? window._allCategories
                     : [];
                 const hit = globals.find(
                   (c) =>
                     String(c._id) === String(sel) ||
                     String((c.slug || "").trim().toLowerCase()) ===
-                      String(sel).trim().toLowerCase() ||
+                    String(sel).trim().toLowerCase() ||
                     String((c.name || "").trim().toLowerCase()) ===
-                      String(sel).trim().toLowerCase(),
+                    String(sel).trim().toLowerCase(),
                 );
                 if (hit?.slug) shortParams.set("type", String(hit.slug));
                 else if (hit?.name) shortParams.set("type", toSlug(hit.name));
@@ -758,15 +758,15 @@ export default function Sidebar({
                   String(c.name || "")
                     .trim()
                     .toLowerCase() ===
-                    String(typeCandidate || "")
-                      .trim()
-                      .toLowerCase() ||
+                  String(typeCandidate || "")
+                    .trim()
+                    .toLowerCase() ||
                   String(c.slug || "")
                     .trim()
                     .toLowerCase() ===
-                    String(typeCandidate || "")
-                      .trim()
-                      .toLowerCase(),
+                  String(typeCandidate || "")
+                    .trim()
+                    .toLowerCase(),
               );
               if (byGlobal && byGlobal.slug)
                 categorySlugCandidate = byGlobal.slug;
@@ -869,7 +869,7 @@ export default function Sidebar({
       {(() => {
         const visible =
           Array.isArray(categoryProp?.visibleFilters) &&
-          categoryProp.visibleFilters.length
+            categoryProp.visibleFilters.length
             ? categoryProp.visibleFilters
             : DEFAULT_VISIBLE_FILTERS;
 
@@ -942,7 +942,7 @@ export default function Sidebar({
               ? attrOptions.categories
               : []),
             ...(typeof window !== "undefined" &&
-            Array.isArray(window._allCategories)
+              Array.isArray(window._allCategories)
               ? window._allCategories
               : []),
           ];
@@ -1063,14 +1063,14 @@ export default function Sidebar({
                   : null;
               }
               return null;
-            case "theme":
-              if (availableFilters?.themes) {
-                const themeOption = findOption(availableFilters.themes, value);
-                return themeOption && typeof themeOption.count === "number"
-                  ? themeOption.count
-                  : null;
-              }
-              return null;
+            // case "theme":
+            //   if (availableFilters?.themes) {
+            //     const themeOption = findOption(availableFilters.themes, value);
+            //     return themeOption && typeof themeOption.count === "number"
+            //       ? themeOption.count
+            //       : null;
+            //   }
+            //   return null;
             case "collection":
               if (availableFilters?.collections) {
                 const collectionOption = findOption(
@@ -1107,7 +1107,7 @@ export default function Sidebar({
             case "category":
             case "material":
             case "collection":
-            case "theme":
+            // case "theme":
             case "classification":
             case "price":
               return (
@@ -1116,7 +1116,7 @@ export default function Sidebar({
                     className="filter-section__header"
                     onClick={() => toggleSection(key)}
                   >
-                    <h3 className="filter-section__title">
+                    {/* <h3 className="filter-section__title">
                       {key === "material"
                         ? "Chất liệu"
                         : key === "price"
@@ -1128,7 +1128,19 @@ export default function Sidebar({
                               : key === "collection"
                                 ? "Bộ sưu tập"
                                 : "Phân loại"}
+                    </h3> */}
+                    <h3 className="filter-section__title">
+                      {key === "material"
+                        ? "Chất liệu"
+                        : key === "price"
+                          ? "Mức giá"
+                          : key === "category"
+                            ? "Loại sản phẩm"
+                            : key === "collection"
+                              ? "Bộ sưu tập"
+                              : null} 
                     </h3>
+
                     <span className="filter-section__toggle">
                       {open ? <FaMinus /> : <FaPlus />}
                     </span>
@@ -1142,8 +1154,8 @@ export default function Sidebar({
                         if (key === "price") {
                           display =
                             label &&
-                            typeof label === "object" &&
-                            label.label != null
+                              typeof label === "object" &&
+                              label.label != null
                               ? String(label.label)
                               : String(label);
                           value = display;

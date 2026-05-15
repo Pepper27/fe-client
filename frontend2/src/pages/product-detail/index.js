@@ -19,6 +19,8 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState(null);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [selectedColor, setSelectedColor] = useState(null);
+  const [quantity, setQuantity] = useState(1);
+  const [quantityText, setQuantityText] = useState("1");
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -588,6 +590,33 @@ export default function ProductDetailPage() {
     return variants.reduce((s, v) => s + (Number(v?.quantity) || 0), 0);
   }, [selectedVariant, variants]);
 
+  const maxQty = useMemo(() => {
+    if (typeof selectedVariant?.quantity === "number")
+      return Math.max(0, selectedVariant.quantity);
+    if (typeof totalQuantity === "number") return Math.max(0, totalQuantity);
+    return 0;
+  }, [selectedVariant?.quantity, totalQuantity]);
+
+  useEffect(() => {
+    // Keep quantity within stock bounds when variant changes.
+    setQuantity((q) => {
+      const n = Math.floor(Number(q) || 1);
+      const safe = n < 1 ? 1 : n;
+      const next = maxQty > 0 ? Math.min(safe, maxQty) : 1;
+      setQuantityText(String(next));
+      return next;
+    });
+  }, [selectedVariant?._id, maxQty]);
+
+  const commitQuantityText = (raw) => {
+    const n = Math.floor(Number(raw) || 1);
+    const safe = n < 1 ? 1 : n;
+    const next = maxQty > 0 ? Math.min(safe, maxQty) : safe;
+    setQuantity(next);
+    setQuantityText(String(next));
+    return next;
+  };
+
   if (loading) {
     return (
       <div className="product-page-container container">
@@ -601,12 +630,14 @@ export default function ProductDetailPage() {
   }
 
   // Helper: build minimal bundle and call api.addBundleToCart
-  const addSingleProductToCart = async ({ buyNow = false } = {}) => {
+  const addSingleProductToCart = async ({ buyNow = false, quantity: qtyArg } = {}) => {
     // selectedVariant expected to be resolved
     if (!selectedVariant) {
       toast.error("Vui lòng chọn biến thể sản phẩm");
       return null;
     }
+
+    const qty = Math.max(1, Math.floor(Number(qtyArg) || 1));
 
     // Decide whether to send as a "bracelet" bundle or as items-only (charms)
     const slugLower = String(slug || "").toLowerCase();
@@ -720,6 +751,95 @@ export default function ProductDetailPage() {
 
     const selectedNow = findSelectedVariantNow();
 
+    // Guard against over-adding beyond stock when cart already has some quantity.
+    // Applies to both product lines and bundle-based adds.
+    const enforceStockWithCart = async ({ variantIdentifier, charmVariantCode }) => {
+      if (!(maxQty > 0)) return { ok: true, qty };
+      try {
+        const cartRes = await api.getCart();
+        const cart = cartRes?.data || null;
+        const products = Array.isArray(cart?.products) ? cart.products : [];
+        const bundles = Array.isArray(cart?.bundles) ? cart.bundles : [];
+
+        const productId = String(product?._id || "");
+        if (!productId) return { ok: true, qty };
+
+        const variantKeys = [variantIdentifier, charmVariantCode]
+          .concat([
+            selectedNow?._id,
+            selectedNow?.id,
+            selectedNow?.variantCode,
+            selectedNow?.code,
+            selectedVariant?._id,
+            selectedVariant?.id,
+            selectedVariant?.variantCode,
+            selectedVariant?.code,
+          ])
+          .filter((v) => v !== null && v !== undefined)
+          .map((v) => String(v));
+
+        const matchVariant = (v) => {
+          const s = v === null || v === undefined ? "" : String(v);
+          if (!s) return false;
+          return variantKeys.includes(s);
+        };
+
+        let inCartQty = 0;
+
+        // legacy product lines
+        for (const pl of products) {
+          if (String(pl?.productId || "") !== productId) continue;
+          // If we can match variant, do so; otherwise count by productId.
+          const plVar = pl?.variantId;
+          if (variantKeys.length && plVar != null && !matchVariant(plVar)) continue;
+          inCartQty += Number(pl?.quantity) || 0;
+        }
+
+        // bundles: a bundle can contain the same product multiple times (multiple slots)
+        // so we count occurrences * bundle.quantity
+        for (const b of bundles) {
+          const bQty = Number(b?.quantity) || 0;
+          if (!bQty) continue;
+
+          const bBraceletPid = b?.bracelet?.productId;
+          if (bBraceletPid && String(bBraceletPid) === productId) {
+            const bBraceletVar = b?.bracelet?.variantCode || b?.bracelet?.variantId || null;
+            if (variantKeys.length && bBraceletVar != null && !matchVariant(bBraceletVar)) {
+              // different variant bracelet
+            } else {
+              // bracelet appears once per bundle
+              inCartQty += 1 * bQty;
+            }
+          }
+
+          const items = Array.isArray(b?.items) ? b.items : [];
+          let occ = 0;
+          for (const it of items) {
+            if (String(it?.charmProductId || "") !== productId) continue;
+            const itVar =
+              it?.charmVariantCode || it?.variantCode || it?.variantId || null;
+            if (variantKeys.length && itVar != null && !matchVariant(itVar)) continue;
+            occ += 1;
+          }
+          if (occ) inCartQty += occ * bQty;
+        }
+
+        const remaining = Math.max(0, maxQty - inCartQty);
+        if (remaining <= 0) {
+          toast.error(`Trong giỏ đã có ${inCartQty} sản phẩm, kho chỉ còn ${maxQty}`);
+          return { ok: false, qty: 0 };
+        }
+        if (qty > remaining) {
+          toast.error(`Trong giỏ đã có ${inCartQty} sản phẩm, bạn chỉ có thể thêm tối đa ${remaining}`);
+          return { ok: true, qty: remaining };
+        }
+        return { ok: true, qty };
+      } catch {
+        // If cart fetch fails, fall back to backend validation.
+        return { ok: true, qty };
+      }
+    };
+
     const payload = isCharm
       ? {
           bracelet: null,
@@ -797,10 +917,13 @@ export default function ProductDetailPage() {
           toast.error("Không xác định được biến thể để mua ngay");
           return null;
         }
+
+        const guarded = await enforceStockWithCart({ variantIdentifier });
+        if (!guarded.ok) return null;
         const prodRes = await api.addProductToCart({
           productId: product._id,
           variantId: variantIdentifier,
-          quantity: 1,
+          quantity: guarded.qty,
           buyNow,
         });
         if (!buyNow) await notifyCartChanged();
@@ -902,6 +1025,19 @@ export default function ProductDetailPage() {
       }
 
       // proceed to try bundle path (either because isCharm or product-level add failed)
+      const charmVariantCode =
+        selectedNow?.code ||
+        selectedNow?.variantCode ||
+        selectedVariant?.code ||
+        selectedVariant?.variantCode ||
+        "";
+
+      const guardedBundleQty = await enforceStockWithCart({
+        variantIdentifier: selectedNow?._id || selectedNow?.id || null,
+        charmVariantCode,
+      });
+      if (!guardedBundleQty.ok) return null;
+
       res = await api.addBundleToCart(payload);
       // proceed without debug logs
       if (!res || !res.valid) {
@@ -941,6 +1077,13 @@ export default function ProductDetailPage() {
           // no debug log
           if (res2 && res2.valid) {
             const bundleId2 = res2?.data?.bundleId || res2?.data?._id || null;
+            if (bundleId2 && guardedBundleQty.qty > 1) {
+              try {
+                await api.patchBundle(bundleId2, { quantity: guardedBundleQty.qty });
+              } catch {
+                // ignore quantity patch failures
+              }
+            }
             toast.success(
               buyNow
                 ? "Đã thêm và chuyển tới thanh toán"
@@ -1072,7 +1215,8 @@ export default function ProductDetailPage() {
           const prodRes = await api.addProductToCart({
             productId: product._id,
             variantId: variantIdentifier,
-            quantity: 1,
+            quantity: guardedBundleQty.qty,
+            buyNow,
           });
           if (!buyNow) await notifyCartChanged();
 
@@ -1129,6 +1273,13 @@ export default function ProductDetailPage() {
         }
       }
       const bundleId = res?.data?.bundleId || res?.data?._id || null;
+      if (bundleId && guardedBundleQty.qty > 1) {
+        try {
+          await api.patchBundle(bundleId, { quantity: guardedBundleQty.qty });
+        } catch {
+          // ignore quantity patch failures
+        }
+      }
       toast.success(
         buyNow
           ? "Đã thêm và chuyển tới thanh toán"
@@ -1250,6 +1401,72 @@ export default function ProductDetailPage() {
             </div>
           )}
 
+          {/* QUANTITY */}
+          <div className="qty-row">
+            <div className="qty-label">Số lượng</div>
+            <div className="qty-control">
+              <button
+                type="button"
+                className="qty-btn"
+                onClick={() =>
+                  commitQuantityText(String(Math.max(1, (Number(quantity) || 1) - 1)))
+                }
+                disabled={quantity <= 1}
+                aria-label="Giảm số lượng"
+              >
+                -
+              </button>
+              <input
+                className="qty-input"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={quantityText}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  // allow empty while editing, and digits only
+                  if (raw === "") {
+                    setQuantityText("");
+                    return;
+                  }
+                  if (!/^\d+$/.test(raw)) return;
+                  if (maxQty > 0) {
+                    const nextN = Number(raw);
+                    // Disallow typing beyond available stock.
+                    if (Number.isFinite(nextN) && nextN > maxQty) return;
+                  }
+                  setQuantityText(raw);
+                }}
+                onBlur={() => commitQuantityText(quantityText)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    try {
+                      e.currentTarget.blur();
+                    } catch {}
+                  }
+                }}
+                aria-label="Số lượng"
+              />
+              <button
+                type="button"
+                className="qty-btn"
+                onClick={() =>
+                  commitQuantityText(
+                    String(
+                      maxQty > 0
+                        ? Math.min((Number(quantity) || 1) + 1, maxQty)
+                        : (Number(quantity) || 1) + 1,
+                    ),
+                  )
+                }
+                disabled={maxQty > 0 ? quantity >= maxQty : false}
+                aria-label="Tăng số lượng"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
           {/* STOCK NOTICE (use variant / total quantity) */}
           {typeof totalQuantity === "number" && (
             <div className="stock-note">
@@ -1273,8 +1490,9 @@ export default function ProductDetailPage() {
               onClick={async () => {
                 // MUA NGAY: add to cart then navigate to checkout
                 try {
-                  setAddingBuyNow(true);
-                  const result = await addSingleProductToCart({ buyNow: true });
+                   setAddingBuyNow(true);
+                   const q = commitQuantityText(quantityText);
+                   const result = await addSingleProductToCart({ buyNow: true, quantity: q });
                   // result may be { type: 'bundle'|'product', id } or null
                   if (result && result.type === "bundle" && result.id) {
                     try {
@@ -1372,7 +1590,8 @@ export default function ProductDetailPage() {
                 if (addingCart) return;
                 try {
                   setAddingCart(true);
-                  await addSingleProductToCart({ buyNow: false });
+                  const q = commitQuantityText(quantityText);
+                  await addSingleProductToCart({ buyNow: false, quantity: q });
                 } finally {
                   setAddingCart(false);
                 }
