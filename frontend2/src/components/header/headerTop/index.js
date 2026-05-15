@@ -213,7 +213,8 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
           </div>
 
           <Link to="/">
-            <img src="/client/image/logo.jpg" alt="logo" className="logo" />
+            <img src="/client/image/logo.png" alt="logo" className="logo" />
+            {/* <h1 >KIM BẢO JEWELRY</h1> */}
           </Link>
 
           <div className="right-group">

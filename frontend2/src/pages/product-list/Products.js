@@ -20,6 +20,7 @@ function ProductsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [availableFilters, setAvailableFilters] = useState({});
+  const [totalResults, setTotalResults] = useState(0);
   const location = useLocation();
   const { collectionSlug } = useParams();
 
@@ -183,6 +184,7 @@ function ProductsPage() {
               });
           productsData = res?.data || [];
           const total = res?.meta?.total || 0;
+          setTotalResults(total);
           const filtersData = res?.filters || {};
           // Normalize backend filter keys to the shape Sidebar expects
           const normalizedFilters = {
@@ -210,6 +212,7 @@ function ProductsPage() {
             ...(braceletsRes?.data || []),
             ...(charmsRes?.data || []),
           ];
+          setTotalResults(productsData.length);
           setHasMore(false); // No more products if fallback is used
         }
         if (cancelled) return;
@@ -346,6 +349,7 @@ function ProductsPage() {
         console.error(e);
         setItems([]);
         setCategory(null);
+        setTotalResults(0);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -370,12 +374,52 @@ function ProductsPage() {
     // mismatch with server-side paging/sorting.
     try {
       const qs = new URLSearchParams(location.search || "");
-      // If server-side filters are present in URL, the backend already returned
-      // filtered items and the fetch effect above set items/filteredItems. Skip
-      // additional client-side filtering but ensure filteredItems mirrors items
-      // to avoid stale UI.
-      if (qs.get("filters")) {
-        setFilteredItems(items);
+      // We support both:
+      // 1) canonical JSON param: filters={...}
+      // 2) short params: type/material/color/size/collection/min/max/theme/inStock/priceRanges
+      // The fetch effect already passes these as server-side filters, so do NOT
+      // re-filter on the client.
+      const shortKeys = [
+        "type",
+        "material",
+        "color",
+        "size",
+        "collection",
+        "min",
+        "max",
+        "theme",
+        "inStock",
+        "priceRanges",
+      ];
+      const hasServerFilters =
+        Boolean(qs.get("filters")) || shortKeys.some((k) => qs.has(k));
+      if (hasServerFilters) {
+        let out = Array.isArray(items) ? items.slice() : [];
+        // Still allow client-side sorting UI on top of server-filtered results.
+        if (activeSort && activeSort.value) {
+          switch (activeSort.value) {
+            case "price-asc":
+              out.sort(
+                (a, b) =>
+                  (a.variants?.[0]?.price || 0) - (b.variants?.[0]?.price || 0),
+              );
+              break;
+            case "price-desc":
+              out.sort(
+                (a, b) =>
+                  (b.variants?.[0]?.price || 0) - (a.variants?.[0]?.price || 0),
+              );
+              break;
+            case "newest":
+              out.sort(
+                (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+              );
+              break;
+            default:
+              break;
+          }
+        }
+        setFilteredItems(out);
         return;
       }
     } catch (e) {
@@ -533,6 +577,8 @@ function ProductsPage() {
     }
 
     setFilteredItems(next);
+    // When client-side filtering is used, total reflects filtered list size.
+    setTotalResults(next.length);
   }, [items, activeFilters, activeSort, location.search]);
 
   const handleFiltersChange = useCallback((filters) => {
@@ -714,6 +760,9 @@ function ProductsPage() {
           </aside>
           {/* Product List */}
           <main className="products-content">
+            <div className="products-results-count" aria-live="polite">
+              {Number(totalResults) || 0} kết quả
+            </div>
             <div className="products-grid">
               {loading && page === 1 ? (
                 <div className="loading-initial">Đang tải sản phẩm...</div>
