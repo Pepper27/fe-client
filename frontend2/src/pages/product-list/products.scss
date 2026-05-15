@@ -89,6 +89,16 @@
   width: 100%;
 }
 
+.products-results-count {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 12px 0;
+}
+
 /* grid product */
 .products-grid {
   display: grid;

@@ -224,13 +224,20 @@ export const Home = () => {
         >
           KHÁM PHÁ
         </span>
-        <img
+        {/* <img
           src="../client/image/logo.jpg"
           className="discovery-logo"
           alt="Logo Discovery"
           data-aos="fade-up"
           data-aos-delay="400"
-        />
+        /> */}
+        <h1 
+          className="discovery-logoname"
+          data-aos="fade-up"
+          data-aos-delay="200"
+        >
+          KIM BẢO JEWELRY
+        </h1>
         {/* Bài viết (kéo ngang như mục đã xem) */}
         <div className="discovery-grid">
           <Swiper
