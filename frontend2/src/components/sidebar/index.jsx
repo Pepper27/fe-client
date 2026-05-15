@@ -1190,9 +1190,7 @@ export default function Sidebar({
                               disabled={isDisabled}
                             />
                             <span>{display}</span>
-                            {typeof count === "number" && (
-                              <span className="filter-count">({count})</span>
-                            )}
+                            {/* hide per-option counts (use total results header instead) */}
                           </label>
                         );
                       })}
@@ -1247,9 +1245,7 @@ export default function Sidebar({
                             </span>
                             <div className="color-info">
                               <span>{name}</span>
-                              {typeof count === "number" && (
-                                <span className="color-count">({count})</span>
-                              )}
+                              {/* hide per-option counts */}
                             </div>
                           </button>
                         );
@@ -1292,9 +1288,7 @@ export default function Sidebar({
                             }
                           >
                             {name}
-                            {typeof count === "number" && (
-                              <span className="size-count">({count})</span>
-                            )}
+                            {/* hide per-option counts */}
                           </button>
                         );
                       })}
