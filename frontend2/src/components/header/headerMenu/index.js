@@ -191,7 +191,7 @@ export const HeaderMenu = ({ isOpen, onClose }) => {
                 <div className="dropdown-box content-center">
                   {active ? (
                     <>
-                <div className="dropdown-col">
+                      <div className="dropdown-col">
                          <span className="dropdown-title">DANH MỤC</span>
                          <ul className="submenu">
                            <li>
