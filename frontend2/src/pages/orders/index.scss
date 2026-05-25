@@ -248,6 +248,14 @@
   background: rgba(0, 0, 0, 0.02);
 }
 
+/* Keep primary button readable on hover */
+.orders-btnPrimary:hover {
+  background: #0b1220;
+  color: #fff;
+  border-color: #0b1220;
+  opacity: 0.92;
+}
+
 .orders-detailCard {
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);

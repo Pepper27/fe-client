@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
@@ -31,6 +31,7 @@ const statusLabel = (s) => {
 
 export default function OrderDetailPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const params = useParams();
   const orderCode = String(params.orderCode || "").trim();
   const [loading, setLoading] = useState(false);
@@ -62,6 +63,7 @@ export default function OrderDetailPage() {
         const res = await api.v1ClientCancelOrder(order.orderCode, { reason: "Khách huỷ (frontend)" });
         setOrder(res?.data || null);
         toast.success("Huỷ đơn thành công");
+        navigate("/orders?tab=cancelled", { replace: true });
       } catch (e) {
         if (e?.status === 409) {
           // Conflict - reload latest snapshot

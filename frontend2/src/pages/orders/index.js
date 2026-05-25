@@ -119,7 +119,24 @@ export default function OrdersPage() {
         page: 1,
         limit: 50,
       });
-      setOrders(res?.data || []);
+      const list = Array.isArray(res?.data) ? res.data : [];
+      // Ensure newest cancelled orders show first.
+      if (s === "cancelled") {
+        list.sort((a, b) => {
+          const ta =
+            (a?.cancelledAt && Date.parse(a.cancelledAt)) ||
+            (a?.updatedAt && Date.parse(a.updatedAt)) ||
+            (a?.createdAt && Date.parse(a.createdAt)) ||
+            0;
+          const tb =
+            (b?.cancelledAt && Date.parse(b.cancelledAt)) ||
+            (b?.updatedAt && Date.parse(b.updatedAt)) ||
+            (b?.createdAt && Date.parse(b.createdAt)) ||
+            0;
+          return tb - ta;
+        });
+      }
+      setOrders(list);
     } catch (e) {
       setOrders([]);
       toast.error(e?.message || "Tải đơn thất bại");
@@ -134,6 +151,31 @@ export default function OrdersPage() {
     fetchOrders(tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, tab]);
+
+  const cancelFromList = async (orderCode) => {
+    const code = String(orderCode || "").trim();
+    if (!code) return;
+    if (
+      !window.confirm(
+        "Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?",
+      )
+    )
+      return;
+    try {
+      await api.v1ClientCancelOrder(code, { reason: "Khách huỷ (list)" });
+      toast.success("Huỷ đơn thành công");
+      // Jump to cancelled tab; effect will refresh counts + list.
+      setActiveTab("cancelled");
+    } catch (e) {
+      if (e?.status === 409) {
+        toast.error(
+          "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.",
+        );
+      } else {
+        toast.error(e?.message || "Huỷ đơn thất bại");
+      }
+    }
+  };
 
   const sendGuestEmail = async () => {
     const email = String(guestEmail || "")
@@ -357,35 +399,7 @@ export default function OrdersPage() {
                           <button
                             type="button"
                             className="orders-btn orders-btnSecondary"
-                            onClick={async () => {
-                              if (
-                                !window.confirm(
-                                  "Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?",
-                                )
-                              )
-                                return;
-                              try {
-                                const res = await api.v1ClientCancelOrder(
-                                  o.orderCode,
-                                  { reason: "Khách huỷ (list)" },
-                                );
-                                // Update list snapshot
-                                setOrders((prev) =>
-                                  prev.map((p) =>
-                                    p._id === res?.data?._id ? res.data : p,
-                                  ),
-                                );
-                                toast.success("Huỷ đơn thành công");
-                              } catch (e) {
-                                if (e?.status === 409) {
-                                  toast.error(
-                                    "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.",
-                                  );
-                                } else {
-                                  toast.error(e?.message || "Huỷ đơn thất bại");
-                                }
-                              }
-                            }}
+                            onClick={() => cancelFromList(o.orderCode)}
                           >
                             Huỷ
                           </button>
