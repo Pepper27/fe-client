@@ -91,6 +91,97 @@ export default function Sidebar({
   onFiltersChange,
   onSortChange,
 }) {
+  const COLOR_NAME_MAP = {
+    do: "#e74c3c",
+    red: "#e74c3c",
+    vang: "#f3d29a",
+    yellow: "#f3d29a",
+    gold: "#f3d29a",
+    hong: "#ff9db5",
+    pink: "#ff9db5",
+    bac: "#d6d6d6",
+    silver: "#d6d6d6",
+    trang: "#ffffff",
+    white: "#ffffff",
+    den: "#000000",
+    black: "#000000",
+    xanh: "#3498db",
+    blue: "#3498db",
+    xanhbien: "#3498db",
+    tim: "#9b59b6",
+    purple: "#9b59b6",
+    cam: "#f39c12",
+    orange: "#f39c12",
+    xanhluc: "#27ae60",
+    xanhla: "#27ae60",
+    green: "#27ae60",
+    nau: "#8b4513",
+    brown: "#8b4513",
+    xam: "#808080",
+    gray: "#808080",
+    vanghong: "#eec1ad",
+    rosegold: "#eec1ad",
+  };
+
+  const normalizeColorNameKey = (s) => {
+    if (!s) return "";
+    return String(s)
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      // Vietnamese special letter
+      .replace(/đ/g, "d")
+      // keep letters/numbers only for loose matching
+      .replace(/[^a-z0-9]+/g, "");
+  };
+
+  const normalizeCssColor = (v) => {
+    if (!v) return "";
+    const s = String(v).trim();
+    // API sometimes returns hex without leading '#'
+    if (/^[0-9a-fA-F]{6}$/.test(s)) return `#${s}`;
+    return s;
+  };
+
+  const getColorFill = (color) => {
+    if (!color) return "";
+    // When options are plain strings (eg. "Đỏ"), treat as name-only.
+    if (typeof color === "string") {
+      const key = normalizeColorNameKey(color);
+      if (!key) return "";
+      if (COLOR_NAME_MAP[key]) return COLOR_NAME_MAP[key];
+      for (const [k, v] of Object.entries(COLOR_NAME_MAP)) {
+        if (key.includes(k)) return v;
+      }
+      return "";
+    }
+    if (color.gradient) return String(color.gradient);
+    // Be defensive about API field names
+    const raw =
+      color.code ||
+      color.hex ||
+      color.hexCode ||
+      color.color ||
+      color.colorCode ||
+      color.value;
+    const direct = normalizeCssColor(raw);
+    if (direct) return direct;
+
+    // Fallback: if API only returns name/label, map common names to colors.
+    const name = color.name || color.label || "";
+    const key = normalizeColorNameKey(name);
+    if (!key) return "";
+
+    // Exact match first
+    if (COLOR_NAME_MAP[key]) return COLOR_NAME_MAP[key];
+
+    // Contains match (eg. "xanh bien", "vang hong")
+    for (const [k, v] of Object.entries(COLOR_NAME_MAP)) {
+      if (key.includes(k)) return v;
+    }
+    return "";
+  };
   const navigate = useNavigate();
   const location = useLocation();
   // Sidebar UI state: use maps so adding/removing sections is easy
@@ -297,23 +388,26 @@ export default function Sidebar({
   useEffect(() => {
     if (availableFilters) {
       // Normalize lists so each option is an object { _id, name }
-      const normalizeList = (list) => {
-        if (!Array.isArray(list)) return [];
-        return list
-          .map((item) => {
-            if (item === null || item === undefined) return null;
-            if (typeof item === "string") return { _id: item, name: item };
-            // item may already be an object; ensure it has _id and name
-            const id = item._id ?? item.id ?? item.value ?? item.name ?? null;
-            const name = item.name ?? item.title ?? String(id);
-            const slug =
-              item.slug != null && String(item.slug).trim()
-                ? String(item.slug).trim()
-                : null;
-            return slug ? { _id: id, name, slug } : { _id: id, name };
-          })
-          .filter(Boolean);
-      };
+        const normalizeList = (list) => {
+          if (!Array.isArray(list)) return [];
+          return list
+            .map((item) => {
+              if (item === null || item === undefined) return null;
+              if (typeof item === "string") return { _id: item, name: item };
+              // item may already be an object; ensure it has _id and name
+              const id = item._id ?? item.id ?? item.value ?? item.name ?? null;
+              const name = item.name ?? item.title ?? String(id);
+              const slug =
+                item.slug != null && String(item.slug).trim()
+                  ? String(item.slug).trim()
+                  : null;
+              // Keep original fields (eg. color.code/gradient) for UI rendering.
+              return slug
+                ? { ...item, _id: id, name, slug }
+                : { ...item, _id: id, name };
+            })
+            .filter(Boolean);
+        };
 
       const attrData = {
         materials: normalizeList(availableFilters.materials),
@@ -1237,9 +1331,7 @@ export default function Sidebar({
                               <span
                                 className="color-swatch__fill"
                                 style={{
-                                  background: color.gradient
-                                    ? color.gradient
-                                    : color.code,
+                                  background: getColorFill(color),
                                 }}
                               />
                             </span>
