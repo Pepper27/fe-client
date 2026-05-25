@@ -74,11 +74,13 @@ const DEFAULT_FILTER_OPTIONS = {
     "Tình yêu",
   ],
   price: [
-    "Dưới 1.000.000đ",
-    "1.000.001đ - 2.500.000đ",
-    "2.500.001đ - 5.000.000đ",
-    "5.000.001đ - 7.000.000đ",
-    "Trên 7.000.001đ",
+    // Sidebar price bands (min >= 1M)
+    "1.000.000đ - 2.000.000đ",
+    "2.000.000đ - 3.000.000đ",
+    "3.000.000đ - 5.000.000đ",
+    "5.000.000đ - 7.000.000đ",
+    "7.000.000đ - 10.000.000đ",
+    "Trên 10.000.000đ",
   ],
 };
 
@@ -968,6 +970,9 @@ export default function Sidebar({
             : DEFAULT_VISIBLE_FILTERS;
 
         const getOptions = (key) => {
+          // Price UI should not depend on backend ranges; keep stable bands.
+          if (key === "price") return DEFAULT_FILTER_OPTIONS.price || [];
+
           // Determine candidate keys in availableFilters: support both singular and plural keys
           const pluralKey =
             key === "category"
