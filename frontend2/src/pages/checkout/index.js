@@ -560,6 +560,17 @@ export default function CheckoutPage() {
       toast.error("Vui lòng chọn địa chỉ giao hàng");
       return;
     }
+    const orderEmail = String(selectedAddress.email || "")
+      .trim()
+      .toLowerCase();
+    if (!orderEmail) {
+      toast.error("Vui lòng nhập email để nhận thông tin đơn hàng");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orderEmail)) {
+      toast.error("Email không hợp lệ");
+      return;
+    }
     setPlacing(true);
     try {
       const res = await api.checkoutBundles({
@@ -568,7 +579,7 @@ export default function CheckoutPage() {
         fullName: selectedAddress.fullName,
         phone: selectedAddress.phone,
         address: selectedAddress.address,
-        email: selectedAddress.email,
+        email: orderEmail,
         method,
       });
       // If Zalopay flow was used, BE returns zalopay.orderUrl for redirect.
