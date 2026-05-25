@@ -26,6 +26,27 @@ export default function OrdersPage() {
   const [guestEmail, setGuestEmail] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  // Restore guest lookup session so back-navigation doesn't wipe results.
+  useEffect(() => {
+    if (me) return;
+    try {
+      const qs = new URLSearchParams(location.search || "");
+      const emailFromQuery = String(qs.get("email") || "").trim();
+      const savedEmail = String(sessionStorage.getItem("orders:guestEmail") || "").trim();
+      const nextEmail = emailFromQuery || savedEmail;
+      if (nextEmail && !guestEmail) setGuestEmail(nextEmail);
+
+      const raw = sessionStorage.getItem("orders:guestOrders");
+      if (raw && (!orders || !orders.length)) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setOrders(parsed);
+      }
+    } catch {
+      // ignore storage errors
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
+
   const initialTabFromQuery = useMemo(() => {
     const qs = new URLSearchParams(location.search || "");
     const t = String(qs.get("tab") || "").trim();
@@ -125,6 +146,22 @@ export default function OrdersPage() {
     setSendingEmail(true);
     try {
       const res = await api.emailOrders({ email });
+      // If backend returns an order snapshot, show it immediately.
+      if (Array.isArray(res?.data)) {
+        setOrders(res.data);
+        try {
+          sessionStorage.setItem("orders:guestOrders", JSON.stringify(res.data));
+        } catch {}
+      }
+      try {
+        sessionStorage.setItem("orders:guestEmail", email);
+      } catch {}
+      // Persist email in URL so refresh/back keeps context.
+      try {
+        const qs = new URLSearchParams(location.search || "");
+        qs.set("email", email);
+        navigate({ pathname: "/orders", search: `?${qs.toString()}` }, { replace: true });
+      } catch {}
       toast.success(res?.message || "Đã gửi email");
     } catch (e) {
       toast.error(e?.message || "Gửi email thất bại");
@@ -304,17 +341,18 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="orders-orderActions">
-                        <button
-                          type="button"
-                          className="orders-btn"
-                          onClick={() =>
-                            navigate(
-                              `/orders/detail/${encodeURIComponent(o.orderCode)}`,
-                            )
-                          }
-                        >
-                          Xem chi tiết
-                        </button>
+                      <button
+                        type="button"
+                        className="orders-btn"
+                        onClick={() =>
+                          navigate(
+                            `/orders/detail/${encodeURIComponent(o.orderCode)}`,
+                            { state: { guestEmail: String(guestEmail || "").trim().toLowerCase() } },
+                          )
+                        }
+                      >
+                        Xem chi tiết
+                      </button>
                         {["pending", "confirmed"].includes(o.status) ? (
                           <button
                             type="button"
@@ -364,29 +402,102 @@ export default function OrdersPage() {
             </div>
           </>
         ) : (
-          <div className="orders-guestCard">
-            <div className="orders-guestTitle">Tra cứu đơn hàng</div>
-            <div className="orders-guestSub">
-              Nhập email để hệ thống gửi danh sách đơn hàng và trạng thái về cho
-              bạn.
+          <>
+            <div className="orders-guestCard">
+              <div className="orders-guestTitle">Tra cứu đơn hàng</div>
+              <div className="orders-guestSub">
+                Nhập email để hệ thống gửi danh sách đơn hàng và trạng thái về
+                cho bạn.
+              </div>
+              <div className="orders-guestForm">
+                <input
+                  value={guestEmail}
+                  onChange={(e) => setGuestEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  inputMode="email"
+                />
+                <button
+                  type="button"
+                  className="orders-btn orders-btnPrimary"
+                  onClick={sendGuestEmail}
+                  disabled={sendingEmail}
+                >
+                  {sendingEmail ? "Đang gửi..." : "Gửi email"}
+                </button>
+              </div>
             </div>
-            <div className="orders-guestForm">
-              <input
-                value={guestEmail}
-                onChange={(e) => setGuestEmail(e.target.value)}
-                placeholder="email@example.com"
-                inputMode="email"
-              />
-              <button
-                type="button"
-                className="orders-btn orders-btnPrimary"
-                onClick={sendGuestEmail}
-                disabled={sendingEmail}
-              >
-                {sendingEmail ? "Đang gửi..." : "Gửi email"}
-              </button>
+
+            <div className="orders-mobileList" style={{ marginTop: 12 }}>
+              {orders?.length ? (
+                orders.map((o) => (
+                  <div key={o.orderCode} className="orders-orderCard">
+                    <div className="orders-orderCardHead">
+                      <div className="orders-orderStatus">{statusLabel(o.status)}</div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div className="orders-itemThumb" style={{ flex: "0 0 auto" }}>
+                        {o?.cart?.[0]?.image ? (
+                          <img
+                            src={o.cart[0].image}
+                            alt={o?.cart?.[0]?.name || "product"}
+                          />
+                        ) : (
+                          <div className="orders-thumbFallback" />
+                        )}
+                      </div>
+
+                      <div style={{ minWidth: 0, flex: "1 1 auto" }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={o?.cart?.[0]?.name || ""}
+                        >
+                          {o?.cart?.[0]?.name || "Sản phẩm"}
+                        </div>
+                        <div style={{ color: "#666", marginTop: 4 }}>
+                          {o.createdAt
+                            ? new Date(o.createdAt).toLocaleString("vi-VN")
+                            : "-"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        alignItems: "flex-end",
+                        gap: 10,
+                        marginTop: 10,
+                      }}
+                    >
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                          Tổng tiền: {formatPrice(o.totalPrice)}
+                        </div>
+                        <button
+                          type="button"
+                          className="orders-btn"
+                          onClick={() =>
+                            navigate(
+                              `/orders/detail/${encodeURIComponent(o.orderCode)}`,
+                            )
+                          }
+                        >
+                          Xem chi tiết
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : null}
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

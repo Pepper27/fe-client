@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
@@ -30,11 +30,23 @@ const statusLabel = (s) => {
 };
 
 export default function OrderDetailPage() {
+  const location = useLocation();
   const params = useParams();
   const orderCode = String(params.orderCode || "").trim();
   const [loading, setLoading] = useState(false);
   const [order, setOrder] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const [guestView, setGuestView] = useState(false);
+
+  const guestEmail =
+    String(location.state?.guestEmail || "") ||
+    (() => {
+      try {
+        return String(sessionStorage.getItem("orders:guestEmail") || "");
+      } catch {
+        return "";
+      }
+    })();
 
   const canCancel = (order) => {
     if (!order) return false;
@@ -43,6 +55,7 @@ export default function OrderDetailPage() {
 
   const handleCancel = async () => {
     if (!order) return;
+    if (guestView) return;
     if (!window.confirm("Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?")) return;
     startTransition(async () => {
       try {
@@ -74,10 +87,26 @@ export default function OrderDetailPage() {
       .v1ClientOrderByCode(orderCode)
       .then((res) => {
         if (cancelled) return;
+        setGuestView(false);
         setOrder(res?.data || null);
       })
-      .catch((e) => {
+      .catch(async (e) => {
         if (cancelled) return;
+        // If not logged in, fall back to public order detail.
+        if (e?.status === 401 || e?.status === 403) {
+          try {
+            const pub = await api.getOrderByCode(orderCode);
+            if (cancelled) return;
+            setGuestView(true);
+            setOrder(pub?.data || null);
+            return;
+          } catch (err) {
+            if (cancelled) return;
+            toast.error(err?.message || "Tải chi tiết thất bại");
+            setOrder(null);
+            return;
+          }
+        }
         toast.error(e?.message || "Tải chi tiết thất bại");
         setOrder(null);
       })
@@ -113,7 +142,14 @@ export default function OrderDetailPage() {
     <div className="orders-page">
       <div className="container orders-mobileContainer">
         <div className="orders-mobileTop">
-          <Link className="orders-back" to="/orders">
+          <Link
+            className="orders-back"
+            to={
+              guestEmail && String(guestEmail).trim()
+                ? `/orders?email=${encodeURIComponent(String(guestEmail).trim())}`
+                : "/orders"
+            }
+          >
             ←
           </Link>
           <div className="orders-mobileTitle">Chi tiết đơn</div>
@@ -193,7 +229,7 @@ export default function OrderDetailPage() {
                 Tổng số tiền: <strong>{formatPrice(order.totalPrice)}</strong>
               </div>
               <div className="mt-3">
-                {canCancel(order) ? (
+                {canCancel(order) && !guestView ? (
                   <button
                     type="button"
                     className="orders-btn orders-btnPrimary"
