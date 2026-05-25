@@ -87,16 +87,6 @@ export const ProductCard = ({ id, slug, name, price, images, isSquare }) => {
         {/* IMAGE */}
         <div className="image-wrapper">
           {images ? (<img src={images} alt={name} className="product-image" />) : null}
-          <button
-            className="quick-view-button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-                          }}
-            aria-label={`Xem nhanh ${name}`}
-          >
-            <span className="quick-view-text">Xem ngay</span>
-          </button>
         </div>
 
         {/* INFO */}

@@ -80,28 +80,6 @@ button.product-item-link {
   color: $color-hot;
 }
 
-/* QUICK VIEW */
-.quick-view-button {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 20px;
-  width: 85%;
-  background: #000;
-  color: #fff;
-  border: none;
-  padding: 14px 0;
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.product-item-container:hover .quick-view-button {
-  opacity: 1;
-}
-
 /* INFO TAG */
 .customization-tag {
   display: flex;
