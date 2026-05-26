@@ -62,7 +62,8 @@
 
 .checkout-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
+  /* Give more room to order detail (right) */
+  grid-template-columns: minmax(0, 1fr) 580px;
   gap: 16px;
   align-items: start;
 }
@@ -233,6 +234,34 @@
   font-size: 13px;
   opacity: 0.8;
   margin-top: 2px;
+}
+
+.checkout-designMeta {
+  margin-top: 2px;
+}
+
+.checkout-designList {
+  margin-top: 6px;
+  display: grid;
+  gap: 4px;
+}
+
+.checkout-designItem {
+  font-size: 13px;
+  opacity: 0.9;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkout-designQty {
+  flex: 0 0 auto;
+  font-weight: 800;
+  opacity: 0.85;
 }
 
 .checkout-lineQty {

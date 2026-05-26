@@ -263,20 +263,30 @@ export default function CheckoutPage() {
   // product metadata map for friendly labels (productId -> product doc)
   const [productMetaMap, setProductMetaMap] = useState(new Map());
 
-  // fetch product meta for product lines present in cart (so we can show product.name)
+  // fetch product meta for items present in cart (products + bundle bracelet + bundle charms)
   useEffect(() => {
     let cancelled = false;
     const loadMeta = async () => {
       try {
-        const ids = Array.from(new Set(((cart?.products || []).map((p) => String(p.productId)).filter(Boolean))));
-        if (!ids.length) {
+        const ids = [];
+        for (const p of cart?.products || []) {
+          if (p?.productId) ids.push(String(p.productId));
+        }
+        for (const b of cart?.bundles || []) {
+          if (b?.bracelet?.productId) ids.push(String(b.bracelet.productId));
+          for (const it of b?.items || []) {
+            if (it?.charmProductId) ids.push(String(it.charmProductId));
+          }
+        }
+        const unique = Array.from(new Set(ids.filter(Boolean)));
+        if (!unique.length) {
           setProductMetaMap(new Map());
           return;
         }
-        const ps = await Promise.all(ids.map((id) => api.getProductByIdPublic(id).catch(() => null)));
+        const ps = await Promise.all(unique.map((id) => api.getProductByIdPublic(id).catch(() => null)));
         if (cancelled) return;
         const m = new Map();
-        for (let i = 0; i < ids.length; i++) if (ps[i]) m.set(String(ids[i]), ps[i]);
+        for (let i = 0; i < unique.length; i++) if (ps[i]) m.set(String(unique[i]), ps[i]);
         setProductMetaMap(m);
       } catch (e) {
         // ignore
@@ -284,7 +294,7 @@ export default function CheckoutPage() {
     };
     loadMeta();
     return () => { cancelled = true; };
-  }, [cart?.products]);
+  }, [cart?.products, cart?.bundles]);
 
   useEffect(() => {
     refresh();
@@ -942,15 +952,56 @@ export default function CheckoutPage() {
                     <div key={b.bundleId} className="checkout-line">
                       <div>
                         <div className="checkout-lineTitle">Design</div>
-                        <div className="checkout-lineMeta">
-                          {b?.bracelet?.typeCode || ""}
-                          {b?.bracelet?.sizeCm
-                            ? ` · ${b.bracelet.sizeCm}cm`
-                            : ""}
-                          {b?.items?.length
-                            ? ` · ${b.items.length} charms`
-                            : ""}
-                        </div>
+
+                        {(() => {
+                          const braceletMeta = productMetaMap.get(String(b?.bracelet?.productId || "")) || null;
+                          const braceletName =
+                            braceletMeta?.name ||
+                            b?.bracelet?.label ||
+                            b?.bracelet?.typeName ||
+                            b?.bracelet?.typeCode ||
+                            "Vòng tay";
+                          const sizePart = b?.bracelet?.sizeCm ? `${b.bracelet.sizeCm}cm` : "";
+
+                          // Group charms by (productId + variantCode) so UI shows quantities.
+                          const items = Array.isArray(b?.items) ? b.items : [];
+                          const grouped = new Map();
+                          for (const it of items) {
+                            const pid = String(it?.charmProductId || "");
+                            const vcode = String(it?.charmVariantCode || "");
+                            const key = `${pid}::${vcode}`;
+                            if (!grouped.has(key)) grouped.set(key, { pid, vcode, qty: 0 });
+                            grouped.get(key).qty += 1;
+                          }
+                          const charmLines = Array.from(grouped.values());
+
+                          return (
+                            <div className="checkout-designMeta">
+                              <div className="checkout-lineMeta">
+                                Vòng: {braceletName}
+                                {sizePart ? ` · ${sizePart}` : ""}
+                              </div>
+
+                              {charmLines.length ? (
+                                <div className="checkout-designList">
+                                  {charmLines.map((x) => {
+                                    const charmMeta = productMetaMap.get(String(x.pid)) || null;
+                                    const name = charmMeta?.name || "Charm";
+                                    return (
+                                      <div key={`${x.pid}::${x.vcode}`} className="checkout-designItem" title={name}>
+                                        {name}
+                                        <span className="checkout-designQty">x{x.qty}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <div className="checkout-lineMeta">Không có charm</div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         <div className="checkout-lineQty">
                           x{b.quantity || 1}
                         </div>
@@ -1000,10 +1051,10 @@ export default function CheckoutPage() {
               <div className="checkout-divider" />
 
               <div className="checkout-summary">
-                <div className="checkout-row">
+                {/* <div className="checkout-row">
                   <div>Số design:</div>
                   <strong>{selectedCount}</strong>
-                </div>
+                </div> */}
                 <div className="checkout-row">
                   <div>Tạm tính</div>
                   <strong>{formatPrice(total)}</strong>
