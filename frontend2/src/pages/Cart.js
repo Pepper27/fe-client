@@ -492,7 +492,7 @@ export default function Cart() {
 
             <div className="cart2-card">
               <div className="cart2-sectionHead">
-                <div className="cart2-sectionTitle">Design của bạn</div>
+                {/* <div className="cart2-sectionTitle">Thiết kế của bạn</div>
                 <button
                   type="button"
                   className="cart2-caret"
@@ -500,7 +500,7 @@ export default function Cart() {
                   title="Tải lại"
                 >
                   <span />
-                </button>
+                </button> */}
               </div>
 
               <div className="cart2-content">
@@ -618,7 +618,7 @@ export default function Cart() {
                                 />
                                 <div>
                                   <div className="cart2-bundleName">
-                                    Bundle
+                                    Thiết kế
                                     <span
                                       style={{
                                         fontWeight: 800,

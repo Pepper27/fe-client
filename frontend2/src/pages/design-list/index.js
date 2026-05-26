@@ -99,7 +99,7 @@ export default function DesignList() {
     <div className="container designlist-page">
       <div className="designlist-top">
         <div>
-          <h1 className="designlist-title">Design của bạn</h1>
+          <h1 className="designlist-title">Thiết kế của bạn</h1>
           <div className="designlist-sub">
             {loading ? "Đang tải..." : stats.count ? `${stats.count} design · Tổng ${formatPrice(stats.total)}` : "Chưa có design"}
           </div>
@@ -108,10 +108,10 @@ export default function DesignList() {
         <Link
           to="/design/mix"
           className="designlist-create"
-          aria-label="Tạo design"
-          onClick={() => toast.success("Đang mở trang tạo design")}
+          aria-label="Tạo thiết kế"
+          onClick={() => toast.success("Đang mở trang tạo thiết kế")}
         >
-          Tạo design
+          Tạo thiết kế
         </Link>
       </div>
 
@@ -165,7 +165,7 @@ export default function DesignList() {
 
                   <div className="designlist-actions">
                     <button type="button" className="designlist-btn" onClick={() => onEdit(b)}>
-                      Sửa design
+                      Sửa thiết kế
                     </button>
                       <button
                         type="button"
@@ -184,14 +184,14 @@ export default function DesignList() {
                             persistSaved(next);
                             // Refresh cart and saved designs from server/storage
                             await refresh();
-                            toast.success("Đã xóa design");
+                            toast.success("Đã xóa thiết kế");
                           } catch (err) {
                             console.error(err);
-                            toast.error("Xoá design thất bại");
+                            toast.error("Xoá thiết kế thất bại");
                           }
                         }}
                       >
-                        Xóa design
+                        Xóa thiết kế
                       </button>
                   </div>
                 </div>

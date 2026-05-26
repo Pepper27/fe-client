@@ -563,7 +563,7 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!selectedCount) {
-      toast.error("Bạn chưa chọn design nào");
+      toast.error("Bạn chưa chọn thiết kế nào");
       return;
     }
     if (!selectedAddress) {
@@ -951,7 +951,7 @@ export default function CheckoutPage() {
                   {selectedBundles.map((b) => (
                     <div key={b.bundleId} className="checkout-line">
                       <div>
-                        <div className="checkout-lineTitle">Design</div>
+                        <div className="checkout-lineTitle">Thiết kế</div>
 
                         {(() => {
                           const braceletMeta = productMetaMap.get(String(b?.bracelet?.productId || "")) || null;
@@ -1044,7 +1044,7 @@ export default function CheckoutPage() {
                 </div>
               ) : (
                 <div className="checkout-empty">
-                  Không có design nào được chọn
+                  Không có thiết kế nào được chọn
                 </div>
               )}
 
@@ -1052,7 +1052,7 @@ export default function CheckoutPage() {
 
               <div className="checkout-summary">
                 {/* <div className="checkout-row">
-                  <div>Số design:</div>
+                  <div>Số thiết kế:</div>
                   <strong>{selectedCount}</strong>
                 </div> */}
                 <div className="checkout-row">
