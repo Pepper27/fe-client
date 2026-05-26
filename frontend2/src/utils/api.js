@@ -2,17 +2,17 @@
 // (set by index.js after fetching /config.json) is honored even when
 // modules import this file before bootstrap runs.
 export function getApiBase() {
-  if (typeof window !== "undefined" && window.__API_BASE)
-    return window.__API_BASE;
-  if (
-    typeof process !== "undefined" &&
-    process.env &&
-    process.env.REACT_APP_API_BASE
-  )
-    return process.env.REACT_APP_API_BASE;
+  // if (typeof window !== "undefined" && window.__API_BASE)
+  //   return window.__API_BASE;
+  // if (
+  //   typeof process !== "undefined" &&
+  //   process.env &&
+  //   process.env.REACT_APP_API_BASE
+  // )
+  //   return process.env.REACT_APP_API_BASE;
 
-  // Default dev API (backend default port in this repo)
-  // Prefer setting REACT_APP_API_BASE or public/config.json in production.
+  // // Default dev API (backend default port in this repo)
+  // // Prefer setting REACT_APP_API_BASE or public/config.json in production.
   return "http://localhost:3861";
 }
 
