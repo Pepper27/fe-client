@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../utils/api";
 import "./Cart.scss";
@@ -32,10 +33,26 @@ const firstImage = (product, variantIdentifier) => {
   return typeof img === "string" && img.trim() ? img : null;
 };
 
+const normAttr = (v) => {
+  if (v == null) return null;
+  if (typeof v === "number") return v > 0 ? String(v) : null;
+  if (typeof v === "object") {
+    const name = v?.name;
+    if (name == null) return null;
+    const s = String(name).trim();
+    return s ? s : null;
+  }
+  const s = String(v).trim();
+  if (!s || s === "0") return null;
+  return s;
+};
+
 export default function Cart() {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const stockCleanupRef = useRef(false);
 
   const [charms, setCharms] = useState([]);
   const [loadingCharms, setLoadingCharms] = useState(false);
@@ -362,6 +379,106 @@ export default function Cart() {
     return m;
   }, [charms]);
 
+  // Auto-remove out-of-stock items from cart (when we can determine stock = 0)
+  useEffect(() => {
+    if (!cart) return;
+    if (stockCleanupRef.current) return;
+
+    const productsNow = Array.isArray(cart?.products) ? cart.products : [];
+    const bundlesNow = Array.isArray(cart?.bundles) ? cart.bundles : [];
+
+    const isKnownOut = (productObj, variantIdentifier) => {
+      const stock = getStockQty(productObj, variantIdentifier);
+      return typeof stock === "number" && stock <= 0;
+    };
+
+    const toRemoveProductLines = [];
+    for (const pl of productsNow) {
+      const pid = pl?.productId ? String(pl.productId) : "";
+      if (!pid) continue;
+      const productObj = getProductForId(pid);
+      if (!productObj) continue;
+      const vid = pl?.variantId || pl?.variantCode || null;
+      if (isKnownOut(productObj, vid)) toRemoveProductLines.push(String(pl._id));
+    }
+
+    const toRemoveBundles = [];
+    for (const b of bundlesNow) {
+      const bundleId = b?.bundleId ? String(b.bundleId) : "";
+      if (!bundleId) continue;
+
+      const brPid = b?.bracelet?.productId ? String(b.bracelet.productId) : "";
+      const brObj = brPid ? getProductForId(brPid) : null;
+      const brVar = b?.bracelet?.variantCode || b?.bracelet?.variantId || null;
+      if (brObj && isKnownOut(brObj, brVar)) {
+        toRemoveBundles.push(bundleId);
+        continue;
+      }
+
+      const items = Array.isArray(b?.items) ? b.items : [];
+      let anyOut = false;
+      for (const it of items) {
+        const pid = it?.charmProductId ? String(it.charmProductId) : "";
+        if (!pid) continue;
+        const pObj = getProductForId(pid);
+        if (!pObj) continue;
+        const vId = it?.charmVariantCode || it?.variantCode || it?.variantId || null;
+        if (isKnownOut(pObj, vId)) {
+          anyOut = true;
+          break;
+        }
+      }
+      if (anyOut) toRemoveBundles.push(bundleId);
+    }
+
+    if (!toRemoveProductLines.length && !toRemoveBundles.length) return;
+
+    stockCleanupRef.current = true;
+    (async () => {
+      let removed = 0;
+      // Optimistically update UI first
+      setCart((c) => {
+        if (!c) return c;
+        const next = {
+          ...c,
+          products: (c.products || []).filter(
+            (p) => !toRemoveProductLines.includes(String(p._id)),
+          ),
+          bundles: (c.bundles || []).filter(
+            (b) => !toRemoveBundles.includes(String(b.bundleId)),
+          ),
+        };
+        return next;
+      });
+
+      // Remove from server
+      for (const id of toRemoveProductLines) {
+        try {
+          await api.deleteProduct(id);
+          removed += 1;
+        } catch {
+          // ignore
+        }
+      }
+      for (const id of toRemoveBundles) {
+        try {
+          await api.deleteBundle(id);
+          removed += 1;
+        } catch {
+          // ignore
+        }
+      }
+
+      if (removed) toast.error("Một số sản phẩm đã hết hàng và được xoá khỏi giỏ");
+      try {
+        window.dispatchEvent(new Event("cart:changed"));
+      } catch {}
+    })().finally(() => {
+      stockCleanupRef.current = false;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, productMetaMap, charmById]);
+
   // Heuristic to filter out internal product/variant codes from display labels
   const isLikelyCode = (s) => {
     if (!s || typeof s !== 'string') return false;
@@ -516,10 +633,10 @@ export default function Cart() {
                            const meta = productMetaMap.get(String(pl.productId)) || null;
                            const variant = meta ? findVariant(meta, String(pl.variantId || '')) : null;
                            const title = meta?.name || 'Sản phẩm';
-                           const material = variant?.material || variant?.materialLabel || (meta?.materials && meta.materials[0]) || meta?.material?.name || null;
-                           const color = variant?.color || variant?.colorLabel || null;
-                           const sizeText = variant?.size || variant?.sizeCm || variant?.sizeLabel || null;
-                           const inlineAttrs = [sizeText, material, color].filter(Boolean).join(' · ');
+                            const material = normAttr(variant?.material || variant?.materialLabel || (meta?.materials && meta.materials[0]) || meta?.material?.name || null);
+                            const color = normAttr(variant?.color || variant?.colorLabel || null);
+                            const sizeText = normAttr(variant?.size || variant?.sizeCm || variant?.sizeLabel || null);
+                            const inlineAttrs = [sizeText, material, color].filter(Boolean).join(' · ');
                            const prodChecked = selected[`p:${pl._id}`] !== false;
                            const img = (() => {
                              if (!meta) return null;
@@ -677,10 +794,10 @@ export default function Cart() {
                                        );
                                           const name = p?.name || "Charm";
                                       const price = Number(v?.price) || 0;
-                                      const material = v?.material || v?.materialLabel || (p?.materials && p.materials[0]) || p?.material?.name || null;
-                                      const color = v?.color || v?.colorLabel || null;
-                                      const sizeText = v?.size || v?.sizeCm || v?.sizeLabel || null;
-                                      const inline = [sizeText, material, color].filter(Boolean).join(' · ');
+                                       const material = normAttr(v?.material || v?.materialLabel || (p?.materials && p.materials[0]) || p?.material?.name || null);
+                                       const color = normAttr(v?.color || v?.colorLabel || null);
+                                       const sizeText = normAttr(v?.size || v?.sizeCm || v?.sizeLabel || null);
+                                       const inline = [sizeText, material, color].filter(Boolean).join(' · ');
                                           const vCode = it?.charmVariantCode
                                             ? String(it.charmVariantCode)
                                             : "";
