@@ -602,6 +602,8 @@ export default function ProductDetailPage() {
     return 0;
   }, [selectedVariant?.quantity, totalQuantity]);
 
+  const isSoldOut = (Number(maxQty) || 0) <= 0;
+
   useEffect(() => {
     // Keep quantity within stock bounds when variant changes.
     setQuantity((q) => {
@@ -639,6 +641,11 @@ export default function ProductDetailPage() {
     // selectedVariant expected to be resolved
     if (!selectedVariant) {
       toast.error("Vui lòng chọn biến thể sản phẩm");
+      return null;
+    }
+
+    if (isSoldOut) {
+      toast.error("Sản phẩm đã hết hàng");
       return null;
     }
 
@@ -1478,11 +1485,11 @@ export default function ProductDetailPage() {
               {totalQuantity === 1 ? (
                 <span className="stock-low">Chỉ còn 1 sản phẩm</span>
               ) : (
-                <span>
-                  {totalQuantity > 0
-                    ? `Còn ${totalQuantity} sản phẩm`
-                    : "Hết hàng"}
-                </span>
+                totalQuantity > 0 ? (
+                  <span>{`Còn ${totalQuantity} sản phẩm`}</span>
+                ) : (
+                  <span className="stock-out">Hết hàng</span>
+                )
               )}
             </div>
           )}
@@ -1491,9 +1498,11 @@ export default function ProductDetailPage() {
           <div className="action-buttons">
             <button
               className="btn btn-buy"
-              aria-disabled={addingBuyNow}
+              aria-disabled={isSoldOut || addingBuyNow}
+              disabled={isSoldOut || addingBuyNow}
               onClick={async () => {
                 // MUA NGAY: add to cart then navigate to checkout
+                if (isSoldOut) return;
                 try {
                    setAddingBuyNow(true);
                    const q = commitQuantityText(quantityText);
@@ -1577,7 +1586,8 @@ export default function ProductDetailPage() {
             </button>
             <button
               className="btn btn-cart"
-              aria-disabled={addingCart}
+              aria-disabled={isSoldOut || addingCart}
+              disabled={isSoldOut || addingCart}
               tabIndex={0}
               style={{ pointerEvents: "auto", zIndex: 10 }}
               onMouseDown={() => {
@@ -1592,6 +1602,7 @@ export default function ProductDetailPage() {
                 try {
                   ev.stopPropagation();
                 } catch (e) {}
+                if (isSoldOut) return;
                 if (addingCart) return;
                 try {
                   setAddingCart(true);
