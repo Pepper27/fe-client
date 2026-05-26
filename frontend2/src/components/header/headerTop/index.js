@@ -55,7 +55,12 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     };
 
     refresh();
-    const onAuthChanged = () => refresh();
+    const onAuthChanged = () => {
+      refresh();
+      // After login/logout, cart content can change (cookie/session tied to user).
+      // Refresh badge immediately so user doesn't need a full reload.
+      onCartChanged();
+    };
     window.addEventListener("auth:changed", onAuthChanged);
     // listen to cart changes to update badge
     const onCartChanged = async (evt) => {
@@ -203,6 +208,8 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     } finally {
       setMe(null);
       window.dispatchEvent(new Event("auth:changed"));
+      // Force navigation away from any protected/old state after logout.
+      window.location.href = "http://localhost:3866/authen";
     }
   };
 
@@ -275,7 +282,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
               <Link
                 to="/design"
                 className="icon-btn"
-                aria-label="Design của bạn"
+                aria-label="Thiết kế của bạn"
               >
                 <RiSparkling2Line />
               </Link>
