@@ -207,6 +207,8 @@ export default function ProductDetailPage() {
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "")
       .toLowerCase()
+      // Vietnamese special letter
+      .replace(/đ/g, "d")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
 
@@ -358,12 +360,7 @@ export default function ProductDetailPage() {
 
     // 3. Mapping màu sắc với bảng màu đầy đủ hơn
     return found.map((label) => {
-      const id = String(label)
-        .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+      const id = normalizeId(label);
 
       const colorMap = {
         do: "#e74c3c", // Màu đỏ
@@ -375,10 +372,10 @@ export default function ProductDetailPage() {
         xanh: "#3498db", // Màu xanh
         tim: "#9b59b6", // Màu tím
         cam: "#f39c12", // Màu cam
-        xanhlá: "#27ae60", // Màu xanh lá
+        xanhla: "#27ae60", // Màu xanh lá
         nau: "#8b4513", // Màu nâu
-        xám: "#808080", // Màu xám
-        vànghồng: "#eec1ad", // Màu vàng hồng (rose gold)
+        xam: "#808080", // Màu xám
+        vanghong: "#eec1ad", // Màu vàng hồng (rose gold)
         rosegold: "#eec1ad", // Rose gold
         white: "#ffffff", // White (English)
         black: "#000000", // Black (English)
@@ -396,14 +393,16 @@ export default function ProductDetailPage() {
       };
 
       let displayColor = "#eee"; // Màu mặc định nếu không khớp
-      const lowerLabel = label
+      const keyLabel = String(label)
         .toLowerCase()
         .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "");
+        .replace(/\p{Diacritic}/gu, "")
+        .replace(/đ/g, "d")
+        .replace(/[^a-z0-9]+/g, "");
 
       // Duyệt qua map để tìm màu khớp
       for (const [key, value] of Object.entries(colorMap)) {
-        if (lowerLabel.includes(key)) {
+        if (keyLabel.includes(String(key))) {
           displayColor = value;
           break;
         }
