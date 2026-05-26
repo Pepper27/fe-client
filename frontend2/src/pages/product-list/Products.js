@@ -768,6 +768,9 @@ function ProductsPage() {
                 <div className="loading-initial">Đang tải sản phẩm...</div>
               ) : (
                 <>
+                  {filteredItems.length === 0 ? (
+                    <div className="products-empty">Không có kế quả tìm kiếm phù hợp!</div>
+                  ) : null}
                   {/* Log dữ liệu (đã bọc trong Fragment) */}
                   {/* Map danh sách sản phẩm */}
                   {filteredItems.map((p) => {
