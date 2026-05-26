@@ -138,6 +138,7 @@ a svg {
   .search-suggestion .ss-name { font-weight: 700; text-decoration: underline; font-size: 16px; color: #111827; }
   .search-suggestion .ss-price { margin-top: 8px; font-weight: 700; color: #111827; }
   .search-suggestion.search-more { padding: 14px 16px; font-weight: 700; color: #111827; cursor: pointer; }
+  .search-suggestion.search-empty { padding: 14px 16px; font-weight: 700; color: #6b7280; cursor: default; }
   .react-autosuggest__suggestion--highlighted { background: #f8fafc; }
 
   .icon-actions {

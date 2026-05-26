@@ -115,6 +115,14 @@
   color: #666;
 }
 
+.products-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
 .loading-more {
   display: flex;
   flex-direction: column;

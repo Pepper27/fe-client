@@ -129,6 +129,10 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
       const total = (res?.meta && Number(res.meta.total)) ? Number(res.meta.total) : items.length;
       const max = 6;
       const out = items.slice(0, max);
+      if (!out.length) {
+        setSuggestions([{ __empty: true }]);
+        return;
+      }
       if (total > out.length) out.push({ __more: true, total });
       setSuggestions(out);
     } catch (err) {
@@ -154,7 +158,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   };
 
   const renderSuggestion = (s) => (
-    s.__more ? (
+    s.__empty ? (
+      <div className="search-suggestion search-empty">Không có kế quả tìm kiếm phù hợp!</div>
+    ) : s.__more ? (
       <div className="search-suggestion search-more">Xem thêm {s.total} sản phẩm</div>
     ) : (
       <div className="search-suggestion">
@@ -179,6 +185,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
 
   const onSuggestionSelected = (event, { suggestion }) => {
     // navigate to product detail or to product list for "see more"
+    if (suggestion.__empty) return;
     if (suggestion.__more) {
       navigate(`/products?q=${encodeURIComponent(String(query || "").trim())}`);
       return;
