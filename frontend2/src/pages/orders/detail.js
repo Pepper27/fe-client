@@ -29,6 +29,17 @@ const statusLabel = (s) => {
   return v || "-";
 };
 
+const classifyLine = (line) => {
+  if (!line) return "Mặc định";
+  const size = line?.size || line?.sizeText || line?.sizeCm || null;
+  const material = line?.material || null;
+  const color = line?.color || null;
+  const parts = [size, material, color]
+    .map((x) => (x == null ? "" : String(x).trim()))
+    .filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Mặc định";
+};
+
 export default function OrderDetailPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -215,6 +226,9 @@ export default function OrderDetailPage() {
                   <div className="orders-itemInfo">
                     <div className="orders-itemName">
                       {it?.name || "Sản phẩm"}
+                    </div>
+                    <div className="orders-itemMeta">
+                      Phân loại: {classifyLine(it)}
                     </div>
                   </div>
                   <div className="orders-itemRight">

@@ -47,6 +47,39 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
 
+  // If guest has email in URL but only stale orders cached, refresh from API.
+  useEffect(() => {
+    if (me) return;
+    const qs = new URLSearchParams(location.search || "");
+    const email = String(qs.get("email") || "").trim().toLowerCase();
+    if (!email) return;
+    const first = orders?.[0]?.cart?.[0];
+    const hasMeta =
+      (first?.material && String(first.material).trim()) ||
+      (first?.color && String(first.color).trim()) ||
+      (first?.size && String(first.size).trim());
+    if (orders?.length && hasMeta) return;
+
+    let cancelled = false;
+    api
+      .emailOrders({ email })
+      .then((res) => {
+        if (cancelled) return;
+        if (Array.isArray(res?.data)) {
+          setOrders(res.data);
+          try {
+            sessionStorage.setItem("orders:guestOrders", JSON.stringify(res.data));
+          } catch {}
+        }
+      })
+      .catch(() => {})
+      .finally(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, location.search]);
+
   const initialTabFromQuery = useMemo(() => {
     const qs = new URLSearchParams(location.search || "");
     const t = String(qs.get("tab") || "").trim();
@@ -238,6 +271,15 @@ export default function OrdersPage() {
     return cart[0] || null;
   };
 
+  const classifyLine = (line) => {
+    if (!line) return "Mặc định";
+    const size = line?.size || line?.sizeText || line?.sizeCm || null;
+    const material = line?.material || null;
+    const color = line?.color || null;
+    const parts = [size, material, color].filter(Boolean);
+    return parts.length ? parts.join(" · ") : "Mặc định";
+  };
+
   return (
     <div className="orders-page">
       <div className="container orders-mobileContainer">
@@ -348,23 +390,7 @@ export default function OrdersPage() {
                             {line?.name || "Sản phẩm"}
                           </div>
                           <div className="orders-itemMeta">
-                            {(() => {
-                              const size =
-                                line?.size ||
-                                line?.sizeText ||
-                                line?.sizeCm ||
-                                null;
-                              const material = line?.material || null;
-                              const color = line?.color || null;
-                              const parts = [size, material, color].filter(
-                                Boolean,
-                              );
-                              return parts.length
-                                ? parts.join(" · ")
-                                : line?.variantId
-                                  ? `SKU ${String(line.variantId).slice(-6)}`
-                                  : "";
-                            })()}
+                            Phân loại: {classifyLine(line)}
                           </div>
                         </div>
                         <div className="orders-itemRight">
@@ -477,6 +503,9 @@ export default function OrdersPage() {
                           {o.createdAt
                             ? new Date(o.createdAt).toLocaleString("vi-VN")
                             : "-"}
+                        </div>
+                        <div style={{ color: "#666", marginTop: 4 }}>
+                          Phân loại: {classifyLine(o?.cart?.[0])}
                         </div>
                       </div>
                     </div>
