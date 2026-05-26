@@ -18,6 +18,7 @@ import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [wishlistCount, setWishlistCount] = useState(() => {
     try {
       return Array.isArray(getWishlist()) ? getWishlist().length : 0;
@@ -207,7 +208,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
             <button className="btn-mobile" onClick={onOpenMenu}>
               <MdMenu />
             </button>
-            <button className="btn-mobile mobile-search-btn">
+            <button className="btn-mobile mobile-search-btn" onClick={() => setShowMobileSearch(true)}>
               <CiSearch />
             </button>
           </div>
@@ -289,7 +290,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                 >
                   <BsPerson />
                 </Link>
-                <div className="popover-box">
+                <div className="popover-box"> 
                   {me ? (
                     <>
                       <div
@@ -398,7 +399,64 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
             </div>
           </div>
         </div>
+
+        {/* MOBILE SEARCH MODAL */}
+        {showMobileSearch && (
+          <div className="mobile-search-modal">
+            <div className="mobile-search-overlay" onClick={() => setShowMobileSearch(false)}></div>
+            <div className="mobile-search-container">
+              <div className="mobile-search-header">
+                <h3>Tìm kiếm sản phẩm</h3>
+                <button className="close-btn" onClick={() => setShowMobileSearch(false)}>
+                  <IoCloseOutline />
+                </button>
+              </div>
+              <div className="mobile-search-input-wrapper">
+                <Autosuggest
+                  suggestions={suggestions}
+                  onSuggestionsFetchRequested={onSuggestionsFetchRequested}
+                  onSuggestionsClearRequested={onSuggestionsClearRequestedEnhanced}
+                  getSuggestionValue={getSuggestionValue}
+                  renderSuggestion={renderSuggestion}
+                  onSuggestionSelected={(event, { suggestion }) => {
+                    if (suggestion.__more) {
+                      navigate(`/products?q=${encodeURIComponent(String(query || "").trim())}`);
+                      setShowMobileSearch(false);
+                      return;
+                    }
+                    if (suggestion?.slug) {
+                      navigate(`/product/${suggestion.slug}`);
+                    } else if (suggestion?._id) {
+                      navigate(`/product/id/${suggestion._id}`);
+                    }
+                    setShowMobileSearch(false);
+                  }}
+                  inputProps={{
+                    value: query,
+                    onChange: (_e, { newValue }) => {
+                      setQuery(newValue);
+                      if (typeof handleSearch === "function") handleSearch(newValue);
+                    },
+                    placeholder: "Tìm kiếm sản phẩm...",
+                    'data-search': true,
+                    className: "mobile-search-input",
+                  }}
+                />
+                <button 
+                  className="mobile-search-clear" 
+                  onClick={() => { 
+                    setQuery(''); 
+                    setSuggestions([]); 
+                    if (typeof handleDelete === 'function') handleDelete(); 
+                  }}
+                >
+                  <IoCloseOutline />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
-};
+}
