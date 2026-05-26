@@ -43,6 +43,20 @@ const firstImage = (product, variantIdentifier) => {
   return typeof img === "string" && img.trim() ? img : null;
 };
 
+const normAttr = (v) => {
+  if (v == null) return null;
+  if (typeof v === "number") return v > 0 ? String(v) : null;
+  if (typeof v === "object") {
+    const name = v?.name;
+    if (name == null) return null;
+    const s = String(name).trim();
+    return s ? s : null;
+  }
+  const s = String(v).trim();
+  if (!s || s === "0") return null;
+  return s;
+};
+
 const readCheckoutBundleIds = () => {
   try {
     const raw = sessionStorage.getItem("checkout:bundleIds");
@@ -1025,9 +1039,9 @@ export default function CheckoutPage() {
                     const displayName = prodMeta?.name || pl?.name || pl?.productName || "Sản phẩm";
                     // try to resolve variant details from prodMeta if available
                     const variant = prodMeta ? findVariant(prodMeta, pl?.variantId || pl?.variantCode || '') : null;
-                    const size = pl?.size || variant?.size || variant?.sizeCm || null;
-                    const material = pl?.material || variant?.material || null;
-                    const color = pl?.color || variant?.color || null;
+                    const size = normAttr(pl?.size ?? variant?.size ?? variant?.sizeCm ?? null);
+                    const material = normAttr(pl?.material ?? variant?.material ?? null);
+                    const color = normAttr(pl?.color ?? variant?.color ?? null);
                     const classification = [size, material, color].filter(Boolean).join(' · ');
 
                     return (
