@@ -1347,7 +1347,7 @@ export default function DesignBuilder() {
     a.click();
   };
 
-  const addToCart = async () => {
+  const addOrSaveDesign = async ({ action } = {}) => {
     if (!bracelet || !braceletVariantCode) {
       toast.error("Hãy chọn vòng trước");
       return;
@@ -1369,30 +1369,75 @@ export default function DesignBuilder() {
       ),
     };
 
-    const res = editBundleId
-      ? await api.patchBundle(editBundleId, payload)
-      : await api.addBundleToCart(payload);
+    // action:
+    // - "save": try patch existing bundle; if deleted from cart -> create a new bundle
+    // - "add": always create a new bundle in cart
+    // - "auto": preserve legacy behavior (patch when editBundleId exists, else add)
+    const mode = action || "auto";
+
+    let res;
+    let usedAction = mode;
+    let prevEditId = editBundleId || null;
+    try {
+      if (mode === "add") {
+        res = await api.addBundleToCart(payload);
+      } else if (mode === "save") {
+        if (editBundleId) {
+          res = await api.patchBundle(editBundleId, payload);
+        } else {
+          // If somehow no bundle id, fall back to creating.
+          usedAction = "add";
+          res = await api.addBundleToCart(payload);
+        }
+      } else {
+        // auto
+        res = editBundleId
+          ? await api.patchBundle(editBundleId, payload)
+          : await api.addBundleToCart(payload);
+      }
+    } catch (err) {
+      const status = err?.status;
+      const msg = String(err?.message || "");
+      const notFound = status === 404 || /bundle\s+not\s+found/i.test(msg);
+      if ((mode === "save" || (mode === "auto" && editBundleId)) && notFound) {
+        // Bundle was removed from cart; re-create it so user can continue.
+        usedAction = "add";
+        res = await api.addBundleToCart(payload);
+      } else {
+        throw err;
+      }
+    }
 
     if (res?.valid === false) {
       setValidation(res);
       toast.error("Thiết kế chưa hợp lệ");
       return;
     }
-    if (editBundleId) {
+
+    const returnedBundleId =
+      (usedAction !== "add" && prevEditId) ||
+      res?.bundleId ||
+      res?.data?.bundleId ||
+      res?.bundle?._id ||
+      null;
+
+    if (usedAction === "add" && prevEditId) {
+      toast.success("Bundle đã bị xoá khỏi giỏ, đã thêm lại vào giỏ");
+    } else if (mode === "save" || (mode === "auto" && prevEditId)) {
       toast.success("Đã lưu thay đổi design");
-      setEditBundleId(null);
     } else {
       toast.success("Đã thêm thiết kế vào giỏ hàng");
     }
+
+    // If we ended up creating a new bundle (or saving without an id), update editBundleId
+    // so subsequent saves patch the latest cart bundle.
+    if (returnedBundleId) {
+      setEditBundleId(String(returnedBundleId));
+    }
+
     // Persist a copy of this design in localStorage so design list remains
     try {
       const saved = loadSaved();
-      const returnedBundleId =
-        editBundleId ||
-        res?.bundleId ||
-        res?.data?.bundleId ||
-        res?.bundle?._id ||
-        null;
       const savedItem = {
         bundleId: returnedBundleId,
         bracelet: payload.bracelet,
@@ -1410,9 +1455,10 @@ export default function DesignBuilder() {
         const newKey = savedItem.bundleId || savedItem._localId || null;
         if (!sKey) continue;
         if (newKey && sKey === newKey) continue;
+        // Replace the edited design snapshot (by previous edit id) with the new one.
         if (
-          editBundleId &&
-          (s.bundleId === editBundleId || s._localId === editBundleId)
+          prevEditId &&
+          (s.bundleId === prevEditId || s._localId === prevEditId)
         )
           continue;
         next.push(s);
@@ -1580,10 +1626,13 @@ export default function DesignBuilder() {
         </button>
         <button
           type="button"
-          onClick={addToCart}
+          onClick={() => {
+            if (editBundleId) return addOrSaveDesign({ action: "save" });
+            return addOrSaveDesign({ action: "add" });
+          }}
           className="mixcharm-btn mixcharm-btnPrimary"
         >
-          {editBundleId ? "Lưu design" : "Thêm vào giỏ"}
+          {editBundleId ? "Lưu thay đổi" : "Thêm vào giỏ"}
         </button>
       </div>
 
