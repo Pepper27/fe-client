@@ -1,9 +1,11 @@
 .engrave-modal {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 100000; /* bring above header */
   display: grid;
-  place-items: end center;
+  /* place at top center with a gap so it won't be under header */
+  place-items: start center;
+  padding-top: 72px; /* adjust to header height */
 }
 
 .engrave-backdrop {
@@ -17,14 +19,238 @@
   width: min(760px, 100%);
   background: #fff;
   border-radius: 16px 16px 0 0;
-  overflow: hidden;
+  overflow: visible; /* allow vertical slider to render outside */
   box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.25);
+  margin-top: 4px;
 }
 
 .engrave-preview {
   position: relative;
   background: #f3f4f6;
   aspect-ratio: 1 / 1;
+  /* reserve room on right for vertical slider */
+  padding-right: 120px;
+}
+
+// .engrave-verticalSlider {
+//   position: absolute;
+//   /* place inside preview area near the right edge */
+//   right: 24px;
+//   top: 50%;
+//   transform: translateY(-50%);
+//   display: flex;
+//   flex-direction: column;
+//   align-items: center;
+//   gap: 8px;
+//   width: 64px;
+//   pointer-events: auto;
+//   z-index: 5;
+// }
+
+// .engrave-sizeValueVert {
+//   font-weight: 800;
+//   font-size: 18px;
+//   color: #111827;
+// }
+
+// .engrave-slider-vertical {
+//   -webkit-appearance: none;
+//   width: 44px; /* control width (includes hit area) */
+//   height: 260px;
+//   transform: rotate(180deg); /* keep higher values at top visually */
+//   background: transparent;
+//   position: relative;
+//   padding: 0;
+//   margin: 0;
+//   touch-action: none;
+// }
+
+// /* The visual segmented tapered track is rendered on the container so
+//    it appears consistently across browsers (pseudo-elements on input
+//    are unreliable). */
+// .engrave-verticalSlider::before {
+//   content: '';
+//   position: absolute;
+//   /* position the track near the right edge of the container */
+//   right: 12px;
+//   top: 0;
+//   width: 18px;
+//   height: 100%;
+//   background: repeating-linear-gradient(
+//     to bottom,
+//     #dfe3e6 0px,
+//     #dfe3e6 26px,
+//     #f3f4f6 26px,
+//     #f3f4f6 36px
+//   );
+//   border-radius: 6px;
+//   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.03), 0 2px 6px rgba(0,0,0,0.04);
+//   clip-path: polygon(10% 0%, 90% 0%, 100% 86%, 52% 100%, 48% 100%, 0% 86%);
+//   z-index: 0;
+//   pointer-events: none;
+// }
+
+// /* Keep native track transparent so pseudo-element shows */
+// .engrave-slider-vertical::-webkit-slider-runnable-track {
+//   background: transparent;
+//   border: none;
+// }
+
+// /* Thumb: large white circle offset slightly right to match reference */
+// .engrave-slider-vertical::-webkit-slider-thumb {
+//   -webkit-appearance: none;
+//   width: 38px;
+//   height: 38px;
+//   border-radius: 50%;
+//   background: #ffffff;
+//   border: 6px solid rgba(255, 255, 255, 0.98);
+//   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+//   margin-top: -19px; /* center thumb on track */
+//   position: relative;
+//   z-index: 3; /* above track */
+//   transform: translateX(-6px); /* position over track */
+// }
+
+// /* Firefox support */
+// .engrave-slider-vertical::-moz-range-track {
+//   background: transparent;
+// }
+// .engrave-slider-vertical::-moz-range-thumb {
+//   width: 38px;
+//   height: 38px;
+//   border-radius: 50%;
+//   background: #ffffff;
+//   border: 6px solid rgba(255, 255, 255, 0.98);
+//   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+//   transform: translateX(-6px);
+//   z-index: 3;
+// }
+
+// /* larger invisible hit area overlay to improve drag UX on desktop */
+// .engrave-verticalSlider .engrave-slider-vertical::before {
+//   content: '';
+//   position: absolute;
+//   left: 0;
+//   right: 0;
+//   top: 0;
+//   bottom: 0;
+//   /* transparent but catches pointer events for easier dragging */
+//   background: transparent;
+//   pointer-events: none; /* keep native input handling; padding above helps hit target */
+// }
+
+// .engrave-slider-vertical:focus {
+//   outline: none;
+// }
+
+// /* triangle taper at bottom of track */
+// .engrave-verticalSlider::after {
+//   content: "";
+//   position: absolute;
+//   bottom: -14px;
+//   left: 50%;
+//   transform: translateX(-50%);
+//   width: 0;
+//   height: 0;
+//   border-left: 8px solid transparent;
+//   border-right: 8px solid transparent;
+//   border-top: 16px solid #f3f4f6;
+//   opacity: 0.95;
+// }
+.engrave-verticalSlider {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.engrave-sliderWrap {
+  transform: rotate(180deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.engrave-slider-vertical {
+  -webkit-appearance: slider-vertical;
+  appearance: none;
+
+  width: 28px;
+  height: 220px;
+
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Custom track visual used by VerticalRange component */
+.engrave-slider-track-visual {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 18px;
+  height: 100%;
+  background: repeating-linear-gradient(
+    to bottom,
+    #dfe3e6 0px,
+    #dfe3e6 26px,
+    #f3f4f6 26px,
+    #f3f4f6 36px
+  );
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.03), 0 2px 6px rgba(0,0,0,0.04);
+  clip-path: polygon(10% 0%, 90% 0%, 100% 86%, 52% 100%, 48% 100%, 0% 86%);
+}
+
+/* Custom thumb */
+.engrave-slider-thumb-custom {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fff;
+  border: 6px solid rgba(255,255,255,0.98);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+  z-index: 3;
+}
+
+/* track */
+.engrave-slider-vertical::-webkit-slider-runnable-track {
+  width: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.5);
+  backdrop-filter: blur(8px);
+}
+
+/* thumb */
+.engrave-slider-vertical::-webkit-slider-thumb {
+  -webkit-appearance: none;
+
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+
+  background: #fff;
+  border: none;
+
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.18);
+
+  margin-left: -7px;
+  margin-top: -8px;
+
+  transition:
+    transform .15s ease,
+    box-shadow .15s ease;
+}
+
+.engrave-slider-vertical::-webkit-slider-thumb:active {
+  transform: scale(1.08);
+  box-shadow:
+    0 6px 18px rgba(0,0,0,0.25);
 }
 
 .engrave-img {
@@ -61,9 +287,11 @@
 
 .engrave-line {
   width: 100%;
-  white-space: nowrap;
+  white-space: normal; /* allow wrapping */
   overflow: hidden;
-  text-overflow: clip;
+  text-overflow: ellipsis;
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 .engrave-sizeReadout {
@@ -92,6 +320,17 @@
   padding: 16px;
 }
 
+.engrave-sizeControl {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.engrave-sizeReadoutLabel {
+  font-weight: 700;
+}
+
 .engrave-inputRow {
   display: grid;
   gap: 10px;
@@ -104,6 +343,11 @@
   border-radius: 10px;
   font-size: 16px;
   outline: none;
+}
+
+.engrave-textarea {
+  min-height: 48px;
+  resize: vertical;
 }
 
 .engrave-tabs {
