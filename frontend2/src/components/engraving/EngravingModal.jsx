@@ -265,6 +265,9 @@ export default function EngravingModal({
   const [pendingPayload, setPendingPayload] = useState(null);
   const [sampleOpen, setSampleOpen] = useState(false);
   const [sampleUrl, setSampleUrl] = useState(null);
+  // hostedSampleUrl holds a server-hosted URL for the thumbnail (uploaded/rendered).
+  // We do not replace the visible sampleUrl with this value to avoid UI jump.
+  const [hostedSampleUrl, setHostedSampleUrl] = useState(null);
   const [uploadingSample, setUploadingSample] = useState(false);
   const [agreeChecked, setAgreeChecked] = useState(false);
 
@@ -330,7 +333,8 @@ export default function EngravingModal({
         ctx.fillRect(0, 0, cw, ch);
 
         // draw image scaled to canvas (object-fit: contain semantics already applied in layout)
-        const imgSrc = String(previewImage || '').trim();
+        // Prefer canonical full-size productImageUrl when available; fallback to previewImage.
+        const imgSrc = String(productImageUrl || previewImage || '').trim();
         if (imgSrc) {
           const img = await new Promise((resolve) => {
             const i = new Image();
@@ -694,64 +698,82 @@ export default function EngravingModal({
                 setPendingPayload(payload);
                 setSampleUrl(null);
                 setAgreeChecked(false);
+                // Prefer immediate client-side thumbnail so the modal matches what user sees.
                 let gotUrl = null;
                 try {
-                  const apiBase = getApiBase();
-                  const renderPayload = {
-                    // prefer canonical full-size product image url when available
-                    productImageUrl: String(productImageUrl || previewImage || '').trim(),
-                    width: 800,
-                    height: 800,
-                    text: payload.text || '',
-                    fontFamily: chosenFont?.family || 'Arial, Helvetica, sans-serif',
-                    fontId: chosenFont?.id || undefined,
-                    fontSizePx: payload.fontSizePx || fitted.fontPx,
-                    box: boxSafe,
-                  };
-                  const resp = await fetch(`${apiBase}/api/public/engraving/render`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(renderPayload),
-                  });
-                  if (resp.ok) {
-                    const data = await resp.json();
-                    if (data && data.url) gotUrl = data.url;
+                  // clear any previous hosted url for new sample
+                  setHostedSampleUrl(null);
+                  const thumb = await generateThumbnailDataUrl(payload || {});
+                  if (thumb) {
+                    gotUrl = thumb;
+                    // set immediate thumbnail so UI matches screen
+                    setSampleUrl(gotUrl);
+                    setTimeout(() => setSampleOpen(true), 0);
                   }
                 } catch (err) {
                   // ignore
                 }
 
-                if (!gotUrl) {
+                // Meanwhile, try server render to obtain a stable hosted URL. If successful, replace sampleUrl.
+                (async () => {
                   try {
-                    const thumb = await generateThumbnailDataUrl(payload || {});
-                    if (thumb) {
-                      // if we produced a data URL fallback, upload it to server to get a stable URL
-                      gotUrl = thumb;
-                      try {
-                        setUploadingSample(true);
-                        const apiBase = getApiBase();
-                        const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
-                          method: 'POST',
-                          credentials: 'include',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ dataUrl: thumb }),
-                        });
-                        if (upResp.ok) {
-                          const ud = await upResp.json();
-                          if (ud && ud.url) gotUrl = ud.url;
-                        }
-                      } catch (e) {
-                        // upload failed; fall back to data URL (display only)
-                        console.warn('fallback upload failed', e);
-                      } finally {
-                        setUploadingSample(false);
+                    const apiBase = getApiBase();
+                    const renderPayload = {
+                      productImageUrl: String(productImageUrl || previewImage || '').trim(),
+                      width: 800,
+                      height: 800,
+                      text: payload.text || '',
+                      fontFamily: chosenFont?.family || 'Arial, Helvetica, sans-serif',
+                      fontId: chosenFont?.id || undefined,
+                      fontSizePx: payload.fontSizePx || fitted.fontPx,
+                      box: boxSafe,
+                    };
+                    const resp = await fetch(`${apiBase}/api/public/engraving/render`, {
+                      method: 'POST',
+                      credentials: 'include',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(renderPayload),
+                    });
+                    if (resp.ok) {
+                      const data = await resp.json();
+                    if (data && data.url) {
+                        // store hosted url but DO NOT replace visible sample to avoid UI jump
+                        setHostedSampleUrl(data.url);
+                        return;
                       }
                     }
-                  } catch (err) {}
-                }
+                  } catch (err) {
+                    // ignore
+                  }
 
-                setSampleUrl(gotUrl);
+                  // If server render not available, attempt to upload client data URL to get hosted url
+                  try {
+                    if (gotUrl && gotUrl.startsWith('data:')) {
+                      setUploadingSample(true);
+                      const apiBase = getApiBase();
+                      const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ dataUrl: gotUrl }),
+                      });
+                      if (upResp.ok) {
+                        const ud = await upResp.json();
+                      if (ud && ud.url) setHostedSampleUrl(ud.url);
+                      }
+                    }
+                  } catch (e) {
+                    console.warn('fallback upload failed', e);
+                  } finally {
+                    setTimeout(() => setUploadingSample(false), 200);
+                  }
+                })();
+
+                // If we didn't have a client thumbnail to show, open modal now (server will update later)
+                if (!gotUrl) {
+                  setSampleUrl(null);
+                  setTimeout(() => setSampleOpen(true), 0);
+                }
                 // open sample after ensuring any confirm overlay won't be present
                 setTimeout(() => setSampleOpen(true), 0);
               } catch (e) {
@@ -803,7 +825,8 @@ export default function EngravingModal({
                   try {
                     const payload = {
                       ...pendingPayload,
-                      previewImage: sampleUrl || undefined,
+                      // Prefer hosted URL if available to send stable hosted preview to server
+                      previewImage: hostedSampleUrl || sampleUrl || undefined,
                     };
                     if (typeof onConfirmAdd === 'function') {
                       await onConfirmAdd(payload);
