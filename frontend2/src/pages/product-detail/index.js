@@ -669,6 +669,7 @@ export default function ProductDetailPage() {
   const addSingleProductToCart = async ({
     buyNow = false,
     quantity: qtyArg,
+    engraving: engravingArg,
   } = {}) => {
     // selectedVariant expected to be resolved
     if (!selectedVariant) {
@@ -978,12 +979,14 @@ export default function ProductDetailPage() {
 
         const guarded = await enforceStockWithCart({ variantIdentifier });
         if (!guarded.ok) return null;
+        const engravingToSend = engravingArg || engraving || undefined;
+
         const prodRes = await api.addProductToCart({
           productId: product._id,
           variantId: variantIdentifier,
           quantity: guarded.qty,
           buyNow,
-          engraving: engraving || undefined,
+          engraving: engravingToSend,
         });
         if (!buyNow) await notifyCartChanged();
 
@@ -1030,6 +1033,19 @@ export default function ProductDetailPage() {
           const foundLine = exact || byProduct || null;
           lineId = foundLine?._id || foundLine?.id || null;
         }
+
+        // If engraving contained a client-generated previewImage (data URL), ensure backend stores it
+        try {
+          const engravingSent = engravingToSend || engraving || undefined;
+          if (lineId && engravingSent && engravingSent.previewImage) {
+            // patch the product line to include engraving previewImage so subsequent GET /cart returns it
+            try {
+              await api.patchProduct(lineId, { engraving: engravingSent });
+            } catch (e) {
+              // ignore patch failures; backend may already persist engraving or disallow patches
+            }
+          }
+        } catch (e) {}
 
         if (buyNow && lineId) {
           try {
@@ -1273,13 +1289,14 @@ export default function ProductDetailPage() {
 
           // fallback attempt
           // call addProductToCart; this API returns the updated cart and lineId on success
-          const prodRes = await api.addProductToCart({
-            productId: product._id,
-            variantId: variantIdentifier,
-            quantity: guardedBundleQty.qty,
-            buyNow,
-            engraving: engraving || undefined,
-          });
+           const engravingToSend = engravingArg || engraving || undefined;
+           const prodRes = await api.addProductToCart({
+             productId: product._id,
+             variantId: variantIdentifier,
+             quantity: guardedBundleQty.qty,
+             buyNow,
+             engraving: engravingToSend,
+           });
           if (!buyNow) await notifyCartChanged();
 
           // Try to extract returned line id from multiple possible shapes
@@ -1288,6 +1305,17 @@ export default function ProductDetailPage() {
             prodRes?.data?._id ||
             prodRes?.lineId ||
             null;
+
+          // Ensure engraving preview stored server-side when possible
+          try {
+            if (lineId && engravingToSend && engravingToSend.previewImage) {
+              try {
+                await api.patchProduct(lineId, { engraving: engravingToSend });
+              } catch (e) {
+                // ignore patch failures
+              }
+            }
+          } catch (e) {}
 
           // (debug logs removed)
 
@@ -1553,9 +1581,46 @@ export default function ProductDetailPage() {
               setEngraving(val);
               setEngraveOpen(false);
             }}
+            onConfirmAdd={async (payload) => {
+              // payload is engraving object { text, fontId, fontSizePx, suggestionAccepted }
+              try {
+                setEngraveOpen(false);
+                setAddingCart(true);
+                const q = commitQuantityText(quantityText);
+                // pass engraving to addSingleProductToCart via api call branch
+                const res = await addSingleProductToCart({ buyNow: false, quantity: q, engraving: payload });
+                // If backend didn't persist previewImage onto cart, keep a client-side map so cart UI can show it immediately
+                try {
+                  if (res && res.id && payload && payload.previewImage) {
+                    const key = 'engraving_preview_map';
+                    let map = {};
+                    try {
+                      const raw = localStorage.getItem(key);
+                      map = raw ? JSON.parse(raw) : {};
+                    } catch (e) {
+                      map = {};
+                    }
+                    try {
+                      map[String(res.id)] = String(payload.previewImage);
+                      localStorage.setItem(key, JSON.stringify(map));
+                    } catch (e) {}
+                    try {
+                      window.dispatchEvent(new Event('cart:changed'));
+                    } catch {}
+                  }
+                } catch (e) {}
+              } finally {
+                setAddingCart(false);
+              }
+            }}
             previewImage={
               String(product?.engraving?.previewImage || "").trim() ||
               (selectedVariant?.images && selectedVariant.images[0]) ||
+              null
+            }
+            productImageUrl={
+              (selectedVariant?.images && selectedVariant.images[0]) ||
+              (product?.images && product.images[0]) ||
               null
             }
             box={product?.engraving?.box || null}

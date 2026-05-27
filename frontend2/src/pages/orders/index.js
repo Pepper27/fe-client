@@ -507,11 +507,34 @@ export default function OrdersPage() {
                         <div style={{ color: "#666", marginTop: 4 }}>
                           Phân loại: {classifyLine(o?.cart?.[0])}
                         </div>
-                        {o?.cart?.[0]?.engraving?.text ? (
-                          <div style={{ color: "#666", marginTop: 4 }}>
-                            Khắc: {String(o.cart[0].engraving.text)}
-                          </div>
-                        ) : null}
+                        {(function(){
+                          const pl = o?.cart?.[0];
+                          if (!pl) return null;
+                          const engraving = pl.engraving || null;
+                          let preview = engraving && engraving.previewImage ? engraving.previewImage : null;
+                          if (!preview) {
+                            try {
+                              const key = 'engraving_preview_map';
+                              const raw = localStorage.getItem(key);
+                              const map = raw ? JSON.parse(raw) : {};
+                              preview = map && map[String(pl._id)];
+                            } catch (e) {
+                              preview = null;
+                            }
+                          }
+                          if (engraving || preview) {
+                            return (
+                              <div style={{ color: "#666", marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ fontWeight: 700 }}>Khắc:</div>
+                                <div>{String(engraving?.text || '')}</div>
+                                {preview ? (
+                                  <img src={preview} alt={`Preview khắc`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }} />
+                                ) : null}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     </div>
 

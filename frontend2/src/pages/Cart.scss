@@ -167,6 +167,15 @@
   display: block;
 }
 
+/* engraving thumbnail shown inline with product meta */
+.cart-engraving-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
 .cart2-infoTitle {
   font-size: 18px;
   font-weight: 900;

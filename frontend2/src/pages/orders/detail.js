@@ -262,11 +262,30 @@ export default function OrderDetailPage() {
                     <div className="orders-itemMeta">
                       Phân loại: {classifyLine(it)}
                     </div>
-                    {it?.engraving?.text ? (
-                      <div className="orders-itemMeta">
-                        Khắc: {String(it.engraving.text)}
-                      </div>
-                    ) : null}
+                    {(function(){
+                      const engraving = it?.engraving || null;
+                      let preview = engraving && engraving.previewImage ? engraving.previewImage : null;
+                      if (!preview) {
+                        try {
+                          const key = 'engraving_preview_map';
+                          const raw = localStorage.getItem(key);
+                          const map = raw ? JSON.parse(raw) : {};
+                          preview = map && map[String(it._id)];
+                        } catch (e) { preview = null; }
+                      }
+                      if (engraving || preview) {
+                        return (
+                          <div className="orders-itemMeta" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ fontWeight: 700 }}>Khắc:</div>
+                            <div>{String(engraving?.text || '')}</div>
+                            {preview ? (
+                              <img src={preview} alt={`Preview khắc`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }} />
+                            ) : null}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   <div className="orders-itemRight">
                     <div className="orders-itemQty">x{it?.quantity || 1}</div>
