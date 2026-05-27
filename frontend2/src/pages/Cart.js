@@ -667,11 +667,32 @@ export default function Cart() {
                          <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 900, fontSize: 20 }}>{title}</div>
                             {inlineAttrs ? <div style={{ color: '#333', marginTop: 6 }}>{inlineAttrs}</div> : null}
-                            {pl?.engraving?.text ? (
-                              <div style={{ color: '#374151', marginTop: 6, fontWeight: 700 }}>
-                                Khắc: {String(pl.engraving.text)}
-                              </div>
-                            ) : null}
+                            {(function(){
+                              // attempt to read client-side fallback map
+                              try {
+                                const key = 'engraving_preview_map';
+                                const raw = localStorage.getItem(key);
+                                const map = raw ? JSON.parse(raw) : {};
+                                const preview = map && map[String(pl._id)];
+                                if (preview) {
+                                  // render a shallow engraving-like UI even if server didn't persist engraving
+                                  return (
+                                    <div style={{ color: '#374151', marginTop: 6, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div>Khắc:</div>
+                                        <div style={{ fontWeight: 800 }}>{String(pl?.engraving?.text || '')}</div>
+                                      </div>
+                                      <img src={preview} alt={`Preview khắc`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }} />
+                                    </div>
+                                  );
+                                }
+                              } catch (e) {}
+                              return pl?.engraving ? (
+                                <div style={{ color: '#374151', marginTop: 6, fontWeight: 700 }}>
+                                  Khắc: {String(pl.engraving.text)}
+                                </div>
+                              ) : null;
+                            })()}
                             <div style={{ color: '#666', fontSize: 14, marginTop: 6 }}>{categoryLabel}</div>
                                   <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div>

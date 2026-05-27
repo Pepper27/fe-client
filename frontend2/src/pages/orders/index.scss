@@ -178,6 +178,15 @@
   opacity: 0.7;
 }
 
+/* inline engraving preview */
+.orders-itemMeta img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
 .orders-itemRight {
   text-align: right;
 }

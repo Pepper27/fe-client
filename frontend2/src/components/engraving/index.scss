@@ -433,3 +433,25 @@
   font-weight: 900;
   text-decoration: underline;
 }
+
+/* In-app confirmation dialog shown when user attempts to add engraving to cart */
+/* confirm overlay removed — sample overlay used instead */
+
+/* Sample overlay should appear above confirm overlay when both are present briefly */
+.engrave-sampleOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.35);
+  z-index: 80;
+}
+.engrave-sample {
+  width: min(680px, 92%);
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+  max-height: 80vh;
+  overflow: auto;
+}

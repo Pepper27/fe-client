@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./index.scss";
+import { getApiBase } from "../../utils/api";
 
 // Basic font presets. You can later map these to real brand fonts.
 const FONT_PRESETS = [
@@ -249,12 +250,168 @@ export default function EngravingModal({
   open,
   onClose,
   onSave,
+  // optional callback that should perform saving + add-to-cart flow.
+  // signature: async (engravingObj) => {}
+  onConfirmAdd,
   previewImage,
+  // canonical full-size product image url (prefer this when server-rendering)
+  productImageUrl,
   box,
   initial,
   allowedFonts,
   autoDetected,
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState(null);
+  const [sampleOpen, setSampleOpen] = useState(false);
+  const [sampleUrl, setSampleUrl] = useState(null);
+  const [uploadingSample, setUploadingSample] = useState(false);
+  const [agreeChecked, setAgreeChecked] = useState(false);
+
+  // generate a small thumbnail image (data URL) representing the engraving
+  // Compose the product preview image + engraved text at the chosen box.
+  const generateThumbnailDataUrl = async (payload) => {
+    try {
+      // Use actual preview image visible area (not the modal wrapper)
+      const wrapEl = wrapRef.current;
+      const imgEl = imgRef.current;
+      if (!wrapEl || !imgEl) return null;
+
+      // measure bounding rects
+      const wrapRect = wrapEl.getBoundingClientRect();
+      const imgRect = imgEl.getBoundingClientRect();
+
+      // compute canvas size as the visible image size
+      let cw = Math.max(1, Math.round(imgRect.width));
+      let ch = Math.max(1, Math.round(imgRect.height));
+
+      // cap to avoid huge outputs, but preserve aspect
+      const MAX_DIM = 1200;
+      if (Math.max(cw, ch) > MAX_DIM) {
+        const scale = MAX_DIM / Math.max(cw, ch);
+        cw = Math.round(cw * scale);
+        ch = Math.round(ch * scale);
+      }
+
+      // Temporarily disable transforms/scales on wrapper/image/box to ensure stable geometry
+      const boxEl = wrapEl.querySelector('.engrave-box');
+      const prev = { wrap: '', img: '', box: '' };
+      try {
+        prev.wrap = wrapEl.style.transform || '';
+        prev.img = imgEl.style.transform || '';
+        prev.box = boxEl ? boxEl.style.transform || '' : '';
+        wrapEl.style.transform = 'none';
+        imgEl.style.transform = 'none';
+        if (boxEl) boxEl.style.transform = 'none';
+
+        // ensure webfont is loaded before measuring/drawing to avoid fallback font issues
+        const ensureFontLoaded = async (px, family) => {
+          try {
+            if (document && document.fonts && typeof document.fonts.load === 'function') {
+              // Attempt to load the requested font (browser may ignore if not available)
+              const spec = `${px}px ${family}`;
+              const p = document.fonts.load(spec);
+              // race between font load and timeout
+              await Promise.race([p, new Promise((r) => setTimeout(r, 250))]);
+            }
+          } catch (e) {
+            // ignore
+          }
+        };
+
+        const canvas = document.createElement('canvas');
+        canvas.width = cw;
+        canvas.height = ch;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+
+        // Fill background white
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, cw, ch);
+
+        // draw image scaled to canvas (object-fit: contain semantics already applied in layout)
+        const imgSrc = String(previewImage || '').trim();
+        if (imgSrc) {
+          const img = await new Promise((resolve) => {
+            const i = new Image();
+            i.crossOrigin = 'anonymous';
+            i.onload = () => resolve(i);
+            i.onerror = () => resolve(null);
+            i.src = imgSrc;
+          }).catch(() => null);
+
+          if (img) {
+            // We need to map actual visible portion: drawImage to fill canvas
+            ctx.drawImage(img, 0, 0, cw, ch);
+
+            // Compute box center relative to image canvas using previously computed boxPos
+            // boxPos.left/top are relative to wrapRect; image offset inside wrapRect is imgRect.left - wrapRect.left
+            const boxCx = (boxPos.left || 0) - (imgRect.left - wrapRect.left);
+            const boxCy = (boxPos.top || 0) - (imgRect.top - wrapRect.top);
+            const boxW = boxPos.w || Math.max(10, cw * 0.5);
+            const boxH = boxPos.h || Math.max(10, ch * 0.18);
+
+            // If we scaled down canvas relative to visible image, adjust coordinates
+            const scaleX = cw / Math.max(1, Math.round(imgRect.width));
+            const scaleY = ch / Math.max(1, Math.round(imgRect.height));
+            const cBoxCx = boxCx * scaleX;
+            const cBoxCy = boxCy * scaleY;
+            const cBoxW = boxW * scaleX;
+            const cBoxH = boxH * scaleY;
+
+            // Prepare text lines
+            const rawLines = (String(payload.text || '') || '').split('\n').slice(0, 3);
+            const lines = rawLines.map((ln) => String(ln || '').trim()).filter(Boolean);
+            if (!lines.length) lines.push('');
+
+            // Choose font size to fit into box height
+            const lineHeight = 1.15;
+            let fontPx = Math.max(8, Math.floor(cBoxH / (lines.length * lineHeight)));
+            fontPx = Math.max(6, Math.min(fontPx, 200));
+
+            const family = (chosenFont && chosenFont.family) || 'Arial, Helvetica, sans-serif';
+            // ensure font loaded for measurement and rendering
+            await ensureFontLoaded(Math.max(10, fontPx), family);
+            ctx.save();
+            // apply rotation around box center if set (use boxSafe.rotateDeg)
+            const rot = (Number(boxSafe.rotateDeg) || 0) * (Math.PI / 180);
+            ctx.translate(cBoxCx, cBoxCy);
+            ctx.rotate(rot);
+
+            // Draw text with subtle engraving effect
+            ctx.fillStyle = '#0b1220';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `${fontPx}px ${family}`;
+            ctx.shadowColor = 'rgba(0,0,0,0.12)';
+            ctx.shadowBlur = 2;
+            ctx.shadowOffsetY = 1;
+
+            const totalH = lines.length * fontPx * lineHeight;
+            const startY = -Math.round(totalH / 2) + Math.round(fontPx / 2);
+            for (let i = 0; i < lines.length; i++) {
+              let text = lines[i];
+              while (ctx.measureText(text + '…').width > cBoxW * 0.95 && text.length > 0) text = text.slice(0, -1);
+              const y = startY + i * fontPx * lineHeight;
+              ctx.fillText(text + (text !== lines[i] ? '…' : ''), 0, y);
+            }
+
+            ctx.restore();
+          }
+        }
+
+        return canvas.toDataURL('image/jpeg', 0.82);
+      } finally {
+        // restore styles
+        try { wrapEl.style.transform = prev.wrap; } catch {}
+        try { imgEl.style.transform = prev.img; } catch {}
+        try { if (boxEl) boxEl.style.transform = prev.box; } catch {}
+      }
+    } catch (e) {
+      console.error('generateThumbnailDataUrl error', e);
+      return null;
+    }
+  };
   const [tab, setTab] = useState("fonts");
   const [text, setText] = useState(() => initial?.text || "");
   const [fontId, setFontId] = useState(() => initial?.fontId || "script");
@@ -523,18 +680,87 @@ export default function EngravingModal({
           <button
             type="button"
             className="engrave-save"
-            onClick={() => {
+            onClick={async () => {
               const t = normalizeText(text);
-              onSave({
+              const payload = {
                 text: t,
                 fontId: String(chosenFont?.id || "").trim(),
                 fontSizePx: fitted.fontPx,
                 suggestionAccepted: !!suggestionAccepted,
-              });
+              };
+
+              // Immediately render sample (server-side preferred) and open sample modal
+              try {
+                setPendingPayload(payload);
+                setSampleUrl(null);
+                setAgreeChecked(false);
+                let gotUrl = null;
+                try {
+                  const apiBase = getApiBase();
+                  const renderPayload = {
+                    // prefer canonical full-size product image url when available
+                    productImageUrl: String(productImageUrl || previewImage || '').trim(),
+                    width: 800,
+                    height: 800,
+                    text: payload.text || '',
+                    fontFamily: chosenFont?.family || 'Arial, Helvetica, sans-serif',
+                    fontId: chosenFont?.id || undefined,
+                    fontSizePx: payload.fontSizePx || fitted.fontPx,
+                    box: boxSafe,
+                  };
+                  const resp = await fetch(`${apiBase}/api/public/engraving/render`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(renderPayload),
+                  });
+                  if (resp.ok) {
+                    const data = await resp.json();
+                    if (data && data.url) gotUrl = data.url;
+                  }
+                } catch (err) {
+                  // ignore
+                }
+
+                if (!gotUrl) {
+                  try {
+                    const thumb = await generateThumbnailDataUrl(payload || {});
+                    if (thumb) {
+                      // if we produced a data URL fallback, upload it to server to get a stable URL
+                      gotUrl = thumb;
+                      try {
+                        setUploadingSample(true);
+                        const apiBase = getApiBase();
+                        const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
+                          method: 'POST',
+                          credentials: 'include',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ dataUrl: thumb }),
+                        });
+                        if (upResp.ok) {
+                          const ud = await upResp.json();
+                          if (ud && ud.url) gotUrl = ud.url;
+                        }
+                      } catch (e) {
+                        // upload failed; fall back to data URL (display only)
+                        console.warn('fallback upload failed', e);
+                      } finally {
+                        setUploadingSample(false);
+                      }
+                    }
+                  } catch (err) {}
+                }
+
+                setSampleUrl(gotUrl);
+                // open sample after ensuring any confirm overlay won't be present
+                setTimeout(() => setSampleOpen(true), 0);
+              } catch (e) {
+                console.error('save and preview failed', e);
+              }
             }}
             disabled={!normalizeText(text)}
           >
-            LƯU VÀ XEM MẪU
+            Lưu và xem mẫu
           </button>
 
           <button type="button" className="engrave-cancel" onClick={onClose}>
@@ -542,6 +768,65 @@ export default function EngravingModal({
           </button>
         </div>
       </div>
+      {/* confirm overlay removed — saving opens sample directly */}
+      {sampleOpen && (
+        <div className="engrave-sampleOverlay" role="dialog" aria-modal>
+          <div className="engrave-sample">
+              <div style={{ textAlign: 'center' }}>
+                {sampleUrl ? (
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <img src={sampleUrl} alt="Mẫu khắc" style={{ maxWidth: '260px', maxHeight: '260px' }} />
+                  {uploadingSample && (
+                    <div style={{ position: 'absolute', right: 6, top: 6, background: 'rgba(255,255,255,0.9)', padding: 6, borderRadius: 6, fontSize: 12 }}>
+                      Đang tải...
+                    </div>
+                  )}
+                </div>
+                ) : (
+                  <div style={{ width: 260, height: 260, background: '#f6f6f6' }} />
+                )}
+              </div>
+            <div style={{ marginTop: 12 }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <input type="checkbox" checked={agreeChecked} onChange={(e) => setAgreeChecked(e.target.checked)} />
+                <div>
+                  Bằng việc chọn dịch vụ khắc chữ, khách hàng đồng ý không sử dụng bất kỳ ngôn ngữ hoặc hình ảnh nào mang tính xúc phạm, khiếm nhã hoặc vi phạm quyền sở hữu trí tuệ của bên thứ ba. Chúng tôi có quyền từ chối bất kỳ yêu cầu khắc nào. Tất cả sản phẩm có khắc chữ là giá bán cuối cùng và không chấp nhận đổi trả.
+                </div>
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button type="button" onClick={() => { setSampleOpen(false); setSampleUrl(null); setAgreeChecked(false); }}>Huỷ</button>
+              <button
+                type="button"
+                disabled={!agreeChecked}
+                onClick={async () => {
+                  try {
+                    const payload = {
+                      ...pendingPayload,
+                      previewImage: sampleUrl || undefined,
+                    };
+                    if (typeof onConfirmAdd === 'function') {
+                      await onConfirmAdd(payload);
+                    } else {
+                      onSave && onSave(payload);
+                      onClose && onClose();
+                    }
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setSampleOpen(false);
+                    setSampleUrl(null);
+                    setPendingPayload(null);
+                    setAgreeChecked(false);
+                  }
+                }}
+              >
+                LƯU VÀ THÊM VÀO GIỎ HÀNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
