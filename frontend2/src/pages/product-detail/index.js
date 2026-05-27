@@ -8,6 +8,7 @@ import "swiper/css/thumbs";
 import { api } from "../../utils/api";
 // import Breadcrumb from '@/components/Breadcrumb';
 import "./index.scss"; // Import file SCSS đẹp chuẩn
+import "./product-detail-engrave.css";
 import { InformationDetail } from "./info";
 import { formatPrice } from "../../utils/format";
 import { useParams } from "react-router-dom";
@@ -1509,23 +1510,7 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {canEngrave ? (
-            <div className="engrave-row">
-              <button
-                type="button"
-                className="engrave-btn engrave-btnFull"
-                onClick={() => setEngraveOpen(true)}
-                disabled={isSoldOut}
-              >
-                KHẮC THÔNG ĐIỆP CỦA BẠN
-              </button>
-              {engraving?.text ? (
-                <div className="engrave-summary" title={engraving.text}>
-                  Khắc: <strong>{engraving.text}</strong>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          {/* For engravable products we will render special action buttons below */}
 
           <EngravingModal
             open={engraveOpen}
@@ -1545,12 +1530,45 @@ export default function ProductDetailPage() {
           />
 
           {/* NHÓM NÚT MUA HÀNG */}
-          <div className="action-buttons">
-            <button
-              className="btn btn-buy"
-              aria-disabled={isSoldOut || addingBuyNow}
-              disabled={isSoldOut || addingBuyNow}
-              onClick={async () => {
+          {canEngrave ? (
+            <div className="engrave-action-buttons">
+              <button
+                type="button"
+                className="engrave-cta"
+                onClick={() => setEngraveOpen(true)}
+                disabled={isSoldOut}
+              >
+                KHẮC THÔNG ĐIỆP CỦA BẠN
+              </button>
+              <button
+                className="engrave-add-to-cart"
+                aria-disabled={isSoldOut || addingCart}
+                disabled={isSoldOut || addingCart}
+                onClick={async (ev) => {
+                  try {
+                    ev.stopPropagation();
+                  } catch {}
+                  if (isSoldOut) return;
+                  if (addingCart) return;
+                  try {
+                    setAddingCart(true);
+                    const q = commitQuantityText(quantityText);
+                    await addSingleProductToCart({ buyNow: false, quantity: q });
+                  } finally {
+                    setAddingCart(false);
+                  }
+                }}
+              >
+                THÊM VÀO GIỎ
+              </button>
+            </div>
+          ) : (
+            <div className="action-buttons">
+              <button
+                className="btn btn-buy"
+                aria-disabled={isSoldOut || addingBuyNow}
+                disabled={isSoldOut || addingBuyNow}
+                onClick={async () => {
                 // MUA NGAY: add to cart then navigate to checkout
                 if (isSoldOut) return;
                 try {
@@ -1633,39 +1651,40 @@ export default function ProductDetailPage() {
               }}
             >
               MUA NGAY
-            </button>
-            <button
-              className="btn btn-cart"
-              aria-disabled={isSoldOut || addingCart}
-              disabled={isSoldOut || addingCart}
-              tabIndex={0}
-              style={{ pointerEvents: "auto", zIndex: 10 }}
-              onMouseDown={() => {
-                // mousedown
-              }}
-              onMouseUp={() => {
-                // mouseup
-              }}
-              onClick={async (ev) => {
-                // click
-                // Prevent clicks from being swallowed by parent handlers
-                try {
-                  ev.stopPropagation();
-                } catch (e) {}
-                if (isSoldOut) return;
-                if (addingCart) return;
-                try {
-                  setAddingCart(true);
-                  const q = commitQuantityText(quantityText);
-                  await addSingleProductToCart({ buyNow: false, quantity: q });
-                } finally {
-                  setAddingCart(false);
-                }
-              }}
-            >
-              THÊM GIỎ HÀNG
-            </button>
-          </div>
+              </button>
+              <button
+                className="btn btn-cart"
+                aria-disabled={isSoldOut || addingCart}
+                disabled={isSoldOut || addingCart}
+                tabIndex={0}
+                style={{ pointerEvents: "auto", zIndex: 10 }}
+                onMouseDown={() => {
+                  // mousedown
+                }}
+                onMouseUp={() => {
+                  // mouseup
+                }}
+                onClick={async (ev) => {
+                  // click
+                  // Prevent clicks from being swallowed by parent handlers
+                  try {
+                    ev.stopPropagation();
+                  } catch (e) {}
+                  if (isSoldOut) return;
+                  if (addingCart) return;
+                  try {
+                    setAddingCart(true);
+                    const q = commitQuantityText(quantityText);
+                    await addSingleProductToCart({ buyNow: false, quantity: q });
+                  } finally {
+                    setAddingCart(false);
+                  }
+                }}
+              >
+                THÊM GIỎ HÀNG
+              </button>
+            </div>
+          )}
 
           {/* CHI TIẾT SẢN PHẨM */}
           <div className="product-description">
