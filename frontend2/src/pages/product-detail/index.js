@@ -188,7 +188,8 @@ export default function ProductDetailPage() {
     // sometimes engraving may be a boolean flag directly
     if (typeof product.engraving === "boolean") return product.engraving;
     // legacy or alternative keys
-    if (product.engravingEnabled !== undefined) return !!product.engravingEnabled;
+    if (product.engravingEnabled !== undefined)
+      return !!product.engravingEnabled;
     if (product.isEngravable !== undefined) return !!product.isEngravable;
     return false;
   }, [product]);
@@ -665,7 +666,10 @@ export default function ProductDetailPage() {
   }
 
   // Helper: build minimal bundle and call api.addBundleToCart
-  const addSingleProductToCart = async ({ buyNow = false, quantity: qtyArg } = {}) => {
+  const addSingleProductToCart = async ({
+    buyNow = false,
+    quantity: qtyArg,
+  } = {}) => {
     // selectedVariant expected to be resolved
     if (!selectedVariant) {
       toast.error("Vui lòng chọn biến thể sản phẩm");
@@ -793,7 +797,10 @@ export default function ProductDetailPage() {
 
     // Guard against over-adding beyond stock when cart already has some quantity.
     // Applies to both product lines and bundle-based adds.
-    const enforceStockWithCart = async ({ variantIdentifier, charmVariantCode }) => {
+    const enforceStockWithCart = async ({
+      variantIdentifier,
+      charmVariantCode,
+    }) => {
       if (!(maxQty > 0)) return { ok: true, qty };
       try {
         const cartRes = await api.getCart();
@@ -831,7 +838,8 @@ export default function ProductDetailPage() {
           if (String(pl?.productId || "") !== productId) continue;
           // If we can match variant, do so; otherwise count by productId.
           const plVar = pl?.variantId;
-          if (variantKeys.length && plVar != null && !matchVariant(plVar)) continue;
+          if (variantKeys.length && plVar != null && !matchVariant(plVar))
+            continue;
           inCartQty += Number(pl?.quantity) || 0;
         }
 
@@ -843,8 +851,13 @@ export default function ProductDetailPage() {
 
           const bBraceletPid = b?.bracelet?.productId;
           if (bBraceletPid && String(bBraceletPid) === productId) {
-            const bBraceletVar = b?.bracelet?.variantCode || b?.bracelet?.variantId || null;
-            if (variantKeys.length && bBraceletVar != null && !matchVariant(bBraceletVar)) {
+            const bBraceletVar =
+              b?.bracelet?.variantCode || b?.bracelet?.variantId || null;
+            if (
+              variantKeys.length &&
+              bBraceletVar != null &&
+              !matchVariant(bBraceletVar)
+            ) {
               // different variant bracelet
             } else {
               // bracelet appears once per bundle
@@ -858,7 +871,8 @@ export default function ProductDetailPage() {
             if (String(it?.charmProductId || "") !== productId) continue;
             const itVar =
               it?.charmVariantCode || it?.variantCode || it?.variantId || null;
-            if (variantKeys.length && itVar != null && !matchVariant(itVar)) continue;
+            if (variantKeys.length && itVar != null && !matchVariant(itVar))
+              continue;
             occ += 1;
           }
           if (occ) inCartQty += occ * bQty;
@@ -866,11 +880,15 @@ export default function ProductDetailPage() {
 
         const remaining = Math.max(0, maxQty - inCartQty);
         if (remaining <= 0) {
-          toast.error(`Trong giỏ đã có ${inCartQty} sản phẩm, kho chỉ còn ${maxQty}`);
+          toast.error(
+            `Trong giỏ đã có ${inCartQty} sản phẩm, kho chỉ còn ${maxQty}`,
+          );
           return { ok: false, qty: 0 };
         }
         if (qty > remaining) {
-          toast.error(`Trong giỏ đã có ${inCartQty} sản phẩm, bạn chỉ có thể thêm tối đa ${remaining}`);
+          toast.error(
+            `Trong giỏ đã có ${inCartQty} sản phẩm, bạn chỉ có thể thêm tối đa ${remaining}`,
+          );
           return { ok: true, qty: remaining };
         }
         return { ok: true, qty };
@@ -1120,7 +1138,9 @@ export default function ProductDetailPage() {
             const bundleId2 = res2?.data?.bundleId || res2?.data?._id || null;
             if (bundleId2 && guardedBundleQty.qty > 1) {
               try {
-                await api.patchBundle(bundleId2, { quantity: guardedBundleQty.qty });
+                await api.patchBundle(bundleId2, {
+                  quantity: guardedBundleQty.qty,
+                });
               } catch {
                 // ignore quantity patch failures
               }
@@ -1451,7 +1471,9 @@ export default function ProductDetailPage() {
                 type="button"
                 className="qty-btn"
                 onClick={() =>
-                  commitQuantityText(String(Math.max(1, (Number(uiQty) || 1) - 1)))
+                  commitQuantityText(
+                    String(Math.max(1, (Number(uiQty) || 1) - 1)),
+                  )
                 }
                 disabled={uiQty <= 1}
                 aria-label="Giảm số lượng"
@@ -1514,12 +1536,10 @@ export default function ProductDetailPage() {
             <div className="stock-note">
               {totalQuantity === 1 ? (
                 <span className="stock-low">Chỉ còn 1 sản phẩm</span>
+              ) : totalQuantity > 0 ? (
+                <span>{`Còn ${totalQuantity} sản phẩm`}</span>
               ) : (
-                totalQuantity > 0 ? (
-                  <span>{`Còn ${totalQuantity} sản phẩm`}</span>
-                ) : (
-                  <span className="stock-out">Hết hàng</span>
-                )
+                <span className="stock-out">Hết hàng</span>
               )}
             </div>
           )}
@@ -1539,6 +1559,7 @@ export default function ProductDetailPage() {
               null
             }
             box={product?.engraving?.box || null}
+            autoDetected={product?.engraving?._autoDetected || null}
             allowedFonts={product?.engraving?.fonts || null}
             initial={engraving}
           />
@@ -1546,6 +1567,12 @@ export default function ProductDetailPage() {
           {/* NHÓM NÚT MUA HÀNG */}
           {canEngrave ? (
             <div className="engrave-action-buttons">
+              {product?.engraving?._autoDetected &&
+                product.engraving._autoDetected.detected && (
+                  <span className="badge badge-suggestion">
+                    Gợi ý vùng khắc có sẵn
+                  </span>
+                )}
               <button
                 type="button"
                 className="engrave-cta"
@@ -1567,7 +1594,10 @@ export default function ProductDetailPage() {
                   try {
                     setAddingCart(true);
                     const q = commitQuantityText(quantityText);
-                    await addSingleProductToCart({ buyNow: false, quantity: q });
+                    await addSingleProductToCart({
+                      buyNow: false,
+                      quantity: q,
+                    });
                   } finally {
                     setAddingCart(false);
                   }
@@ -1583,88 +1613,91 @@ export default function ProductDetailPage() {
                 aria-disabled={isSoldOut || addingBuyNow}
                 disabled={isSoldOut || addingBuyNow}
                 onClick={async () => {
-                // MUA NGAY: add to cart then navigate to checkout
-                if (isSoldOut) return;
-                try {
-                   setAddingBuyNow(true);
-                   const q = commitQuantityText(quantityText);
-                   const result = await addSingleProductToCart({ buyNow: true, quantity: q });
-                  // result may be { type: 'bundle'|'product', id } or null
-                  if (result && result.type === "bundle" && result.id) {
-                    try {
-                      sessionStorage.setItem(
-                        "checkout:bundleIds",
-                        JSON.stringify({
-                          bundleIds: [String(result.id)],
-                          at: Date.now(),
-                        }),
-                      );
-                    } catch {}
-                    window.location.href = "/checkout";
-                  } else if (result && result.type === "product") {
-                    // Prefer checkout with explicit productLineIds
-                    if (result.id) {
+                  // MUA NGAY: add to cart then navigate to checkout
+                  if (isSoldOut) return;
+                  try {
+                    setAddingBuyNow(true);
+                    const q = commitQuantityText(quantityText);
+                    const result = await addSingleProductToCart({
+                      buyNow: true,
+                      quantity: q,
+                    });
+                    // result may be { type: 'bundle'|'product', id } or null
+                    if (result && result.type === "bundle" && result.id) {
+                      try {
+                        sessionStorage.setItem(
+                          "checkout:bundleIds",
+                          JSON.stringify({
+                            bundleIds: [String(result.id)],
+                            at: Date.now(),
+                          }),
+                        );
+                      } catch {}
                       window.location.href = "/checkout";
-                      return;
-                    }
-
-                    // Defensive: if backend didn't return lineId, fetch cart and infer the line.
-                    try {
-                      const cartRes = await api.getCart();
-                      const lines = cartRes?.data?.products || [];
-                      const wantProductId = String(
-                        result.productId || product?._id || "",
-                      );
-                      const wantVariantId = String(
-                        result.variantId ||
-                          selectedVariant?._id ||
-                          selectedVariant?.id ||
-                          "",
-                      );
-
-                      // For buy now, require exact match when possible to avoid picking another line with higher quantity.
-                      const exact =
-                        wantProductId && wantVariantId
-                          ? (lines || []).find(
-                              (p) =>
-                                String(p?.productId) === wantProductId &&
-                                String(p?.variantId) === wantVariantId,
-                            )
-                          : null;
-
-                      const found = exact || null;
-                      const lineId = found?._id || found?.id || null;
-                      if (lineId) {
-                        try {
-                          sessionStorage.setItem(
-                            "checkout:productLineIds",
-                            JSON.stringify({
-                              productLineIds: [String(lineId)],
-                              at: Date.now(),
-                            }),
-                          );
-                        } catch {}
+                    } else if (result && result.type === "product") {
+                      // Prefer checkout with explicit productLineIds
+                      if (result.id) {
                         window.location.href = "/checkout";
                         return;
                       }
-                    } catch (e) {
-                      // ignore
-                    }
 
-                    // Fallback: navigate to cart
-                    window.location.href = "/cart";
-                  } else {
-                    // fallback: navigate to cart
-                    window.location.href = "/cart";
+                      // Defensive: if backend didn't return lineId, fetch cart and infer the line.
+                      try {
+                        const cartRes = await api.getCart();
+                        const lines = cartRes?.data?.products || [];
+                        const wantProductId = String(
+                          result.productId || product?._id || "",
+                        );
+                        const wantVariantId = String(
+                          result.variantId ||
+                            selectedVariant?._id ||
+                            selectedVariant?.id ||
+                            "",
+                        );
+
+                        // For buy now, require exact match when possible to avoid picking another line with higher quantity.
+                        const exact =
+                          wantProductId && wantVariantId
+                            ? (lines || []).find(
+                                (p) =>
+                                  String(p?.productId) === wantProductId &&
+                                  String(p?.variantId) === wantVariantId,
+                              )
+                            : null;
+
+                        const found = exact || null;
+                        const lineId = found?._id || found?.id || null;
+                        if (lineId) {
+                          try {
+                            sessionStorage.setItem(
+                              "checkout:productLineIds",
+                              JSON.stringify({
+                                productLineIds: [String(lineId)],
+                                at: Date.now(),
+                              }),
+                            );
+                          } catch {}
+                          window.location.href = "/checkout";
+                          return;
+                        }
+                      } catch (e) {
+                        // ignore
+                      }
+
+                      // Fallback: navigate to cart
+                      window.location.href = "/cart";
+                    } else {
+                      // fallback: navigate to cart
+                      window.location.href = "/cart";
+                    }
+                  } catch (e) {
+                    // error handled in addSingleProductToCart
+                  } finally {
+                    setAddingBuyNow(false);
                   }
-                } catch (e) {
-                  // error handled in addSingleProductToCart
-                } finally {
-                  setAddingBuyNow(false);
-                }
-              }}
-            >
-              MUA NGAY
+                }}
+              >
+                MUA NGAY
               </button>
               <button
                 className="btn btn-cart"
@@ -1689,7 +1722,10 @@ export default function ProductDetailPage() {
                   try {
                     setAddingCart(true);
                     const q = commitQuantityText(quantityText);
-                    await addSingleProductToCart({ buyNow: false, quantity: q });
+                    await addSingleProductToCart({
+                      buyNow: false,
+                      quantity: q,
+                    });
                   } finally {
                     setAddingCart(false);
                   }
