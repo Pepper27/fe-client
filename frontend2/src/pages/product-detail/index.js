@@ -178,7 +178,20 @@ export default function ProductDetailPage() {
   const effectiveHasVariantSizes = hasVariantSizes && !isCharmCategory;
 
   // Whether this product supports engraving (available on product object)
-  const canEngrave = useMemo(() => !!product?.engraving?.enabled, [product]);
+  // Be defensive: backend/older endpoints may expose engraving in different shapes.
+  const canEngrave = useMemo(() => {
+    if (!product) return false;
+    // common shape: product.engraving = { enabled: true }
+    if (product.engraving && typeof product.engraving === "object") {
+      return !!product.engraving.enabled;
+    }
+    // sometimes engraving may be a boolean flag directly
+    if (typeof product.engraving === "boolean") return product.engraving;
+    // legacy or alternative keys
+    if (product.engravingEnabled !== undefined) return !!product.engravingEnabled;
+    if (product.isEngravable !== undefined) return !!product.isEngravable;
+    return false;
+  }, [product]);
 
   // Helper function to get material color
   const getMaterialColor = (label) => {
