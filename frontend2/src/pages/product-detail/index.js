@@ -177,6 +177,9 @@ export default function ProductDetailPage() {
 
   const effectiveHasVariantSizes = hasVariantSizes && !isCharmCategory;
 
+  // Whether this product supports engraving (available on product object)
+  const canEngrave = useMemo(() => !!product?.engraving?.enabled, [product]);
+
   // Helper function to get material color
   const getMaterialColor = (label) => {
     const lowerLabel = label.toLowerCase();
@@ -615,8 +618,6 @@ export default function ProductDetailPage() {
   }, [selectedVariant?.quantity, totalQuantity]);
 
   const isSoldOut = (Number(maxQty) || 0) <= 0;
-
-  const canEngrave = useMemo(() => !!product?.engraving?.enabled, [product]);
 
   useEffect(() => {
     // Keep quantity within stock bounds when variant changes.
