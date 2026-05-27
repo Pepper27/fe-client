@@ -137,6 +137,7 @@ export const Home = () => {
                   name={item.name}
                   price={price}
                   images={image}
+                  canEngrave={!!item?.engraving?.enabled}
                 />
               </SwiperSlide>
             );

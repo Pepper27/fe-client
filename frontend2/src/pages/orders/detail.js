@@ -134,7 +134,39 @@ export default function OrderDetailPage() {
 
   const lines = useMemo(() => {
     const cart = Array.isArray(order?.cart) ? order.cart : [];
-    return cart;
+    // Group identical lines so repeated charms don't render as repetitive rows.
+    // Include engraving in the grouping key so customized lines never merge incorrectly.
+    const engravingKey = (line) => {
+      const e = line?.engraving;
+      if (!e || typeof e !== "object") return "";
+      const t = String(e.text || "").trim();
+      const f = String(e.fontId || "").trim();
+      return t ? `${t}|${f}` : "";
+    };
+
+    const map = new Map();
+    for (const it of cart) {
+      if (!it) continue;
+      const qty = Math.max(1, Math.floor(Number(it?.quantity) || 1));
+      const key = [
+        it?.productId || "",
+        it?.variantId || it?.variantCode || "",
+        it?.name || "",
+        classifyLine(it),
+        String(Number(it?.price) || 0),
+        engravingKey(it),
+      ]
+        .map((x) => String(x))
+        .join("|");
+
+      const prev = map.get(key);
+      if (prev) {
+        prev.quantity = (Number(prev.quantity) || 1) + qty;
+      } else {
+        map.set(key, { ...it, quantity: qty, __groupKey: key });
+      }
+    }
+    return Array.from(map.values());
   }, [order]);
 
   const steps = useMemo(() => {
@@ -213,7 +245,7 @@ export default function OrderDetailPage() {
             <div className="orders-lines">
               {lines.map((it, idx) => (
                 <div
-                  key={String(it?.variantId || idx)}
+                  key={String(it?.__groupKey || it?.variantId || idx)}
                   className="orders-orderItem"
                 >
                   <div className="orders-itemThumb">
@@ -230,6 +262,11 @@ export default function OrderDetailPage() {
                     <div className="orders-itemMeta">
                       Phân loại: {classifyLine(it)}
                     </div>
+                    {it?.engraving?.text ? (
+                      <div className="orders-itemMeta">
+                        Khắc: {String(it.engraving.text)}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="orders-itemRight">
                     <div className="orders-itemQty">x{it?.quantity || 1}</div>

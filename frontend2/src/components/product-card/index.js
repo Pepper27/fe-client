@@ -10,7 +10,7 @@ import {
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 
-export const ProductCard = ({ id, slug, name, price, images, isSquare }) => {
+export const ProductCard = ({ id, slug, name, price, images, isSquare, canEngrave }) => {
   const productPayload = useMemo(
     // Persist slug in wishlist so detail pages can navigate by slug.
     () => ({
@@ -90,10 +90,12 @@ export const ProductCard = ({ id, slug, name, price, images, isSquare }) => {
         </div>
 
         {/* INFO */}
-        <div className="customization-tag">
-          <HiOutlinePencil />
-          <span className="message-tag">khắc thông điệp</span>
-        </div>
+        {canEngrave ? (
+          <div className="customization-tag">
+            <HiOutlinePencil />
+            <span className="message-tag">khắc thông điệp</span>
+          </div>
+        ) : null}
         <p className="product-name-card">{name}</p>
         <p className="product-price">{formatPrice(price)}</p>
       </div>

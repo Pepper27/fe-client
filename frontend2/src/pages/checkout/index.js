@@ -1049,6 +1049,9 @@ export default function CheckoutPage() {
                         <div>
                           <div className="checkout-lineTitle">Sản phẩm</div>
                           <div className="checkout-lineMeta">{displayName}{classification ? ` · ${classification}` : ''}</div>
+                          {pl?.engraving?.text ? (
+                            <div className="checkout-lineMeta">Khắc: {String(pl.engraving.text)}</div>
+                          ) : null}
                           <div className="checkout-lineQty">x{pl.quantity || 1}</div>
                         </div>
                         <div className="checkout-linePrice">{formatPrice((Number(pl.price) || 0) * (Number(pl.quantity) || 1))}</div>

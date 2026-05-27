@@ -258,7 +258,7 @@ export const api = {
       body: JSON.stringify({ bracelet, items }),
     }),
   // Add a non-bundle product to cart (legacy products[])
-  addProductToCart: ({ productId, variantId, quantity, buyNow } = {}) =>
+  addProductToCart: ({ productId, variantId, quantity, buyNow, engraving } = {}) =>
     request(`/api/public/cart/products`, {
       method: "POST",
       body: JSON.stringify({
@@ -266,6 +266,7 @@ export const api = {
         variantId,
         quantity,
         buyNow: buyNow === true,
+        engraving: engraving || undefined,
       }),
     }),
   patchBundle: (bundleId, patch) =>
