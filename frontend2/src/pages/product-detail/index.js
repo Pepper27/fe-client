@@ -12,6 +12,7 @@ import { InformationDetail } from "./info";
 import { formatPrice } from "../../utils/format";
 import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import EngravingModal from "../../components/engraving/EngravingModal";
 
 export default function ProductDetailPage() {
   const { slug: paramSlug } = useParams();
@@ -33,6 +34,9 @@ export default function ProductDetailPage() {
   const [addingBuyNow, setAddingBuyNow] = useState(false);
   const [addingCart, setAddingCart] = useState(false);
   const [collectionNames, setCollectionNames] = useState([]);
+
+  const [engraveOpen, setEngraveOpen] = useState(false);
+  const [engraving, setEngraving] = useState(null);
 
   // product.description is stored as HTML from the admin editor
   const descriptionHtml = useMemo(() => {
@@ -449,7 +453,13 @@ export default function ProductDetailPage() {
       if (availableIds.length) setSelectedColor(availableIds[0]);
     }
 
-    if (colors.length > 0) {
+    // For engravable products we only force material selection.
+    if (canEngrave) {
+      if (selectedColor) setSelectedColor(null);
+      if (selectedSize) setSelectedSize(null);
+    }
+
+    if (!canEngrave && colors.length > 0) {
       const isSelectedColorValid = colors.some((c) => c.id === selectedColor);
       if (!isSelectedColorValid) {
         setSelectedColor(colors[0].id); // auto-select first color of the material
@@ -466,6 +476,7 @@ export default function ProductDetailPage() {
     selectedSize,
     effectiveHasVariantSizes,
     isCharmCategory,
+    canEngrave,
   ]);
 
   const selectedVariant = useMemo(() => {
@@ -603,6 +614,8 @@ export default function ProductDetailPage() {
   }, [selectedVariant?.quantity, totalQuantity]);
 
   const isSoldOut = (Number(maxQty) || 0) <= 0;
+
+  const canEngrave = useMemo(() => !!product?.engraving?.enabled, [product]);
 
   useEffect(() => {
     // Keep quantity within stock bounds when variant changes.
@@ -937,6 +950,7 @@ export default function ProductDetailPage() {
           variantId: variantIdentifier,
           quantity: guarded.qty,
           buyNow,
+          engraving: engraving || undefined,
         });
         if (!buyNow) await notifyCartChanged();
 
@@ -1229,6 +1243,7 @@ export default function ProductDetailPage() {
             variantId: variantIdentifier,
             quantity: guardedBundleQty.qty,
             buyNow,
+            engraving: engraving || undefined,
           });
           if (!buyNow) await notifyCartChanged();
 
@@ -1347,7 +1362,7 @@ export default function ProductDetailPage() {
           {/* MATERIALS */}
           <div className="option-section">
             <h3 className="option-label">
-              {colors.length > 0
+              {!canEngrave && colors.length > 0
                 ? `Chất liệu: ${materials.find((m) => m.id === selectedMaterial)?.label || (materials[0] && materials[0].label) || ""} - Màu: ${colors.find((c) => c.id === selectedColor)?.label || (colors[0] && colors[0].label) || ""}`
                 : `Chất liệu: ${materials.find((m) => m.id === selectedMaterial)?.label || (materials[0] && materials[0].label) || ""}`}
             </h3>
@@ -1365,7 +1380,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* COLORS - Only show if colors exist */}
-          {colors.length > 0 && (
+          {!canEngrave && colors.length > 0 && (
             <div className="option-section">
               <h3 className="option-label">Màu sắc</h3>
               <div className="color-list">
@@ -1493,6 +1508,41 @@ export default function ProductDetailPage() {
               )}
             </div>
           )}
+
+          {canEngrave ? (
+            <div className="engrave-row">
+              <button
+                type="button"
+                className="engrave-btn engrave-btnFull"
+                onClick={() => setEngraveOpen(true)}
+                disabled={isSoldOut}
+              >
+                KHẮC THÔNG ĐIỆP CỦA BẠN
+              </button>
+              {engraving?.text ? (
+                <div className="engrave-summary" title={engraving.text}>
+                  Khắc: <strong>{engraving.text}</strong>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <EngravingModal
+            open={engraveOpen}
+            onClose={() => setEngraveOpen(false)}
+            onSave={(val) => {
+              setEngraving(val);
+              setEngraveOpen(false);
+            }}
+            previewImage={
+              String(product?.engraving?.previewImage || "").trim() ||
+              (selectedVariant?.images && selectedVariant.images[0]) ||
+              null
+            }
+            box={product?.engraving?.box || null}
+            allowedFonts={product?.engraving?.fonts || null}
+            initial={engraving}
+          />
 
           {/* NHÓM NÚT MUA HÀNG */}
           <div className="action-buttons">

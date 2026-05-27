@@ -121,6 +121,39 @@
 .stock-low { color:#e53935; font-weight:800; font-size:18px }
 .stock-out { color:#e53935; font-weight:800; font-size:18px }
 
+.engrave-row {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.engrave-btn {
+  border: 1px solid #111827;
+  background: #fff;
+  padding: 14px 16px;
+  border-radius: 2px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+}
+
+.engrave-btnFull {
+  width: 100%;
+}
+
+.engrave-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.engrave-summary {
+  color: #374151;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Quantity */
 .qty-row {
   display: flex;

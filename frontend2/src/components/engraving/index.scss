@@ -1,0 +1,191 @@
+.engrave-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: end center;
+}
+
+.engrave-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.engrave-sheet {
+  position: relative;
+  width: min(760px, 100%);
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.engrave-preview {
+  position: relative;
+  background: #f3f4f6;
+  aspect-ratio: 1 / 1;
+}
+
+.engrave-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.engrave-imgFallback {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #e5e7eb, #f3f4f6);
+}
+
+.engrave-box {
+  position: absolute;
+  transform-origin: center;
+  display: grid;
+  place-items: center;
+}
+
+.engrave-text {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  color: #111827;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.engrave-line {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.engrave-sizeReadout {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.engrave-sizeValue {
+  font-weight: 800;
+  font-size: 22px;
+  color: #111827;
+}
+
+.engrave-slider {
+  writing-mode: bt-lr;
+  -webkit-appearance: slider-vertical;
+  width: 20px;
+  height: 220px;
+}
+
+.engrave-controls {
+  padding: 16px;
+}
+
+.engrave-inputRow {
+  display: grid;
+  gap: 10px;
+}
+
+.engrave-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 16px;
+  outline: none;
+}
+
+.engrave-tabs {
+  margin-top: 14px;
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.engrave-tabs button {
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.engrave-tabs button.is-active {
+  background: #111827;
+  color: #fff;
+}
+
+.engrave-fontGrid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .engrave-fontGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.engrave-fontChip {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid #111827;
+  background: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.engrave-fontChip.is-selected {
+  background: #111827;
+  color: #fff;
+}
+
+.engrave-iconsPlaceholder {
+  margin-top: 16px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.engrave-save {
+  margin-top: 16px;
+  width: 100%;
+  border: none;
+  background: #111827;
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.engrave-save:disabled {
+  opacity: 0.55;
+}
+
+.engrave-cancel {
+  margin-top: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 10px 0 2px;
+  font-weight: 900;
+  text-decoration: underline;
+}

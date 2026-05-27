@@ -800,6 +800,7 @@ function ProductsPage() {
                         price={price}
                         images={image}
                         isSquare={shouldSquare}
+                        canEngrave={!!p?.engraving?.enabled}
                       />
                     );
                   })}

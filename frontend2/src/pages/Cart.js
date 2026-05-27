@@ -664,10 +664,15 @@ export default function Cart() {
                                 <div style={{ width: 84, height: 84, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden' }}>
                                   {img ? <img src={img} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" /> : <div style={{ fontSize: 12 }}>HÌNH</div>}
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 900, fontSize: 20 }}>{title}</div>
-                                  {inlineAttrs ? <div style={{ color: '#333', marginTop: 6 }}>{inlineAttrs}</div> : null}
-                                  <div style={{ color: '#666', fontSize: 14, marginTop: 6 }}>{categoryLabel}</div>
+                         <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 900, fontSize: 20 }}>{title}</div>
+                            {inlineAttrs ? <div style={{ color: '#333', marginTop: 6 }}>{inlineAttrs}</div> : null}
+                            {pl?.engraving?.text ? (
+                              <div style={{ color: '#374151', marginTop: 6, fontWeight: 700 }}>
+                                Khắc: {String(pl.engraving.text)}
+                              </div>
+                            ) : null}
+                            <div style={{ color: '#666', fontSize: 14, marginTop: 6 }}>{categoryLabel}</div>
                                   <div style={{ marginTop: 12, borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div>
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>

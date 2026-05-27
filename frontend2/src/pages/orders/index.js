@@ -507,6 +507,11 @@ export default function OrdersPage() {
                         <div style={{ color: "#666", marginTop: 4 }}>
                           Phân loại: {classifyLine(o?.cart?.[0])}
                         </div>
+                        {o?.cart?.[0]?.engraving?.text ? (
+                          <div style={{ color: "#666", marginTop: 4 }}>
+                            Khắc: {String(o.cart[0].engraving.text)}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
 

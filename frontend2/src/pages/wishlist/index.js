@@ -74,6 +74,7 @@ export default function Wishlist() {
               name={item.name}
               price={item.price}
               images={item.images}
+              canEngrave={!!item?.engraving?.enabled}
             />
           ))}
         </div>
