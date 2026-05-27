@@ -495,12 +495,48 @@ export default function EngravingModal({
       // boxSafe.xPct / yPct are stored as top-left percentages. The CSS uses
       // transform: translate(-50%, -50%) which centers the element at left/top
       // coordinates, so convert top-left -> center by adding half width/height.
-      const leftPx =
-        imgRect.left - r.left + (imgRect.width * boxSafe.xPct) / 100 + wPx / 2;
-      const topPx =
-        imgRect.top - r.top + (imgRect.height * boxSafe.yPct) / 100 + hPx / 2;
+      // boxSafe.xPct/yPct may be stored either as top-left percentages or as center
+      // percentages depending on API. Try the top-left interpretation first
+      // (legacy) and validate the computed box lies inside the visible image. If
+      // it doesn't, fall back to interpreting xPct/yPct as center percentages.
+      const leftTopLeft = imgRect.left - r.left + (imgRect.width * boxSafe.xPct) / 100 + wPx / 2;
+      const topTopLeft = imgRect.top - r.top + (imgRect.height * boxSafe.yPct) / 100 + hPx / 2;
+
+      const leftCenter = imgRect.left - r.left + (imgRect.width * boxSafe.xPct) / 100;
+      const topCenter = imgRect.top - r.top + (imgRect.height * boxSafe.yPct) / 100;
+
+      const clampWithin = (val, minv, maxv) => Math.max(minv, Math.min(maxv, val));
+
+      // helper to check if box (center at cx,cy with wPx/hPx) is fully inside the visible image region
+      const isInsideImage = (cx, cy) => {
+        const relX = cx - (imgRect.left - r.left);
+        const relY = cy - (imgRect.top - r.top);
+        return (
+          relX - wPx / 2 >= -1 &&
+          relX + wPx / 2 <= imgRect.width + 1 &&
+          relY - hPx / 2 >= -1 &&
+          relY + hPx / 2 <= imgRect.height + 1
+        );
+      };
+
+      let chosenLeft = leftTopLeft;
+      let chosenTop = topTopLeft;
+      if (!isInsideImage(leftTopLeft, topTopLeft) && isInsideImage(leftCenter, topCenter)) {
+        // fall back to center interpretation
+        chosenLeft = leftCenter;
+        chosenTop = topCenter;
+      } else {
+        // ensure chosen is clamped within the visible image so box is not positioned outside
+        const minCx = imgRect.left - r.left + wPx / 2;
+        const maxCx = imgRect.left - r.left + imgRect.width - wPx / 2;
+        const minCy = imgRect.top - r.top + hPx / 2;
+        const maxCy = imgRect.top - r.top + imgRect.height - hPx / 2;
+        chosenLeft = clampWithin(chosenLeft, minCx, maxCx);
+        chosenTop = clampWithin(chosenTop, minCy, maxCy);
+      }
+
       setBoxPx({ w: wPx, h: hPx });
-      setBoxPos({ left: leftPx, top: topPx, w: wPx, h: hPx });
+      setBoxPos({ left: chosenLeft, top: chosenTop, w: wPx, h: hPx });
     });
     ro.observe(el);
     return () => ro.disconnect();

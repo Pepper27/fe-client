@@ -1623,7 +1623,14 @@ export default function ProductDetailPage() {
               (product?.images && product.images[0]) ||
               null
             }
-            box={product?.engraving?.box || null}
+            // Prefer explicit areas returned by API (product.engraving.areas)
+            // If areas exist, use the first area as the engraving box; otherwise fall back
+            // to the legacy single "box" property.
+            box={
+              (Array.isArray(product?.engraving?.areas) && product.engraving.areas[0]) ||
+              product?.engraving?.box ||
+              null
+            }
             autoDetected={product?.engraving?._autoDetected || null}
             allowedFonts={product?.engraving?.fonts || null}
             initial={engraving}
