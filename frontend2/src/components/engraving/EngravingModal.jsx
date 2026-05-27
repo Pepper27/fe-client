@@ -296,6 +296,17 @@ export default function EngravingModal({
         ch = Math.round(ch * scale);
       }
 
+      // For the client-side thumbnail (used in the small confirmation popup)
+      // generate a compact image so the drawn text scales to the popup size.
+      // This prevents the preview text from being drawn at the large preview size
+      // and then displayed smaller in the popup, which makes text overflow/ellipses.
+      const THUMB_POPUP_MAX = 260; // matches popup maxWidth / maxHeight
+      if (Math.max(cw, ch) > THUMB_POPUP_MAX) {
+        const scale2 = THUMB_POPUP_MAX / Math.max(cw, ch);
+        cw = Math.round(cw * scale2);
+        ch = Math.round(ch * scale2);
+      }
+
       // Temporarily disable transforms/scales on wrapper/image/box to ensure stable geometry
       const boxEl = wrapEl.querySelector('.engrave-box');
       const prev = { wrap: '', img: '', box: '' };
@@ -333,8 +344,10 @@ export default function EngravingModal({
         ctx.fillRect(0, 0, cw, ch);
 
         // draw image scaled to canvas (object-fit: contain semantics already applied in layout)
-        // Prefer canonical full-size productImageUrl when available; fallback to previewImage.
-        const imgSrc = String(productImageUrl || previewImage || '').trim();
+        // Use the previewImage (the image currently shown in the modal) so the
+        // client-generated thumbnail matches what the user sees. Server render
+        // uses productImageUrl separately in the background.
+        const imgSrc = String(previewImage || '').trim();
         if (imgSrc) {
           const img = await new Promise((resolve) => {
             const i = new Image();
@@ -368,9 +381,14 @@ export default function EngravingModal({
             const lines = rawLines.map((ln) => String(ln || '').trim()).filter(Boolean);
             if (!lines.length) lines.push('');
 
-            // Choose font size to fit into box height
+            // Choose font size to fit into box height.
+            // Prefer scaling the preview's fitted.fontPx so relative sizing matches the large preview.
             const lineHeight = 1.15;
-            let fontPx = Math.max(8, Math.floor(cBoxH / (lines.length * lineHeight)));
+            const scaleForFont = Math.min(scaleX, scaleY) || 1;
+            let fontPx = Math.max(6, Math.round((Number(fitted?.fontPx) || 48) * scaleForFont));
+            // Ensure it fits the box height; fallback compute from cBoxH if needed
+            const maxByBox = Math.max(6, Math.floor(cBoxH / (lines.length * lineHeight)));
+            if (fontPx > maxByBox) fontPx = maxByBox;
             fontPx = Math.max(6, Math.min(fontPx, 200));
 
             const family = (chosenFont && chosenFont.family) || 'Arial, Helvetica, sans-serif';
@@ -707,6 +725,7 @@ export default function EngravingModal({
                   if (thumb) {
                     gotUrl = thumb;
                     // set immediate thumbnail so UI matches screen
+                    console.debug('[engrave] set sampleUrl (client thumb)', { src: gotUrl && String(gotUrl).slice(0,120) });
                     setSampleUrl(gotUrl);
                     setTimeout(() => setSampleOpen(true), 0);
                   }
@@ -736,8 +755,9 @@ export default function EngravingModal({
                     });
                     if (resp.ok) {
                       const data = await resp.json();
-                    if (data && data.url) {
+                      if (data && data.url) {
                         // store hosted url but DO NOT replace visible sample to avoid UI jump
+                        console.debug('[engrave] got server render url', data.url);
                         setHostedSampleUrl(data.url);
                         return;
                       }
@@ -759,7 +779,10 @@ export default function EngravingModal({
                       });
                       if (upResp.ok) {
                         const ud = await upResp.json();
-                      if (ud && ud.url) setHostedSampleUrl(ud.url);
+                      if (ud && ud.url) {
+                        console.debug('[engrave] uploaded client thumb, hosted url', ud.url);
+                        setHostedSampleUrl(ud.url);
+                      }
                       }
                     }
                   } catch (e) {
@@ -774,8 +797,6 @@ export default function EngravingModal({
                   setSampleUrl(null);
                   setTimeout(() => setSampleOpen(true), 0);
                 }
-                // open sample after ensuring any confirm overlay won't be present
-                setTimeout(() => setSampleOpen(true), 0);
               } catch (e) {
                 console.error('save and preview failed', e);
               }
