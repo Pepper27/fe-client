@@ -14,7 +14,11 @@ const ProductCreatePage = () => {
     materials: [],
     colors: [],
     sizes: [],
-    variants: []
+    variants: [],
+    // engraving controls
+    engravingEnabled: false,
+    // helper: allow admin to enable free placement on product create
+    engravingAllowFreePlacement: false,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -48,13 +52,24 @@ const ProductCreatePage = () => {
     setMessage('');
     
     try {
+      const payload = { ...formData };
+      if (payload.engravingEnabled) {
+        payload.engraving = {
+          enabled: true,
+          allowFreePlacement: !!payload.engravingAllowFreePlacement,
+        };
+      }
+      // remove transient helper fields before send
+      delete payload.engravingAllowFreePlacement;
+      delete payload.engravingEnabled;
+
       const response = await fetch('http://localhost:3866/api/v1/admin/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
@@ -82,10 +97,11 @@ const ProductCreatePage = () => {
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, type, value, checked } = e.target;
+    const next = type === 'checkbox' ? checked : value;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: next,
     }));
   };
 
@@ -149,6 +165,28 @@ const ProductCreatePage = () => {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="form-group">
+            <label>
+              <input
+                type="checkbox"
+                name="engravingEnabled"
+                checked={!!formData.engravingEnabled}
+                onChange={handleInputChange}
+              />{' '}
+              Cho phép khắc trên sản phẩm (enable engraving)
+            </label>
+          </div>
+          <div className="form-group">
+            <label>
+              <input
+                type="checkbox"
+                name="engravingAllowFreePlacement"
+                checked={!!formData.engravingAllowFreePlacement}
+                onChange={handleInputChange}
+              />{' '}
+              Cho phép khách tự do đặt khắc (allow free placement)
+            </label>
           </div>
           
           <div className="form-actions">

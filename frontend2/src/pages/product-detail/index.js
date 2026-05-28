@@ -1631,6 +1631,8 @@ export default function ProductDetailPage() {
               product?.engraving?.box ||
               null
             }
+            // Allow modal to know if admin enabled free placement
+            allowFreePlacement={Boolean(product?.engraving?.allowFreePlacement)}
             autoDetected={product?.engraving?._autoDetected || null}
             allowedFonts={product?.engraving?.fonts || null}
             initial={engraving}

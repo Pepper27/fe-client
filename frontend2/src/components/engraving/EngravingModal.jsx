@@ -260,6 +260,7 @@ export default function EngravingModal({
   initial,
   allowedFonts,
   autoDetected,
+  allowFreePlacement,
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingPayload, setPendingPayload] = useState(null);
@@ -825,20 +826,7 @@ export default function EngravingModal({
               ))}
             </div>
           </div>
-          {adminBoxPos && (
-            <div
-              className="engrave-adminBox"
-              style={{
-                left: `${adminBoxPos.left}px`,
-                top: `${adminBoxPos.top}px`,
-                width: `${adminBoxPos.w}px`,
-                height: `${adminBoxPos.h}px`,
-                transform: `translate(-50%, -50%)`,
-                zIndex: 4,
-              }}
-              aria-hidden
-            />
-          )}
+          {/* Admin overlay intentionally hidden on customer site */}
 
           {/* vertical slider to the right of preview - custom for reliable dragging */}
           <div className="engrave-verticalSlider" aria-hidden={false}>
