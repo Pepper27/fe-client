@@ -274,7 +274,9 @@ export default function EngravingModal({
 
   // generate a small thumbnail image (data URL) representing the engraving
   // Compose the product preview image + engraved text at the chosen box.
-  const generateThumbnailDataUrl = async (payload) => {
+  // payload: engraving payload
+  // options.maxOutput: maximum dimension for output (square). If omitted, defaults to THUMB_POPUP_MAX (260) for popup.
+  const generateThumbnailDataUrl = async (payload, options = {}) => {
     try {
       // Use actual preview image visible area (not the modal wrapper)
       const wrapEl = wrapRef.current;
@@ -297,16 +299,14 @@ export default function EngravingModal({
         ch = Math.round(ch * scale);
       }
 
-      // For the client-side thumbnail (used in the small confirmation popup)
-      // generate a compact image so the drawn text scales to the popup size.
-      // This prevents the preview text from being drawn at the large preview size
-      // and then displayed smaller in the popup, which makes text overflow/ellipses.
-      const THUMB_POPUP_MAX = 260; // matches popup maxWidth / maxHeight
-      if (Math.max(cw, ch) > THUMB_POPUP_MAX) {
-        const scale2 = THUMB_POPUP_MAX / Math.max(cw, ch);
-        cw = Math.round(cw * scale2);
-        ch = Math.round(ch * scale2);
-      }
+       // Determine requested output cap. By default use small popup size
+       const THUMB_POPUP_MAX = 260; // matches popup maxWidth / maxHeight
+       const outMax = Number(options?.maxOutput) || THUMB_POPUP_MAX;
+       if (outMax > 0 && Math.max(cw, ch) > outMax) {
+         const scale2 = outMax / Math.max(cw, ch);
+         cw = Math.round(cw * scale2);
+         ch = Math.round(ch * scale2);
+       }
 
       // Temporarily disable transforms/scales on wrapper/image/box to ensure stable geometry
       const boxEl = wrapEl.querySelector('.engrave-box');
@@ -345,10 +345,8 @@ export default function EngravingModal({
         ctx.fillRect(0, 0, cw, ch);
 
         // draw image scaled to canvas (object-fit: contain semantics already applied in layout)
-        // Use the previewImage (the image currently shown in the modal) so the
-        // client-generated thumbnail matches what the user sees. Server render
-        // uses productImageUrl separately in the background.
-        const imgSrc = String(previewImage || '').trim();
+        // By default use previewImage (what user sees). Caller may override via options.srcImage
+        const imgSrc = String((options && options.srcImage) || previewImage || '').trim();
         if (imgSrc) {
           const img = await new Promise((resolve) => {
             const i = new Image();
@@ -1036,11 +1034,59 @@ export default function EngravingModal({
                 disabled={!agreeChecked}
                 onClick={async () => {
                   try {
+                    // Build base payload
+                    const base = { ...pendingPayload };
+
+                    // Prefer hosted server render/upload if available
+                    let finalPreview = hostedSampleUrl || sampleUrl || undefined;
+
+                    // If we only have a small client-side data URL (popup thumb),
+                    // generate a larger preview and attempt to upload it so cart stores
+                    // a high-fidelity preview matching the full preview scale.
+                    try {
+                      const isData = typeof finalPreview === 'string' && finalPreview.startsWith('data:');
+                      const needLarge = isData; // if it's a data URL, assume it's the small popup thumb
+                      if (!finalPreview || needLarge) {
+                        // generate larger client-side thumbnail (cap 1024)
+                        const large = await generateThumbnailDataUrl(base, { maxOutput: 1024 });
+                        if (large) {
+                          // try upload to server to get a hosted URL
+                          try {
+                            setUploadingSample(true);
+                            const apiBase = getApiBase();
+                            const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
+                              method: 'POST',
+                              credentials: 'include',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ dataUrl: large }),
+                            });
+                            if (upResp.ok) {
+                              const ud = await upResp.json();
+                              if (ud && ud.url) {
+                                finalPreview = ud.url;
+                              } else {
+                                finalPreview = large;
+                              }
+                            } else {
+                              finalPreview = large;
+                            }
+                          } catch (e) {
+                            // fallback to embedding the large data URL
+                            finalPreview = large;
+                          } finally {
+                            setUploadingSample(false);
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      // ignore thumbnail/upload errors and fall back to what's available
+                    }
+
                     const payload = {
-                      ...pendingPayload,
-                      // Prefer hosted URL if available to send stable hosted preview to server
-                      previewImage: hostedSampleUrl || sampleUrl || undefined,
+                      ...base,
+                      previewImage: finalPreview || undefined,
                     };
+
                     if (typeof onConfirmAdd === 'function') {
                       await onConfirmAdd(payload);
                     } else {
