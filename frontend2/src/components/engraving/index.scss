@@ -290,9 +290,13 @@
 .engrave-text {
   width: 100%;
   height: 100%;
-  display: grid;
-  align-content: center;
-  justify-items: center;
+  /* Use flexbox to ensure text is always centered vertically (OY axis)
+     and horizontally inside the engraving box, even when number of lines
+     or line-height changes. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* vertical centering */
+  align-items: center; /* horizontal centering */
   color: #111827;
   text-align: center;
   line-height: 1.15;

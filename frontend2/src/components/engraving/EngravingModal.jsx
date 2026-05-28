@@ -516,6 +516,17 @@ export default function EngravingModal({
         const aLeft = imgRect.left - r.left + innerOffsetX + (displayedImgW * boxSafe.xPct) / 100 + initialWpx / 2;
         const aTop = imgRect.top - r.top + innerOffsetY + (displayedImgH * boxSafe.yPct) / 100 + initialHpx / 2;
         setAdminBoxPos({ left: aLeft, top: aTop, w: initialWpx, h: initialHpx });
+        // Ensure preview width is at least admin width so customer sees full allowed area
+        // (preview-only override). Scale height to preserve aspect ratio of admin box.
+        if (initialWpx > 0) {
+          const scaleUp = Math.max(1, initialWpx / Math.max(1, wPx));
+          const targetW = Math.min(displayedImgW, Math.round(initialWpx));
+          let targetH = Math.round(initialHpx * (targetW / Math.max(1, initialWpx)));
+          if (targetH > displayedImgH) targetH = displayedImgH;
+          // apply as minimums
+          wPx = Math.max(wPx, targetW);
+          hPx = Math.max(hPx, targetH);
+        }
       } catch (e) {
         setAdminBoxPos(null);
       }
