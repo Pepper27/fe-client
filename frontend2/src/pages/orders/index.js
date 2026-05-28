@@ -376,14 +376,15 @@ export default function OrdersPage() {
 
                       <div className="orders-orderItem">
                         <div className="orders-itemThumb">
-                          {line?.image ? (
-                            <img
-                              src={line.image}
-                              alt={line?.name || "product"}
-                            />
-                          ) : (
-                            <div className="orders-thumbFallback" />
-                          )}
+                          {(() => {
+                            // Prefer product's first image if included in order line, otherwise use line.image
+                            const img = (line?.images && line.images[0]) || line?.image || null;
+                            return img ? (
+                              <img src={img} alt={line?.name || "product"} />
+                            ) : (
+                              <div className="orders-thumbFallback" />
+                            );
+                          })()}
                         </div>
                         <div className="orders-itemInfo">
                           <div className="orders-itemName">
