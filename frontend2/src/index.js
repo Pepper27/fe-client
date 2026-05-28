@@ -30,7 +30,13 @@ import TestAPICall from "./components/TestAPICall";
 import SimpleAPITest from "./components/SimpleAPITest";
 import BestSellersPage from "./pages/product-bestseller/BestSellersPage";
 import BlogDetailPage from "./pages/blog-detail";
-
+// Thêm dòng này vào nhóm import ở đầu file
+import { 
+  DeliveryPaymentPolicy, 
+  WarrantyPolicy, 
+  PrivacyPolicy, 
+  TermsOfService 
+} from "./pages/policies";
 // Load runtime config (public/config.json) so the API base can be injected at deploy time
 async function loadRuntimeConfig() {
   try {
@@ -111,6 +117,10 @@ function renderApp() {
               path="/orders/detail/:orderCode"
               element={<OrderDetailPage />}
             />
+            <Route path="/chinh-sach-nhan-hang" element={<DeliveryPaymentPolicy />} />
+            <Route path="/chinh-sach-bao-hanh" element={<WarrantyPolicy />} />
+            <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
+            <Route path="/dieu-khoan-dich-vu" element={<TermsOfService />} />
             <Route path="/admin/tao-san-pham" element={<ProductCreatePage />} />
             <Route path="/test-api" element={<TestAPICall />} />
             <Route path="/simple-test" element={<SimpleAPITest />} />
