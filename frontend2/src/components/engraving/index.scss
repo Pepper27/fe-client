@@ -275,6 +275,7 @@
   transform-origin: center;
   display: grid;
   place-items: center;
+  overflow: visible; /* ensure descenders are not cropped */
 }
 
 .engrave-adminBox {
@@ -299,16 +300,27 @@
   align-items: center; /* horizontal centering */
   color: #111827;
   text-align: center;
-  line-height: 1.15;
+  line-height: 1.25; /* give extra vertical room for diacritics and descenders */
+  /* Improve glyph positioning and diacritic rendering */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .engrave-line {
   width: 100%;
   white-space: normal; /* allow wrapping */
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Allow glyph descenders (g, j, y) to render without being clipped.
+     Use inline-block so the line's box can grow naturally and inherit line-height
+     from the parent. Avoid forcing overflow:hidden which cropped letters. */
   display: block;
+  overflow: visible;
+  text-overflow: clip;
   overflow-wrap: anywhere;
+  line-height: inherit;
+  /* try to improve glyph shaping for cursive/script fonts */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .engrave-sizeReadout {
