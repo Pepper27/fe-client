@@ -253,6 +253,9 @@ export default function EngravingModal({
   // optional callback that should perform saving + add-to-cart flow.
   // signature: async (engravingObj) => {}
   onConfirmAdd,
+  // optional callback to inform parent when a preview URL (data: or hosted) is available
+  // signature: (engravingObjWithPreview) => {}
+  onPreviewAvailable,
   previewImage,
   // canonical full-size product image url (prefer this when server-rendering)
   productImageUrl,
@@ -917,6 +920,8 @@ export default function EngravingModal({
                     // set immediate thumbnail so UI matches screen
                     console.debug('[engrave] set sampleUrl (client thumb)', { src: gotUrl && String(gotUrl).slice(0,120) });
                     setSampleUrl(gotUrl);
+                    // notify parent that a preview is available (may be data: URL)
+                    try { if (typeof onPreviewAvailable === 'function') onPreviewAvailable({ ...payload, previewImage: gotUrl }); } catch (e) {}
                     setTimeout(() => setSampleOpen(true), 0);
                   }
                 } catch (err) {
@@ -949,6 +954,7 @@ export default function EngravingModal({
                         // store hosted url but DO NOT replace visible sample to avoid UI jump
                         console.debug('[engrave] got server render url', data.url);
                         setHostedSampleUrl(data.url);
+                        try { if (typeof onPreviewAvailable === 'function') onPreviewAvailable({ ...payload, previewImage: data.url }); } catch (e) {}
                         return;
                       }
                     }
@@ -958,10 +964,10 @@ export default function EngravingModal({
 
                   // If server render not available, attempt to upload client data URL to get hosted url
                   try {
-                    if (gotUrl && gotUrl.startsWith('data:')) {
-                      setUploadingSample(true);
-                      const apiBase = getApiBase();
-                      const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
+                      if (gotUrl && gotUrl.startsWith('data:')) {
+                        setUploadingSample(true);
+                        const apiBase = getApiBase();
+                        const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
                         method: 'POST',
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
@@ -969,10 +975,11 @@ export default function EngravingModal({
                       });
                       if (upResp.ok) {
                         const ud = await upResp.json();
-                      if (ud && ud.url) {
-                        console.debug('[engrave] uploaded client thumb, hosted url', ud.url);
-                        setHostedSampleUrl(ud.url);
-                      }
+                        if (ud && ud.url) {
+                          console.debug('[engrave] uploaded client thumb, hosted url', ud.url);
+                          setHostedSampleUrl(ud.url);
+                          try { if (typeof onPreviewAvailable === 'function') onPreviewAvailable({ ...payload, previewImage: ud.url }); } catch (e) {}
+                        }
                       }
                     }
                   } catch (e) {
@@ -1029,30 +1036,65 @@ export default function EngravingModal({
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button type="button" onClick={() => { setSampleOpen(false); setSampleUrl(null); setAgreeChecked(false); }}>Huỷ</button>
-              <button
-                type="button"
-                disabled={!agreeChecked}
+               <button
+                 type="button"
+                 disabled={!agreeChecked || uploadingSample}
                 onClick={async () => {
                   try {
                     // Build base payload
                     const base = { ...pendingPayload };
 
-                    // Prefer hosted server render/upload if available
-                    let finalPreview = hostedSampleUrl || sampleUrl || undefined;
-
-                    // If we only have a small client-side data URL (popup thumb),
-                    // generate a larger preview and attempt to upload it so cart stores
-                    // a high-fidelity preview matching the full preview scale.
+                    // Ensure we have a small preview that matches the popup. If not,
+                    // generate one and attempt to upload it so cart receives a stable URL.
+                    setUploadingSample(true);
+                    let smallPreview = hostedSampleUrl || sampleUrl || undefined;
                     try {
-                      const isData = typeof finalPreview === 'string' && finalPreview.startsWith('data:');
-                      const needLarge = isData; // if it's a data URL, assume it's the small popup thumb
-                      if (!finalPreview || needLarge) {
-                        // generate larger client-side thumbnail (cap 1024)
+                      if (!smallPreview) {
+                        const thumb = await generateThumbnailDataUrl(base || {});
+                        if (thumb) {
+                          smallPreview = thumb;
+                          setSampleUrl(thumb);
+                        }
+                      }
+
+                      // If smallPreview is a client data URL, try to upload it to obtain a hosted URL
+                      if (smallPreview && String(smallPreview).startsWith('data:') && !hostedSampleUrl) {
+                        try {
+                          const apiBase = getApiBase();
+                          const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ dataUrl: smallPreview }),
+                          });
+                          if (upResp.ok) {
+                            const ud = await upResp.json();
+                            if (ud && ud.url) {
+                              setHostedSampleUrl(ud.url);
+                              smallPreview = ud.url;
+                            }
+                          }
+                        } catch (e) {
+                          // leave smallPreview as data URL if upload fails
+                        }
+                      }
+                    } finally {
+                      // keep uploadingSample true while we may still upload large below;
+                      // we'll set false at the end of the outer try/finally
+                    }
+
+                    // Prefer hosted server render/upload (for small preview) if available
+                    let finalLarge = undefined;
+
+                    try {
+                      // If we only have a small client-side data URL or no hosted small,
+                      // generate a larger preview and attempt to upload it so cart/admin stores
+                      // a high-fidelity preview.
+                      const isSmallData = typeof smallPreview === 'string' && smallPreview.startsWith('data:');
+                      if (!smallPreview || isSmallData) {
                         const large = await generateThumbnailDataUrl(base, { maxOutput: 1024 });
                         if (large) {
-                          // try upload to server to get a hosted URL
                           try {
-                            setUploadingSample(true);
                             const apiBase = getApiBase();
                             const upResp = await fetch(`${apiBase}/api/public/engraving/upload`, {
                               method: 'POST',
@@ -1063,29 +1105,34 @@ export default function EngravingModal({
                             if (upResp.ok) {
                               const ud = await upResp.json();
                               if (ud && ud.url) {
-                                finalPreview = ud.url;
+                                finalLarge = ud.url;
                               } else {
-                                finalPreview = large;
+                                finalLarge = large;
                               }
                             } else {
-                              finalPreview = large;
+                              finalLarge = large;
                             }
                           } catch (e) {
-                            // fallback to embedding the large data URL
-                            finalPreview = large;
-                          } finally {
-                            setUploadingSample(false);
+                            finalLarge = large;
                           }
                         }
                       }
                     } catch (e) {
-                      // ignore thumbnail/upload errors and fall back to what's available
+                      // ignore large generation/upload errors
                     }
 
                     const payload = {
                       ...base,
-                      previewImage: finalPreview || undefined,
+                      box: boxSafe,
+                      customerRequested: true,
+                      freePlacementUsed: !!allowFreePlacement,
+                      previewImageSmall: smallPreview,
+                      previewImageLarge: finalLarge,
+                      previewImage: smallPreview || finalLarge || undefined,
                     };
+
+                    // notify parent of final preview (hosted if available)
+                    try { if (typeof onPreviewAvailable === 'function') onPreviewAvailable(payload); } catch (e) {}
 
                     if (typeof onConfirmAdd === 'function') {
                       await onConfirmAdd(payload);
@@ -1100,6 +1147,7 @@ export default function EngravingModal({
                     setSampleUrl(null);
                     setPendingPayload(null);
                     setAgreeChecked(false);
+                    setUploadingSample(false);
                   }
                 }}
               >

@@ -264,7 +264,7 @@ export default function OrderDetailPage() {
                     </div>
                     {(function(){
                       const engraving = it?.engraving || null;
-                      let preview = engraving && engraving.previewImage ? engraving.previewImage : null;
+                      let preview = engraving && (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) ? (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) : null;
                       if (!preview) {
                         try {
                           const key = 'engraving_preview_map';

@@ -510,8 +510,8 @@ export default function OrdersPage() {
                         {(function(){
                           const pl = o?.cart?.[0];
                           if (!pl) return null;
-                          const engraving = pl.engraving || null;
-                          let preview = engraving && engraving.previewImage ? engraving.previewImage : null;
+                           const engraving = pl.engraving || null;
+                           let preview = engraving && (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) ? (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) : null;
                           if (!preview) {
                             try {
                               const key = 'engraving_preview_map';

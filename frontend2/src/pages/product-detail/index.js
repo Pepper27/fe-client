@@ -1577,9 +1577,16 @@ export default function ProductDetailPage() {
           <EngravingModal
             open={engraveOpen}
             onClose={() => setEngraveOpen(false)}
-            onSave={(val) => {
+          onSave={(val) => {
               setEngraving(val);
               setEngraveOpen(false);
+            }}
+            // receive immediate preview URL when modal generates/uploads a thumbnail
+            onPreviewAvailable={(val) => {
+              try {
+                // ensure engraving state includes any preview URL produced by the modal
+                setEngraving(val);
+              } catch (e) {}
             }}
             onConfirmAdd={async (payload) => {
               // payload is engraving object { text, fontId, fontSizePx, suggestionAccepted }
