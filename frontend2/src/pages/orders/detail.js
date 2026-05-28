@@ -248,13 +248,16 @@ export default function OrderDetailPage() {
                   key={String(it?.__groupKey || it?.variantId || idx)}
                   className="orders-orderItem"
                 >
-                  <div className="orders-itemThumb">
-                    {it?.image ? (
-                      <img src={it.image} alt={it?.name || "product"} />
-                    ) : (
-                      <div className="orders-thumbFallback" />
-                    )}
-                  </div>
+                    <div className="orders-itemThumb">
+                      {(() => {
+                        const img = (it?.images && it.images[0]) || it?.image || null;
+                        return img ? (
+                          <img src={img} alt={it?.name || "product"} />
+                        ) : (
+                          <div className="orders-thumbFallback" />
+                        );
+                      })()}
+                    </div>
                   <div className="orders-itemInfo">
                     <div className="orders-itemName">
                       {it?.name || "Sản phẩm"}

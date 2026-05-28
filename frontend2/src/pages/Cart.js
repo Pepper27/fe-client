@@ -638,18 +638,19 @@ export default function Cart() {
                             const sizeText = normAttr(variant?.size || variant?.sizeCm || variant?.sizeLabel || null);
                             const inlineAttrs = [sizeText, material, color].filter(Boolean).join(' · ');
                            const prodChecked = selected[`p:${pl._id}`] !== false;
-                           const img = (() => {
-                             if (!meta) return null;
-                             // 1) try variant image by variantId (preferred)
-                             const byVariant = firstImage(meta, String(pl.variantId || ''));
-                             if (byVariant) return byVariant;
-                             // 2) fallback to first variant's first image
-                             const firstVariantImg = (meta?.variants && meta.variants[0] && meta.variants[0].images && meta.variants[0].images[0]) || null;
-                             if (firstVariantImg) return firstVariantImg;
-                             // 3) fallback to product-level images (if present)
-                             const productImg = (meta?.images && meta.images[0]) || null;
-                             return productImg;
-                           })();
+                            const img = (() => {
+                              if (!meta) return null;
+                              // Use product-level first image as the canonical main image.
+                              const productImg = (meta?.images && meta.images[0]) || null;
+                              if (productImg) return productImg;
+                              // 2) try variant image by variantId
+                              const byVariant = firstImage(meta, String(pl.variantId || ''));
+                              if (byVariant) return byVariant;
+                              // 3) fallback to first variant's first image
+                              const firstVariantImg = (meta?.variants && meta.variants[0] && meta.variants[0].images && meta.variants[0].images[0]) || null;
+                              if (firstVariantImg) return firstVariantImg;
+                              return null;
+                            })();
                             // derive human-friendly variant label (size)
                             const variantSize = variant?.size || variant?.sizeCm || variant?.sizeLabel || variant?.label || null;
                             const categoryLabel = (meta?.category && (meta.category.name || meta.category.slug)) || '';
@@ -666,7 +667,8 @@ export default function Cart() {
 
                             const engravingPreview = pl?.engraving && (pl.engraving.previewImageSmall || pl.engraving.previewImage || pl.engraving.previewImageLarge) ? (pl.engraving.previewImageSmall || pl.engraving.previewImage || pl.engraving.previewImageLarge) : null;
 
-                            const displayThumb = previewFromMap || engravingPreview || img;
+                            // Main left thumbnail should be the product first image (img).
+                            const displayThumb = img;
 
                             return (
                               <div key={pl._id} className="cart2-bundle" style={{ padding: '16px', borderRadius: 12, background: '#fbfdff', border: '1px solid #e6eef6' }}>
