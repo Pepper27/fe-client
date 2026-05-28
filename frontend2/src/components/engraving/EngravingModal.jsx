@@ -474,6 +474,7 @@ export default function EngravingModal({
 
   const [boxPx, setBoxPx] = useState({ w: 300, h: 120 });
   const [boxPos, setBoxPos] = useState({ left: 0, top: 0, w: 300, h: 120 });
+  const [adminBoxPos, setAdminBoxPos] = useState(null);
   const imgRef = useRef(null);
   const [suggestionAccepted, setSuggestionAccepted] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -490,32 +491,163 @@ export default function EngravingModal({
         const ir = imgEl.getBoundingClientRect();
         if (ir.width > 0 && ir.height > 0) imgRect = ir;
       }
-      const wPx = (imgRect.width * boxSafe.wPct) / 100;
-      const hPx = (imgRect.height * boxSafe.hPct) / 100;
-      // boxSafe.xPct / yPct are stored as top-left percentages. The CSS uses
-      // transform: translate(-50%, -50%) which centers the element at left/top
-      // coordinates, so convert top-left -> center by adding half width/height.
-      // boxSafe.xPct/yPct may be stored either as top-left percentages or as center
-      // percentages depending on API. Try the top-left interpretation first
-      // (legacy) and validate the computed box lies inside the visible image. If
-      // it doesn't, fall back to interpreting xPct/yPct as center percentages.
-      const leftTopLeft = imgRect.left - r.left + (imgRect.width * boxSafe.xPct) / 100 + wPx / 2;
-      const topTopLeft = imgRect.top - r.top + (imgRect.height * boxSafe.yPct) / 100 + hPx / 2;
+      // Compute displayed image size within imgRect for object-fit: contain
+      let displayedImgW = imgRect.width;
+      let displayedImgH = imgRect.height;
+      let innerOffsetX = 0;
+      let innerOffsetY = 0;
+      const natW = imgEl && imgEl.naturalWidth ? Number(imgEl.naturalWidth) : 0;
+      const natH = imgEl && imgEl.naturalHeight ? Number(imgEl.naturalHeight) : 0;
+      if (natW > 0 && natH > 0) {
+        const scale = Math.min(imgRect.width / natW, imgRect.height / natH);
+        displayedImgW = Math.round(natW * scale);
+        displayedImgH = Math.round(natH * scale);
+        innerOffsetX = Math.round((imgRect.width - displayedImgW) / 2);
+        innerOffsetY = Math.round((imgRect.height - displayedImgH) / 2);
+      }
 
-      const leftCenter = imgRect.left - r.left + (imgRect.width * boxSafe.xPct) / 100;
-      const topCenter = imgRect.top - r.top + (imgRect.height * boxSafe.yPct) / 100;
+      let initialWpx = (displayedImgW * boxSafe.wPct) / 100;
+      let initialHpx = (displayedImgH * boxSafe.hPct) / 100;
+      let wPx = initialWpx;
+      let hPx = initialHpx;
+
+      // Save admin mapped box BEFORE any expansion so we can render overlay
+      try {
+        const aLeft = imgRect.left - r.left + innerOffsetX + (displayedImgW * boxSafe.xPct) / 100 + initialWpx / 2;
+        const aTop = imgRect.top - r.top + innerOffsetY + (displayedImgH * boxSafe.yPct) / 100 + initialHpx / 2;
+        setAdminBoxPos({ left: aLeft, top: aTop, w: initialWpx, h: initialHpx });
+      } catch (e) {
+        setAdminBoxPos(null);
+      }
+
+      // Attempt to expand the usable box visually by sampling the image so the
+      // preview uses more of the clear inner area (helps when admin saved a
+      // conservative/small rect but product center has more room). If canvas is
+      // tainted or sampling fails, we silently skip expansion.
+      try {
+        if (imgEl && displayedImgW > 4 && displayedImgH > 4 && imgEl.naturalWidth && imgEl.naturalHeight) {
+          const cvs = document.createElement('canvas');
+          cvs.width = Math.max(1, displayedImgW);
+          cvs.height = Math.max(1, displayedImgH);
+          const cctx = cvs.getContext('2d');
+          // draw natural image scaled to displayed size
+          cctx.drawImage(imgEl, 0, 0, imgEl.naturalWidth, imgEl.naturalHeight, 0, 0, displayedImgW, displayedImgH);
+
+          const sampleAvg = (sx, sy, sw, sh, stepX = 4, stepY = 4) => {
+            const sx0 = Math.max(0, Math.min(cvs.width - 1, Math.round(sx)));
+            const sy0 = Math.max(0, Math.min(cvs.height - 1, Math.round(sy)));
+            const ex = Math.max(0, Math.min(cvs.width, Math.round(sx + sw)));
+            const ey = Math.max(0, Math.min(cvs.height, Math.round(sy + sh)));
+            let count = 0;
+            let sum = 0;
+            for (let x = sx0; x < ex; x += Math.max(1, Math.floor((ex - sx0) / stepX))) {
+              for (let y = sy0; y < ey; y += Math.max(1, Math.floor((ey - sy0) / stepY))) {
+                const d = cctx.getImageData(x, y, 1, 1).data;
+                const bright = (d[0] + d[1] + d[2]) / 3;
+                sum += bright;
+                count++;
+              }
+            }
+            return count ? sum / count : 255;
+          };
+
+          // compute current box center relative to displayed image coords
+          const cxRel = Math.round(( (imgRect.left - r.left + innerOffsetX + (displayedImgW * boxSafe.xPct) / 100) ));
+          const cyRel = Math.round(( (imgRect.top - r.top + innerOffsetY + (displayedImgH * boxSafe.yPct) / 100) ));
+          const cx = Math.max(0, Math.min(displayedImgW - 1, cxRel));
+          const cy = Math.max(0, Math.min(displayedImgH - 1, cyRel));
+          const boxWpx = Math.max(2, Math.round(wPx));
+          const boxHpx = Math.max(2, Math.round(hPx));
+
+          // sample background brightness from corners
+          const pad = 6;
+          const bg1 = sampleAvg(0, 0, pad, pad);
+          const bg2 = sampleAvg(displayedImgW - pad, 0, pad, pad);
+          const bg3 = sampleAvg(0, displayedImgH - pad, pad, pad);
+          const bg4 = sampleAvg(displayedImgW - pad, displayedImgH - pad, pad, pad);
+          const bgBright = (bg1 + bg2 + bg3 + bg4) / 4;
+
+          // sample center brightness
+          const centerBright = sampleAvg(cx - Math.floor(boxWpx / 2), cy - Math.floor(boxHpx / 2), boxWpx, boxHpx);
+          const productSignal = Math.abs(centerBright - bgBright);
+
+          // expand symmetrically until border becomes more like background than product
+          // record last acceptable size so we never expand beyond the product area
+          const maxScale = 3; // don't expand more than 3x
+          let scale = 1;
+          const step = Math.max(4, Math.round(Math.min(displayedImgW, displayedImgH) * 0.05));
+          let lastAcceptW = boxWpx;
+          let lastAcceptH = boxHpx;
+          while (scale < maxScale) {
+            const nextW = Math.min(displayedImgW, Math.round(boxWpx * (1 + 0.25 * scale)));
+            const nextH = Math.min(displayedImgH, Math.round(boxHpx * (1 + 0.25 * scale)));
+            const left = Math.max(0, Math.round(cx - nextW / 2));
+            const top = Math.max(0, Math.round(cy - nextH / 2));
+            // sample border area (outer ring)
+            const borderSample = sampleAvg(left, top, nextW, nextH);
+            const borderSignal = Math.abs(borderSample - bgBright);
+            // if border is product-like (not yet background), accept this expansion
+            if (productSignal > 8 && borderSignal >= productSignal * 0.5) {
+              lastAcceptW = nextW;
+              lastAcceptH = nextH;
+            } else {
+              // border looks like background or too close -> stop expanding
+              break;
+            }
+            scale += 1;
+            // safety: if next would be full width/height break
+            if (Math.abs(lastAcceptW - displayedImgW) <= 2 && Math.abs(lastAcceptH - displayedImgH) <= 2) break;
+          }
+          // use the last acceptable size as an upper bound
+          wPx = Math.max(wPx, lastAcceptW);
+          hPx = Math.max(hPx, lastAcceptH);
+        }
+      } catch (e) {
+        // ignore sampling errors (CORS/taint) and keep original wPx/hPx
+      }
+      // If expansion didn't enlarge enough, force a larger visual box so
+      // preview looks usable. This overrides the saved wPct for preview only;
+      // it does not change backend data. Use a larger minimum ratio so text
+      // doesn't appear off the product.
+      let forcedVisual = false;
+      try {
+        const MIN_VISUAL_PCT = 0.75; // prefer at least 75% of displayed width
+        const minW = Math.round(displayedImgW * MIN_VISUAL_PCT);
+        if (wPx < minW) {
+          forcedVisual = true;
+          // keep shape of original box when possible
+          const aspect = (boxSafe.wPct && boxSafe.hPct) ? (boxSafe.hPct / boxSafe.wPct) : (hPx / Math.max(1, wPx));
+          const newW = Math.min(displayedImgW, minW);
+          let newH = Math.round(newW * aspect);
+          if (newH > displayedImgH) {
+            newH = displayedImgH;
+          }
+          console.debug('[engrave] forcing visual expansion', { oldW: wPx, oldH: hPx, newW, newH, displayedImgW, displayedImgH });
+          wPx = newW;
+          hPx = newH;
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Interpret xPct/yPct either as top-left or center relative to the displayed image
+      const leftTopLeft = imgRect.left - r.left + innerOffsetX + (displayedImgW * boxSafe.xPct) / 100 + wPx / 2;
+      const topTopLeft = imgRect.top - r.top + innerOffsetY + (displayedImgH * boxSafe.yPct) / 100 + hPx / 2;
+
+      const leftCenter = imgRect.left - r.left + innerOffsetX + (displayedImgW * boxSafe.xPct) / 100;
+      const topCenter = imgRect.top - r.top + innerOffsetY + (displayedImgH * boxSafe.yPct) / 100;
 
       const clampWithin = (val, minv, maxv) => Math.max(minv, Math.min(maxv, val));
 
-      // helper to check if box (center at cx,cy with wPx/hPx) is fully inside the visible image region
+      // Check if box (center at cx,cy with wPx/hPx) is fully inside the displayed image
       const isInsideImage = (cx, cy) => {
-        const relX = cx - (imgRect.left - r.left);
-        const relY = cy - (imgRect.top - r.top);
+        const relX = cx - (imgRect.left - r.left) - innerOffsetX;
+        const relY = cy - (imgRect.top - r.top) - innerOffsetY;
         return (
           relX - wPx / 2 >= -1 &&
-          relX + wPx / 2 <= imgRect.width + 1 &&
+          relX + wPx / 2 <= displayedImgW + 1 &&
           relY - hPx / 2 >= -1 &&
-          relY + hPx / 2 <= imgRect.height + 1
+          relY + hPx / 2 <= displayedImgH + 1
         );
       };
 
@@ -526,15 +658,26 @@ export default function EngravingModal({
         chosenLeft = leftCenter;
         chosenTop = topCenter;
       } else {
-        // ensure chosen is clamped within the visible image so box is not positioned outside
-        const minCx = imgRect.left - r.left + wPx / 2;
-        const maxCx = imgRect.left - r.left + imgRect.width - wPx / 2;
-        const minCy = imgRect.top - r.top + hPx / 2;
-        const maxCy = imgRect.top - r.top + imgRect.height - hPx / 2;
+        // ensure chosen is clamped within the displayed image so box is not positioned outside
+        const minCx = imgRect.left - r.left + innerOffsetX + wPx / 2;
+        const maxCx = imgRect.left - r.left + innerOffsetX + displayedImgW - wPx / 2;
+        const minCy = imgRect.top - r.top + innerOffsetY + hPx / 2;
+        const maxCy = imgRect.top - r.top + innerOffsetY + displayedImgH - hPx / 2;
         chosenLeft = clampWithin(chosenLeft, minCx, maxCx);
         chosenTop = clampWithin(chosenTop, minCy, maxCy);
       }
 
+      // If we forced a visual expansion above, center the box over the
+      // displayed image so it doesn't appear off to one side.
+      if (forcedVisual) {
+        const centerCx = imgRect.left - r.left + innerOffsetX + displayedImgW / 2;
+        const centerMin = imgRect.left - r.left + innerOffsetX + wPx / 2;
+        const centerMax = imgRect.left - r.left + innerOffsetX + displayedImgW - wPx / 2;
+        chosenLeft = clampWithin(centerCx, centerMin, centerMax);
+      }
+
+      // debug: show computed box size (helpful to verify expansion)
+      try { console.debug('[engrave] computed box', { wPx, hPx, displayedImgW, displayedImgH, innerOffsetX, innerOffsetY }); } catch (e) {}
       setBoxPx({ w: wPx, h: hPx });
       setBoxPos({ left: chosenLeft, top: chosenTop, w: wPx, h: hPx });
     });
@@ -671,6 +814,20 @@ export default function EngravingModal({
               ))}
             </div>
           </div>
+          {adminBoxPos && (
+            <div
+              className="engrave-adminBox"
+              style={{
+                left: `${adminBoxPos.left}px`,
+                top: `${adminBoxPos.top}px`,
+                width: `${adminBoxPos.w}px`,
+                height: `${adminBoxPos.h}px`,
+                transform: `translate(-50%, -50%)`,
+                zIndex: 4,
+              }}
+              aria-hidden
+            />
+          )}
 
           {/* vertical slider to the right of preview - custom for reliable dragging */}
           <div className="engrave-verticalSlider" aria-hidden={false}>

@@ -28,6 +28,9 @@
   position: relative;
   background: #f3f4f6;
   aspect-ratio: 1 / 1;
+  /* Make preview area smaller so preview image isn't too large */
+  width: min(460px, 100%);
+  margin: 12px auto;
   /* reserve room on right for vertical slider */
   padding-right: 120px;
 }
@@ -272,6 +275,16 @@
   transform-origin: center;
   display: grid;
   place-items: center;
+}
+
+.engrave-adminBox {
+  position: absolute;
+  transform-origin: center;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  border: 2px dashed rgba(6, 182, 175, 0.85);
+  background: rgba(6, 182, 175, 0.06);
 }
 
 .engrave-text {
