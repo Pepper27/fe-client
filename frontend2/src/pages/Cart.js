@@ -650,20 +650,33 @@ export default function Cart() {
                              const productImg = (meta?.images && meta.images[0]) || null;
                              return productImg;
                            })();
-                           // derive human-friendly variant label (size)
-                           const variantSize = variant?.size || variant?.sizeCm || variant?.sizeLabel || variant?.label || null;
-                           const categoryLabel = (meta?.category && (meta.category.name || meta.category.slug)) || '';
-                           const maxLineQty = getMaxForProductLine(pl);
-                           const disablePlus = maxLineQty != null ? (pl.quantity || 1) >= maxLineQty : false;
-                           return (
-                             <div key={pl._id} className="cart2-bundle" style={{ padding: '16px', borderRadius: 12, background: '#fbfdff', border: '1px solid #e6eef6' }}>
-                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                            // derive human-friendly variant label (size)
+                            const variantSize = variant?.size || variant?.sizeCm || variant?.sizeLabel || variant?.label || null;
+                            const categoryLabel = (meta?.category && (meta.category.name || meta.category.slug)) || '';
+                            const maxLineQty = getMaxForProductLine(pl);
+                            const disablePlus = maxLineQty != null ? (pl.quantity || 1) >= maxLineQty : false;
+                            // Try to resolve an engraving preview to show in the thumb:
+                            let previewFromMap = null;
+                            try {
+                              const key = 'engraving_preview_map';
+                              const raw = localStorage.getItem(key);
+                              const map = raw ? JSON.parse(raw) : {};
+                              previewFromMap = map && map[String(pl._id)];
+                            } catch (e) { previewFromMap = null; }
+
+                            const engravingPreview = pl?.engraving && (pl.engraving.previewImageSmall || pl.engraving.previewImage || pl.engraving.previewImageLarge) ? (pl.engraving.previewImageSmall || pl.engraving.previewImage || pl.engraving.previewImageLarge) : null;
+
+                            const displayThumb = previewFromMap || engravingPreview || img;
+
+                            return (
+                              <div key={pl._id} className="cart2-bundle" style={{ padding: '16px', borderRadius: 12, background: '#fbfdff', border: '1px solid #e6eef6' }}>
+                               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                                 <div style={{ display: 'flex', alignItems: 'center' }}>
                                   <input type="checkbox" checked={prodChecked} onChange={() => toggleProductLine(pl._id)} style={{ width: 18, height: 18, marginRight: 12 }} />
                                 </div>
-                                <div style={{ width: 84, height: 84, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden' }}>
-                                  {img ? <img src={img} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" /> : <div style={{ fontSize: 12 }}>HÌNH</div>}
-                                </div>
+                                 <div style={{ width: 84, height: 84, background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, overflow: 'hidden' }}>
+                                  {displayThumb ? <img src={displayThumb} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" /> : <div style={{ fontSize: 12 }}>HÌNH</div>}
+                                 </div>
                          <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 900, fontSize: 20 }}>{title}</div>
                             {inlineAttrs ? <div style={{ color: '#333', marginTop: 6 }}>{inlineAttrs}</div> : null}
