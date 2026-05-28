@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 // import { Swiper, SwiperSlide } from 'swiper/react';
 import "swiper/css";
 import "swiper/css/free-mode";
@@ -161,12 +161,31 @@ export default function ProductDetailPage() {
     [product?.variants],
   );
 
-  // Whether any variant actually exposes a size attribute
+  // Whether product exposes sizes either via product.sizes or via variant size fields.
+  // We sanitize product.sizes to ignore empty/invalid entries like "" or "0".
   const hasVariantSizes = useMemo(() => {
-    return variants.some((v) =>
-      Boolean(v?.size || v?.sizeCm || v?.sizeLabel || v?.label),
-    );
-  }, [variants]);
+    // check explicit product.sizes first
+    if (Array.isArray(product?.sizes) && product.sizes.length) {
+      const cleaned = product.sizes
+        .map((s) => String(s || "").trim())
+        .filter((s) => s !== "" && s !== "0");
+      if (cleaned.length) return true;
+    }
+    // fallback to variants
+    return variants.some((v) => Boolean(v?.size || v?.sizeCm || v?.sizeLabel));
+  }, [variants, product?.sizes]);
+
+  // Whether admin explicitly configured sizes on the product (preferred source).
+  const productHasExplicitSizes = useMemo(() => {
+    if (!Array.isArray(product?.sizes)) return false;
+    const cleaned = product.sizes
+      .map((s) => String(s || "").trim())
+      .filter((s) => s !== "" && s !== "0");
+    return cleaned.length > 0;
+  }, [product?.sizes]);
+
+  // Only show size selector when admin explicitly provided sizes and product is not a charm.
+  const showSizeSection = productHasExplicitSizes && !isCharmCategory;
 
   // Charms don't use size on PDP
   const isCharmCategory = useMemo(() => {
@@ -283,21 +302,27 @@ export default function ProductDetailPage() {
 
   const sizes = useMemo(() => {
     if (Array.isArray(product?.sizes) && product.sizes.length)
-      return product.sizes;
+      // filter out empty or invalid size entries (e.g. "0") to avoid showing bogus sizes
+      return product.sizes.map((s) => String(s || "").trim()).filter((s) => s !== "" && s !== "0");
     const found = [];
     for (const v of variants) {
-      const s = v?.size || v?.sizeCm || v?.sizeLabel || v?.label || null;
+      // Only treat explicit size fields as sizes. Do NOT use v.label here —
+      // variants often use label for non-size human names which creates bogus sizes like "0".
+      const s = v?.size || v?.sizeCm || v?.sizeLabel || null;
       if (s && !found.includes(s)) found.push(s);
     }
-    return found.length ? found : ["16", "17", "18", "19"];
+    // Don't invent default sizes. If none are found, return empty so
+    // the UI can hide size selector when appropriate.
+    return found.length ? found : [];
   }, [product, variants]);
 
   // compute total available quantity per size (for disabling / strike-through)
   const sizeQtyMap = useMemo(() => {
     const map = {};
     for (const v of variants) {
+      // Keep key derivation consistent with sizes: only use explicit size fields
       const s = String(
-        v?.size || v?.sizeCm || v?.sizeLabel || v?.label || "",
+        v?.size || v?.sizeCm || v?.sizeLabel || "",
       ).trim();
       if (!s) continue;
       map[s] = (map[s] || 0) + (Number(v?.quantity) || 0);
@@ -434,19 +459,30 @@ export default function ProductDetailPage() {
     });
   }, [product, variants, selectedMaterial]); // Thêm selectedMaterial vào dependency
   const disabledSizes = product?.disabledSizes || [];
+  // Track whether we've applied initial defaults for the currently loaded product.
+  const defaultsAppliedRef = useRef(false);
 
-  // defaults when product loads
+  // Apply initial defaults once when a product loads (or product._id changes).
+  // Avoid depending on selectedSize/selectedColor so we don't create update loops.
   useEffect(() => {
-    if (!product) return;
-    if (!selectedMaterial && materials.length)
-      setSelectedMaterial(materials[0].id);
-    // Only default-select a size when variants actually support sizes
-    if (effectiveHasVariantSizes && !selectedSize && sizes.length)
-      setSelectedSize(String(sizes[0]));
+    if (!product) {
+      defaultsAppliedRef.current = false;
+      return;
+    }
 
-    if (isCharmCategory && selectedSize) setSelectedSize(null);
+    // Only apply once per product load
+    if (defaultsAppliedRef.current) return;
 
-    // derive default color id (slug) from variants for the selected material (or first variant)
+    // default material
+    if (!selectedMaterial && materials.length) setSelectedMaterial(materials[0].id);
+
+    // Auto-select a size only when admin explicitly configured sizes for this product.
+    if (productHasExplicitSizes && sizes.length) setSelectedSize(String(sizes[0]));
+
+    // If the product is a charm category, ensure no size is selected
+    if (isCharmCategory) setSelectedSize(null);
+
+    // derive default color id from variants for the selected material (or first variant)
     if (!selectedColor) {
       const relevant = variants.filter((v) => {
         if (!selectedMaterial) return true;
@@ -471,31 +507,12 @@ export default function ProductDetailPage() {
       if (availableIds.length) setSelectedColor(availableIds[0]);
     }
 
-    // For engravable products we only force material selection.
-    if (canEngrave) {
-      if (selectedColor) setSelectedColor(null);
-      if (selectedSize) setSelectedSize(null);
-    }
+    // Mark defaults applied so we don't re-run this for the same product.
+    defaultsAppliedRef.current = true;
+  }, [product?._id, materials.length, variants.length, sizes.length, effectiveHasVariantSizes, isCharmCategory, canEngrave, selectedMaterial, selectedColor]);
 
-    if (!canEngrave && colors.length > 0) {
-      const isSelectedColorValid = colors.some((c) => c.id === selectedColor);
-      if (!isSelectedColorValid) {
-        setSelectedColor(colors[0].id); // auto-select first color of the material
-      }
-    }
-  }, [
-    product,
-    materials,
-    colors,
-    selectedMaterial,
-    selectedColor,
-    sizes,
-    variants,
-    selectedSize,
-    effectiveHasVariantSizes,
-    isCharmCategory,
-    canEngrave,
-  ]);
+  // NOTE: Do not clear selectedSize when canEngrave changes — keep default selection
+  // consistent across products so behavior matches non-engraving items.
 
   const selectedVariant = useMemo(() => {
     if (!variants.length) return null;
@@ -1460,8 +1477,8 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* CHỌN SIZE - only show when variants expose sizes */}
-          {effectiveHasVariantSizes && (
+          {/* CHỌN SIZE - only show when admin provided explicit sizes */}
+          {showSizeSection && (
             <div className="option-section">
               <h2 className="option-label">Chọn kích thước</h2>
               <div className="size-list sizes-square">
