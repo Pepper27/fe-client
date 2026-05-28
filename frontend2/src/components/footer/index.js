@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { FaLocationDot, FaYoutube, FaFacebookF, FaPhoneFlip } from "react-icons/fa6";
 import { MdEmail } from "react-icons/md";
 import { SiZalo } from "react-icons/si";
@@ -6,15 +7,15 @@ import './index.scss';
 
 export const Footer = () => {
     const FOOTER_LINKS = [
-        { text: "Nhận hàng - Thanh toán", path: "/" },
-        { text: "Chính sách bảo hành", path: "/" },
-        { text: "Chính sách bảo mật", path: "/" },
-        { text: "Điều khoản dịch vụ", path: "/" },
+        { text: "Nhận hàng - Thanh toán", path: "/chinh-sach-nhan-hang" },
+        { text: "Chính sách bảo hành", path: "/chinh-sach-bao-hanh" },
+        { text: "Chính sách bảo mật", path: "/chinh-sach-bao-mat" },
+        { text: "Điều khoản dịch vụ", path: "/dieu-khoan-dich-vu" },
     ];
 
     const CONTACT_INFO = {
         address: "Khương Đình - Thanh Xuân - Hà Nội",
-        phone: "0914913491",
+        phone: "0333586204",
         email: "contact@kb.com.vn"
     };
     return (
@@ -53,7 +54,7 @@ export const Footer = () => {
                         <h4>Chính sách mua hàng</h4>
                         <nav className="content-list">
                             {FOOTER_LINKS.map((link, index) => (
-                                <a key={index} href={link.path}>{link.text}</a>
+                                <Link key={index} to={link.path}>{link.text}</Link>
                             ))}
                         </nav>
                     </div>
@@ -75,8 +76,8 @@ export const Footer = () => {
                 <div className="footer-bottom">
                     <span>Copyright 2025 @ Kim Bảo</span>
                     <div className="bottom-links">
-                        <a href="/">Điều khoản dịch vụ</a>
-                        <a href="/">Chính sách bảo mật</a>
+                        <Link to="/dieu-khoan-dich-vu">Điều khoản dịch vụ</Link>
+                        <Link to="/chinh-sach-bao-mat">Chính sách bảo mật</Link>
                     </div>
                 </div>
             </div>
