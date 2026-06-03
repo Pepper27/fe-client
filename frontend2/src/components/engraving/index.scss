@@ -367,6 +367,8 @@
 
 .engrave-input {
   width: 100%;
+  box-sizing: border-box; /* include padding/border inside width to avoid overflow */
+  max-width: 100%;
   padding: 12px 14px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
