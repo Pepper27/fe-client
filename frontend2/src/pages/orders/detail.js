@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+import { getOrderDisplayStatus } from "../../utils/order-status";
 import { useTransition } from "react";
 import toast from "react-hot-toast";
 
@@ -62,7 +63,7 @@ export default function OrderDetailPage() {
 
   const canCancel = (order) => {
     if (!order) return false;
-    return ["pending", "confirmed"].includes(order.status);
+    return ["pending", "confirmed"].includes(getOrderDisplayStatus(order));
   };
 
   const handleCancel = async () => {
@@ -170,7 +171,7 @@ export default function OrderDetailPage() {
   }, [order]);
 
   const steps = useMemo(() => {
-    const k = statusKey(order?.status);
+    const k = statusKey(getOrderDisplayStatus(order));
     return {
       pending:
         k === "pending" ||
@@ -181,7 +182,7 @@ export default function OrderDetailPage() {
       shipping: k === "shipping" || k === "delivered",
       delivered: k === "delivered",
     };
-  }, [order?.status]);
+  }, [order]);
 
   return (
     <div className="orders-page">
@@ -213,7 +214,7 @@ export default function OrderDetailPage() {
                 </div>
               </div>
               <div className="orders-orderStatus">
-                {statusLabel(order.status)}
+                {statusLabel(getOrderDisplayStatus(order))}
               </div>
             </div>
 
