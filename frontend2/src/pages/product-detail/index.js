@@ -1430,7 +1430,7 @@ export default function ProductDetailPage() {
           <p className="product-price">{formatPrice(price)}</p>
 
           {/* RATING */}
-          <div className="product-rating">
+          {/* <div className="product-rating">
             <div className="stars" aria-hidden>
               {[1, 2, 3, 4, 5].map((n) => (
                 <span key={n} className="star">
@@ -1439,7 +1439,7 @@ export default function ProductDetailPage() {
               ))}
             </div>
             <div className="rating-meta">(1 ĐÁNH GIÁ)</div>
-          </div>
+          </div> */}
 
           {/* MATERIALS */}
           <div className="option-section">
