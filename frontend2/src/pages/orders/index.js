@@ -80,6 +80,46 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, location.search]);
 
+  // Listen for postMessage from payment popup/tab to refresh order list
+  useEffect(() => {
+    const onMessage = (evt) => {
+      try {
+        const msg = evt?.data || null;
+        if (!msg || msg.type !== 'ZALOPAY_PAID') return;
+        // Refresh current tab list so paid orders update UI and button disappears
+        fetchCounts();
+        fetchOrders(tab);
+      } catch (e) {}
+    };
+    const onStorage = (evt) => {
+      try {
+        if (evt?.key === 'ZALOPAY_PAID' && evt?.newValue) {
+          fetchCounts();
+          fetchOrders(tab);
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('message', onMessage);
+    window.addEventListener('storage', onStorage);
+    // Poll localStorage flag as well (for same-tab payment flows)
+    const pollId = setInterval(() => {
+      try {
+        const v = localStorage.getItem('ZALOPAY_PAID');
+        if (v) {
+          localStorage.removeItem('ZALOPAY_PAID');
+          fetchCounts();
+          fetchOrders(tab);
+        }
+      } catch {}
+    }, 1000);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      window.removeEventListener('storage', onStorage);
+      clearInterval(pollId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
   const initialTabFromQuery = useMemo(() => {
     const qs = new URLSearchParams(location.search || "");
     const t = String(qs.get("tab") || "").trim();
@@ -280,6 +320,32 @@ export default function OrdersPage() {
     return parts.length ? parts.join(" · ") : "Mặc định";
   };
 
+  const isZaloPending = (o) => {
+    if (!o) return false;
+    if (String(o.method || "").toLowerCase() !== "zalopay") return false;
+    if ((o.payStatus || "") === "paid") return false;
+    // Prefer explicit expiresAt, else fallback to createdAt + 2 hours for legacy orders
+    const PAYMENT_WINDOW_MS = Number(process.env.REACT_APP_PAYMENT_WINDOW_MS || 2 * 60 * 60 * 1000);
+    const expRaw = o?.payment?.expiresAt || null;
+    const exp = expRaw ? new Date(expRaw) : new Date(Date.parse(o.createdAt || Date.now()) + PAYMENT_WINDOW_MS);
+    // Also ensure we have an orderUrl to open
+    const hasUrl = Boolean(o?.payment?.orderUrl);
+    return hasUrl && exp && exp.getTime() > Date.now();
+  };
+
+  const handlePayNow = (o) => {
+    try {
+      const url = o?.payment?.orderUrl;
+      if (!url) {
+        toast.error("Đường dẫn thanh toán không khả dụng");
+        return;
+      }
+      window.open(url, "_blank");
+    } catch (e) {
+      toast.error("Không thể mở trang thanh toán");
+    }
+  };
+
   return (
     <div className="orders-page">
       <div className="container orders-mobileContainer">
@@ -410,6 +476,15 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="orders-orderActions">
+                      {isZaloPending(o) ? (
+                        <button
+                          type="button"
+                          className="orders-btn orders-btnPrimary"
+                          onClick={() => handlePayNow(o)}
+                        >
+                          Thanh toán ngay
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="orders-btn"
@@ -422,6 +497,7 @@ export default function OrdersPage() {
                       >
                         Xem chi tiết
                       </button>
+                      
                         {["pending", "confirmed"].includes(o.status) ? (
                           <button
                             type="button"
@@ -552,6 +628,15 @@ export default function OrdersPage() {
                         <div style={{ fontWeight: 600, marginBottom: 8 }}>
                           Tổng tiền: {formatPrice(o.totalPrice)}
                         </div>
+                        {isZaloPending(o) ? (
+                          <button
+                            type="button"
+                            className="orders-btn orders-btnPrimary"
+                            onClick={() => handlePayNow(o)}
+                          >
+                            Thanh toán ngay
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           className="orders-btn"

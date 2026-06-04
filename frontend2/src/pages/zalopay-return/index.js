@@ -16,7 +16,7 @@ export default function ZaloPayReturn() {
 
         const res = await api.zalopayConfirm({ appTransId, orderCode });
         if (res && res.data && res.data.payStatus === 'paid') {
-          // Successful - clear session keys and go to order detail
+          // Successful - clear session keys and notify opener (if any), then go to order detail
           try { sessionStorage.removeItem('checkout:buyNow'); sessionStorage.removeItem('checkout:productLineIds'); } catch {}
           try {
             // attempt to fetch cart and emit count for immediate header update
@@ -25,7 +25,27 @@ export default function ZaloPayReturn() {
             const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
             try { window.dispatchEvent(new CustomEvent('cart:changed', { detail: { count: qty } })); } catch (e) { try { window.dispatchEvent(new Event('cart:changed')); } catch {} }
           } catch (e) { try { window.dispatchEvent(new Event('cart:changed')); } catch {} }
-          navigate(`/orders/detail/${encodeURIComponent(res.data.orderCode || orderCode)}`);
+
+          const finalOrderCode = encodeURIComponent(res.data.orderCode || orderCode);
+          // Persist a storage flag so other tabs can detect payment completion.
+          try {
+            localStorage.setItem('ZALOPAY_PAID', String(res.data.orderCode || orderCode));
+          } catch (e) {}
+          // If opened from orders list (window.opener), notify it so it can refresh
+          try {
+            if (window.opener && typeof window.opener.postMessage === 'function') {
+              // restrict origin to same origin for safety
+              const origin = window.location.origin || '*';
+              window.opener.postMessage({ type: 'ZALOPAY_PAID', orderCode: res.data.orderCode || orderCode }, origin);
+              // close the payment tab/window — user returns to original tab
+              try { window.close(); return; } catch {}
+            }
+          } catch (e) {
+            // ignore messaging errors
+          }
+
+          // Fallback: navigate this window to order detail
+          navigate(`/orders/detail/${finalOrderCode}`);
           return;
         }
 
