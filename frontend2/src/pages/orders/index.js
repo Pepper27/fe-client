@@ -3,7 +3,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
-import { getOrderDisplayStatus, isOrderPaid } from "../../utils/order-status";
+import {
+  getOrderDisplayStatus,
+  isOrderPaid,
+  markOrderPaidLocally,
+} from "../../utils/order-status";
 import toast from "react-hot-toast";
 
 const statusLabel = (s) => {
@@ -200,6 +204,50 @@ export default function OrdersPage() {
     delivered: 0,
     cancelled: 0,
   });
+
+  useEffect(() => {
+    const qs = new URLSearchParams(location.search || "");
+    if (qs.get("zalopayReturn") !== "1") return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const raw = localStorage.getItem("ZALOPAY_PENDING_ORDER");
+        const pending = raw ? JSON.parse(raw) : null;
+        const orderCode = String(pending?.orderCode || "");
+        const appTransId = String(pending?.appTransId || "");
+        if (!orderCode && !appTransId) {
+          navigate("/orders?tab=pending", { replace: true });
+          return;
+        }
+
+        const res = await api.zalopayConfirm({ orderCode, appTransId });
+        if (cancelled) return;
+
+        if (isOrderPaid(res?.data)) {
+          const paidOrderCode = String(res?.data?.orderCode || orderCode || "");
+          markOrderPaidLocally(paidOrderCode);
+          try {
+            localStorage.setItem("ZALOPAY_PAID", paidOrderCode);
+            localStorage.removeItem("ZALOPAY_PENDING_ORDER");
+          } catch {}
+          navigate("/orders?tab=confirmed", { replace: true });
+          return;
+        }
+
+        navigate("/orders?tab=pending", { replace: true });
+      } catch (e) {
+        if (cancelled) return;
+        toast.error(e?.message || "Xác nhận thanh toán thất bại");
+        navigate("/orders?tab=pending", { replace: true });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.search, navigate]);
 
   useEffect(() => {
     setTab(initialTabFromQuery);
