@@ -456,6 +456,7 @@ export default function OrdersPage() {
 
   const isZaloPending = (o) => {
     if (!o) return false;
+    if (getOrderDisplayStatus(o) === "cancelled") return false;
     if (String(o.method || "").toLowerCase() !== "zalopay") return false;
     if (isOrderPaid(o)) return false;
     // Prefer explicit expiresAt, else fallback to createdAt + 2 hours for legacy orders
