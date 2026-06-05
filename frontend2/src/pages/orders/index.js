@@ -3,6 +3,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
+
+import {
+  getOrderDisplayStatus,
+  isOrderPaid,
+  markOrderPaidLocally,
+} from "../../utils/order-status";
+
 import toast from "react-hot-toast";
 
 const statusLabel = (s) => {
@@ -13,6 +20,23 @@ const statusLabel = (s) => {
   if (v === "delivered") return "Đã giao";
   if (v === "cancelled") return "Đã huỷ";
   return v || "-";
+};
+
+const sortOrders = (list, status) => {
+  if (status !== "cancelled") return list;
+  return [...list].sort((a, b) => {
+    const ta =
+      (a?.cancelledAt && Date.parse(a.cancelledAt)) ||
+      (a?.updatedAt && Date.parse(a.updatedAt)) ||
+      (a?.createdAt && Date.parse(a.createdAt)) ||
+      0;
+    const tb =
+      (b?.cancelledAt && Date.parse(b.cancelledAt)) ||
+      (b?.updatedAt && Date.parse(b.updatedAt)) ||
+      (b?.createdAt && Date.parse(b.createdAt)) ||
+      0;
+    return tb - ta;
+  });
 };
 
 export default function OrdersPage() {
@@ -80,6 +104,60 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, location.search]);
 
+  // Listen for postMessage from payment popup/tab to refresh order list
+  useEffect(() => {
+    const onMessage = (evt) => {
+      try {
+        const msg = evt?.data || null;
+        if (!msg || msg.type !== 'ZALOPAY_PAID') return;
+        // Refresh current tab list so paid orders update UI and button disappears
+        fetchCounts();
+        fetchOrders(tab);
+      } catch (e) {}
+    };
+    const onStorage = (evt) => {
+      try {
+        if (evt?.key === 'ZALOPAY_PAID' && evt?.newValue) {
+          fetchCounts();
+          fetchOrders(tab);
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('message', onMessage);
+    window.addEventListener('storage', onStorage);
+    // Also refresh when the tab regains focus (user returned from payment tab)
+    const onFocus = () => {
+      try {
+        // Force a full reload when the tab regains focus to ensure UI reflects
+        // any changes performed in the payment tab. This is a last-resort
+        // measure for environments where messaging/storage/polling fail.
+        if (document.visibilityState === 'visible') {
+          window.location.reload();
+        }
+      } catch (e) {}
+    };
+    window.addEventListener('focus', onFocus);
+    // Poll localStorage flag as well (for same-tab payment flows)
+    const pollId = setInterval(() => {
+      try {
+        const v = localStorage.getItem('ZALOPAY_PAID');
+        if (v) {
+          localStorage.removeItem('ZALOPAY_PAID');
+          fetchCounts();
+          fetchOrders(tab);
+        }
+      } catch {}
+    }, 1000);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocus);
+      clearInterval(pollId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+
   const initialTabFromQuery = useMemo(() => {
     const qs = new URLSearchParams(location.search || "");
     const t = String(qs.get("tab") || "").trim();
@@ -131,13 +209,78 @@ export default function OrdersPage() {
   });
 
   useEffect(() => {
+    const qs = new URLSearchParams(location.search || "");
+    if (qs.get("zalopayReturn") !== "1") return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const raw = localStorage.getItem("ZALOPAY_PENDING_ORDER");
+        const pending = raw ? JSON.parse(raw) : null;
+        const orderCode = String(pending?.orderCode || "");
+        const appTransId = String(pending?.appTransId || "");
+        if (!orderCode && !appTransId) {
+          navigate("/orders?tab=pending", { replace: true });
+          return;
+        }
+
+        const res = await api.zalopayConfirm({ orderCode, appTransId });
+        if (cancelled) return;
+
+        if (isOrderPaid(res?.data)) {
+          const paidOrderCode = String(res?.data?.orderCode || orderCode || "");
+          markOrderPaidLocally(paidOrderCode);
+          try {
+            localStorage.setItem("ZALOPAY_PAID", paidOrderCode);
+            localStorage.removeItem("ZALOPAY_PENDING_ORDER");
+          } catch {}
+          navigate("/orders?tab=confirmed", { replace: true });
+          return;
+        }
+
+        navigate("/orders?tab=pending", { replace: true });
+      } catch (e) {
+        if (cancelled) return;
+        toast.error(e?.message || "Xác nhận thanh toán thất bại");
+        navigate("/orders?tab=pending", { replace: true });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.search, navigate]);
+
+  useEffect(() => {
     setTab(initialTabFromQuery);
   }, [initialTabFromQuery]);
 
   const fetchCounts = async () => {
     try {
       const res = await api.v1ClientOrdersStats();
-      setCounts((p) => ({ ...p, ...(res?.data || {}) }));
+      const nextCounts = { ...(res?.data || {}) };
+
+      try {
+        const pendingRes = await api.v1ClientOrdersList({
+          status: "pending",
+          page: 1,
+          limit: 200,
+        });
+        const pendingList = Array.isArray(pendingRes?.data) ? pendingRes.data : [];
+        const paidPendingCount = pendingList.filter(
+          (order) => getOrderDisplayStatus(order) === "confirmed",
+        ).length;
+
+        if (paidPendingCount > 0) {
+          nextCounts.pending = Math.max(0, Number(nextCounts.pending) - paidPendingCount);
+          nextCounts.confirmed = Math.max(0, Number(nextCounts.confirmed) + paidPendingCount);
+        }
+      } catch {
+        // keep server counts when pending list cannot be adjusted
+      }
+
+      setCounts((p) => ({ ...p, ...nextCounts }));
     } catch {
       // ignore
     }
@@ -147,29 +290,59 @@ export default function OrdersPage() {
     const s = String(nextTab || tab);
     setLoading(true);
     try {
+      if (me && (s === "pending" || s === "confirmed")) {
+        const [primaryRes, pendingRes] = await Promise.all([
+          api.v1ClientOrdersList({
+            status: s,
+            page: 1,
+            limit: 50,
+          }),
+          api.v1ClientOrdersList({
+            status: "pending",
+            page: 1,
+            limit: 200,
+          }),
+        ]);
+
+        const primaryList = Array.isArray(primaryRes?.data) ? primaryRes.data : [];
+        const pendingList = Array.isArray(pendingRes?.data) ? pendingRes.data : [];
+
+        if (s === "pending") {
+          setOrders(
+            sortOrders(
+              primaryList.filter(
+                (order) => getOrderDisplayStatus(order) === "pending",
+              ),
+              s,
+            ),
+          );
+          return;
+        }
+
+        const merged = [...primaryList];
+        const seen = new Set(
+          merged.map((order) => String(order?.orderCode || "")).filter(Boolean),
+        );
+
+        for (const order of pendingList) {
+          const orderCode = String(order?.orderCode || "");
+          if (!orderCode || seen.has(orderCode)) continue;
+          if (getOrderDisplayStatus(order) !== "confirmed") continue;
+          merged.push(order);
+          seen.add(orderCode);
+        }
+
+        setOrders(sortOrders(merged, s));
+        return;
+      }
+
       const res = await api.v1ClientOrdersList({
         status: s,
         page: 1,
         limit: 50,
       });
       const list = Array.isArray(res?.data) ? res.data : [];
-      // Ensure newest cancelled orders show first.
-      if (s === "cancelled") {
-        list.sort((a, b) => {
-          const ta =
-            (a?.cancelledAt && Date.parse(a.cancelledAt)) ||
-            (a?.updatedAt && Date.parse(a.updatedAt)) ||
-            (a?.createdAt && Date.parse(a.createdAt)) ||
-            0;
-          const tb =
-            (b?.cancelledAt && Date.parse(b.cancelledAt)) ||
-            (b?.updatedAt && Date.parse(b.updatedAt)) ||
-            (b?.createdAt && Date.parse(b.createdAt)) ||
-            0;
-          return tb - ta;
-        });
-      }
-      setOrders(list);
+      setOrders(sortOrders(list, s));
     } catch (e) {
       setOrders([]);
       toast.error(e?.message || "Tải đơn thất bại");
@@ -184,6 +357,60 @@ export default function OrdersPage() {
     fetchOrders(tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, tab]);
+
+
+  // Watch pending Zalopay orders in the current list and poll their status
+  useEffect(() => {
+    if (!orders || !orders.length) return undefined;
+    const watchList = orders
+      .filter((o) => String(o.method || "").toLowerCase() === "zalopay")
+      .filter((o) => !isOrderPaid(o))
+      .map((o) => String(o.orderCode || ""))
+      .filter(Boolean);
+    if (!watchList.length) return undefined;
+
+    const POLL_INTERVAL = 3000; // 3s
+    const TIMEOUT_MS = Number(process.env.REACT_APP_POLL_TIMEOUT_MS || 2 * 60 * 1000); // 2m
+    const start = Date.now();
+    const id = setInterval(async () => {
+      try {
+        for (const code of watchList) {
+          try {
+            let latest = null;
+            try {
+              const confirmRes = await api.zalopayConfirm({ orderCode: code });
+              latest = confirmRes?.data || null;
+            } catch {
+              const res = me
+                ? await api.v1ClientOrderByCode(code)
+                : await api.getOrderByCode(code);
+              latest = res?.data || null;
+            }
+            if (latest) {
+              // If updated to paid or status changed, refresh whole list to keep ordering
+              if (isOrderPaid(latest) || getOrderDisplayStatus(latest) !== "pending") {
+                fetchCounts();
+                fetchOrders(tab);
+                clearInterval(id);
+                return;
+              }
+            }
+          } catch (e) {
+            // ignore per-order errors
+          }
+        }
+        if (Date.now() - start > TIMEOUT_MS) {
+          clearInterval(id);
+        }
+      } catch (e) {
+        // swallow
+      }
+    }, POLL_INTERVAL);
+
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, me, tab]);
+
 
   const cancelFromList = async (orderCode) => {
     const code = String(orderCode || "").trim();
@@ -280,6 +507,82 @@ export default function OrdersPage() {
     return parts.length ? parts.join(" · ") : "Mặc định";
   };
 
+
+  const isZaloPending = (o) => {
+    if (!o) return false;
+    if (getOrderDisplayStatus(o) === "cancelled") return false;
+    if (String(o.method || "").toLowerCase() !== "zalopay") return false;
+    if (isOrderPaid(o)) return false;
+    // Prefer explicit expiresAt, else fallback to createdAt + 2 hours for legacy orders
+    const PAYMENT_WINDOW_MS = Number(process.env.REACT_APP_PAYMENT_WINDOW_MS || 2 * 60 * 60 * 1000);
+    const expRaw = o?.payment?.expiresAt || null;
+    const exp = expRaw ? new Date(expRaw) : new Date(Date.parse(o.createdAt || Date.now()) + PAYMENT_WINDOW_MS);
+    // Also ensure we have an orderUrl to open
+    const hasUrl = Boolean(o?.payment?.orderUrl);
+    return hasUrl && exp && exp.getTime() > Date.now();
+  };
+
+  const handlePayNow = (o) => {
+    try {
+      const url = o?.payment?.orderUrl;
+      if (!url) {
+        toast.error("Đường dẫn thanh toán không khả dụng");
+        return;
+      }
+      try {
+        localStorage.setItem(
+          'ZALOPAY_PENDING_ORDER',
+          JSON.stringify({
+            orderCode: String(o?.orderCode || ''),
+            appTransId: String(o?.payment?.appTransId || ''),
+          }),
+        );
+      } catch {}
+      const w = window.open(url, "_blank");
+      // Start a short-lived poll for this order to detect quick completion when
+      // opener messaging/storage isn't reliable (some browsers restrict messaging).
+      try {
+        const orderCode = String(o.orderCode || "");
+        if (orderCode) {
+          const POLL_MS = 2000;
+          const TIMEOUT_MS = 30 * 1000; // 30s
+          const start = Date.now();
+          const id = setInterval(async () => {
+            try {
+              let latest = null;
+              try {
+                const confirmRes = await api.zalopayConfirm({ orderCode });
+                latest = confirmRes?.data || null;
+              } catch {
+                const res = me
+                  ? await api.v1ClientOrderByCode(orderCode)
+                  : await api.getOrderByCode(orderCode);
+                latest = res?.data || null;
+              }
+              if (latest && (isOrderPaid(latest) || getOrderDisplayStatus(latest) !== "pending")) {
+                clearInterval(id);
+                // Ensure list updated
+                fetchCounts();
+                fetchOrders(tab);
+                try { localStorage.removeItem('ZALOPAY_PAID'); } catch {}
+                // Close payment window if still open
+                try { if (w && !w.closed) w.close(); } catch (e) {}
+              } else if (Date.now() - start > TIMEOUT_MS) {
+                clearInterval(id);
+              }
+            } catch (e) {
+              // ignore polling errors, stop when timeout
+              if (Date.now() - start > TIMEOUT_MS) clearInterval(id);
+            }
+          }, POLL_MS);
+        }
+      } catch (e) {}
+    } catch (e) {
+      toast.error("Không thể mở trang thanh toán");
+    }
+  };
+
+
   return (
     <div className="orders-page">
       <div className="container orders-mobileContainer">
@@ -370,7 +673,7 @@ export default function OrdersPage() {
                       <div className="orders-orderCardHead">
                         <div className="orders-shopName">Mix Charm</div>
                         <div className="orders-orderStatus">
-                          {statusLabel(o.status)}
+                          {statusLabel(getOrderDisplayStatus(o))}
                         </div>
                       </div>
 
@@ -410,6 +713,16 @@ export default function OrdersPage() {
                       </div>
 
                       <div className="orders-orderActions">
+
+                      {isZaloPending(o) ? (
+                        <button
+                          type="button"
+                          className="orders-btn orders-btnPrimary"
+                          onClick={() => handlePayNow(o)}
+                        >
+                          Thanh toán ngay
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="orders-btn"
@@ -422,7 +735,7 @@ export default function OrdersPage() {
                       >
                         Xem chi tiết
                       </button>
-                        {["pending", "confirmed"].includes(o.status) ? (
+                        {["pending", "confirmed"].includes(getOrderDisplayStatus(o)) ? (
                           <button
                             type="button"
                             className="orders-btn orders-btnSecondary"
@@ -473,7 +786,9 @@ export default function OrdersPage() {
                 orders.map((o) => (
                   <div key={o.orderCode} className="orders-orderCard">
                     <div className="orders-orderCardHead">
-                      <div className="orders-orderStatus">{statusLabel(o.status)}</div>
+
+                      <div className="orders-orderStatus">{statusLabel(getOrderDisplayStatus(o))}</div>
+
                     </div>
 
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -552,6 +867,17 @@ export default function OrdersPage() {
                         <div style={{ fontWeight: 600, marginBottom: 8 }}>
                           Tổng tiền: {formatPrice(o.totalPrice)}
                         </div>
+
+                        {isZaloPending(o) ? (
+                          <button
+                            type="button"
+                            className="orders-btn orders-btnPrimary"
+                            onClick={() => handlePayNow(o)}
+                          >
+                            Thanh toán ngay
+                          </button>
+                        ) : null}
+
                         <button
                           type="button"
                           className="orders-btn"

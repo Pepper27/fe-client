@@ -39,6 +39,9 @@ export default function ProductDetailPage() {
   const [engraveOpen, setEngraveOpen] = useState(false);
   const [engraving, setEngraving] = useState(null);
 
+  // Optional override preview image to show inside engraving modal when opened
+  const [engravePreviewImage, setEngravePreviewImage] = useState(null);
+
   // product.description is stored as HTML from the admin editor
   const descriptionHtml = useMemo(() => {
     const raw = product?.description;
@@ -1428,7 +1431,9 @@ export default function ProductDetailPage() {
           <p className="product-price">{formatPrice(price)}</p>
 
           {/* RATING */}
-          <div className="product-rating">
+
+          {/* <div className="product-rating">
+>>>>>>> 40ecb53be07e3bab8a6ef6e753991fb56314c11f
             <div className="stars" aria-hidden>
               {[1, 2, 3, 4, 5].map((n) => (
                 <span key={n} className="star">
@@ -1437,7 +1442,9 @@ export default function ProductDetailPage() {
               ))}
             </div>
             <div className="rating-meta">(1 ĐÁNH GIÁ)</div>
-          </div>
+
+          </div> */}
+
 
           {/* MATERIALS */}
           <div className="option-section">
@@ -1593,7 +1600,13 @@ export default function ProductDetailPage() {
 
           <EngravingModal
             open={engraveOpen}
-            onClose={() => setEngraveOpen(false)}
+
+            onClose={() => {
+              setEngraveOpen(false);
+              // clear any temporary preview override when modal closes
+              setEngravePreviewImage(null);
+            }}
+
           onSave={(val) => {
               setEngraving(val);
               setEngraveOpen(false);
@@ -1637,7 +1650,11 @@ export default function ProductDetailPage() {
                 setAddingCart(false);
               }
             }}
+
+            // If we set an override preview (when user clicked the CTA), prefer it.
             previewImage={
+              engravePreviewImage ||
+
               String(product?.engraving?.previewImage || "").trim() ||
               (selectedVariant?.images && selectedVariant.images[0]) ||
               null
@@ -1674,7 +1691,18 @@ export default function ProductDetailPage() {
               <button
                 type="button"
                 className="engrave-cta"
-                onClick={() => setEngraveOpen(true)}
+                onClick={() => {
+                  // When customer opens engraving modal via this CTA, prefer showing the
+                  // second product image (images[1]) as the preview for engraving
+                  // if available. Fallback to first image or null.
+                  try {
+                    const pref = images && images.length > 1 ? images[1] : (images && images[0]) || null;
+                    setEngravePreviewImage(pref);
+                  } catch (e) {
+                    setEngravePreviewImage((images && images[0]) || null);
+                  }
+                  setEngraveOpen(true);
+                }}
                 disabled={isSoldOut}
               >
                 KHẮC THÔNG ĐIỆP CỦA BẠN

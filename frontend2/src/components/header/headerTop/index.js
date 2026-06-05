@@ -248,7 +248,8 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
                     setQuery(newValue);
                     if (typeof handleSearch === "function") handleSearch(newValue);
                   },
-                  placeholder: "Mày cần tìm gì?",
+
+                  placeholder: "Bạn cần tìm gì?",
                   'data-search': true,
                 }}
               />

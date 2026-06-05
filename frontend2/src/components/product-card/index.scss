@@ -9,6 +9,7 @@
   padding: 0;
   display: block;
   width: 100%;
+  height: 100%;
   cursor: pointer;
 }
 
@@ -21,7 +22,10 @@
 .product-item-container {
   background: #fff;
   position: relative;
-  // width: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+
 }
 
 /* square modifier: force no rounding and clip overflow */
@@ -41,15 +45,19 @@ button.product-item-link {
 /* IMAGE */
 .image-wrapper {
   position: relative;
-  // background: #f2f2f2;
-  overflow: hidden; // tránh zoom tràn
+  background: $color-gray-card;
+  overflow: hidden;
   width: 100%;
+  aspect-ratio: 1 / 1;
 }
 
 .product-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
-  object-fit: cover; // ảnh phủ kín khung
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
   display: block;
   transition: transform 0.3s ease;
   background: $color-gray-card;
@@ -89,6 +97,7 @@ button.product-item-link {
   padding-left: 2px;
   justify-content: flex-start;
   color: #000;
+  min-height: 28px;
 }
 
 .message-tag {
@@ -105,10 +114,15 @@ button.product-item-link {
   margin: 8px 0 0 0;
   font-size: 14px;
   font-weight: 600;
-  min-height: 38px;
+  line-height: 1.4;
+  min-height: 40px;
   text-align: left;
   color: #000;
   padding-left: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* PRICE */
@@ -118,5 +132,6 @@ button.product-item-link {
   text-align: left;
   padding: 3px 0 0 2px;
   font-size: 14px;
-  margin: 0;
+  margin: auto 0 0;
+
 }

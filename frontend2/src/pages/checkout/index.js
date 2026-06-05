@@ -610,6 +610,17 @@ export default function CheckoutPage() {
       if (method === 'zalopay' && res && res.zalopay && res.zalopay.orderUrl) {
         try {
           paymentInProgressRef.current = true;
+
+          try {
+            localStorage.setItem(
+              'ZALOPAY_PENDING_ORDER',
+              JSON.stringify({
+                orderCode: String(res?.data?.orderCode || ''),
+                appTransId: String(res?.zalopay?.appTransId || ''),
+              }),
+            );
+          } catch {}
+
           // Don't clear buyNow session keys yet; they will be cleared on confirm or on failure.
           window.location.href = res.zalopay.orderUrl;
           return; // navigation will unload the page
