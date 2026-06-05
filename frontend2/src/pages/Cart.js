@@ -47,10 +47,35 @@ const normAttr = (v) => {
   return s;
 };
 
-const countUniqueCartItems = (cart) => {
+const countCartItems = (cart) => {
   const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
   const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
   return productCount + bundleCount;
+};
+
+const readAfterZalopayMarker = () => {
+  try {
+    const raw = sessionStorage.getItem("cart:afterZalopay");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return {
+      bundleIds: Array.isArray(parsed?.bundleIds)
+        ? parsed.bundleIds.map(String).filter(Boolean)
+        : [],
+      productLineIds: Array.isArray(parsed?.productLineIds)
+        ? parsed.productLineIds.map(String).filter(Boolean)
+        : [],
+      at: Number(parsed?.at) || Date.now(),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const clearAfterZalopayMarker = () => {
+  try {
+    sessionStorage.removeItem("cart:afterZalopay");
+  } catch {}
 };
 
 export default function Cart() {
@@ -205,10 +230,32 @@ export default function Cart() {
   const refresh = async () => {
     setLoading(true);
     try {
-      const res = await api.getCart();
+      const afterZalopay = readAfterZalopayMarker();
+      const pendingBundleIds = new Set(afterZalopay?.bundleIds || []);
+      const pendingProductLineIds = new Set(afterZalopay?.productLineIds || []);
+
+      let nextCart = null;
+      const attempts = afterZalopay ? 8 : 1;
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        const res = await api.getCart();
+        nextCart = res?.data || null;
+        if (!afterZalopay) break;
+
+        const hasPendingBundles = (nextCart?.bundles || []).some((bundle) =>
+          pendingBundleIds.has(String(bundle?.bundleId || "")),
+        );
+        const hasPendingProducts = (nextCart?.products || []).some((line) =>
+          pendingProductLineIds.has(String(line?._id || "")),
+        );
+        if (!hasPendingBundles && !hasPendingProducts) break;
+
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+      }
+
+      clearAfterZalopayMarker();
       // set cart from server; but keep existing selections where possible to avoid UI jumps
       setCart((prev) => {
-        const next = res?.data || null;
+        const next = nextCart;
         if (!next) return next;
         // preserve previous selection state keys where same bundle/product ids exist
         try {
@@ -218,8 +265,15 @@ export default function Cart() {
         } catch (e) {}
         return next;
       });
-      const products = res?.data?.products || [];
-      const bundles = res?.data?.bundles || [];
+      try {
+        const nextCount = countCartItems(nextCart);
+        window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
+        window.dispatchEvent(
+          new CustomEvent("cart:changed", { detail: { count: nextCount } }),
+        );
+      } catch {}
+      const products = nextCart?.products || [];
+      const bundles = nextCart?.bundles || [];
       // collect productIds referenced by legacy product lines and bracelet productIds from bundles
       const ids = Array.from(
         new Set([
@@ -237,7 +291,13 @@ export default function Cart() {
         setProductMetaMap(new Map());
       }
     } catch (e) {
-      toast.error(e.message || "Failed to load cart");
+      clearAfterZalopayMarker();
+      if (e?.status === 401) {
+        setCart({ products: [], bundles: [] });
+        setProductMetaMap(new Map());
+      } else {
+        toast.error(e.message || "Failed to load cart");
+      }
     } finally {
       setLoading(false);
     }
@@ -257,9 +317,20 @@ export default function Cart() {
       timeout = setTimeout(async () => {
         try {
           const res = await api.getCart();
-          setCart(res?.data || null);
+          const nextCart = res?.data || null;
+          setCart(nextCart);
+          try {
+            const nextCount = countCartItems(nextCart);
+            window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
+            window.dispatchEvent(
+              new CustomEvent("cart:changed", { detail: { count: nextCount } }),
+            );
+          } catch {}
         } catch (e) {
-          // ignore
+          if (e?.status === 401) {
+            setCart({ products: [], bundles: [] });
+            setProductMetaMap(new Map());
+          }
         }
       }, 250);
     };
@@ -356,16 +427,17 @@ export default function Cart() {
         return next;
       });
       if (nextCart) {
-        const nextCount = countUniqueCartItems(nextCart);
+        const nextCount = countCartItems(nextCart);
         try {
           window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: nextCount } }));
         } catch {}
       }
       await api.deleteBundle(bundleId);
+      window.location.reload();
     } catch (e) {
       setCart(prev);
       try {
-        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countUniqueCartItems(prev) } }));
+        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countCartItems(prev) } }));
       } catch {}
       toast.error(e.message || "Delete failed");
     }
@@ -382,17 +454,18 @@ export default function Cart() {
         return next;
       });
       if (nextCart) {
-        const nextCount = countUniqueCartItems(nextCart);
+        const nextCount = countCartItems(nextCart);
         try {
           window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: nextCount } }));
         } catch {}
       }
       await api.deleteProduct(lineId);
       toast.success("Xóa sản phẩm khỏi giỏ hàng thành công");
+      window.location.reload();
     } catch (e) {
       setCart(prev);
       try {
-        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countUniqueCartItems(prev) } }));
+        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countCartItems(prev) } }));
       } catch {}
       toast.error(e.message || "Delete failed");
     }

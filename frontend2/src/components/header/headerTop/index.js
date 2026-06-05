@@ -15,7 +15,7 @@ import { api } from "../../../utils/api";
 import { formatPrice } from "../../../utils/format";
 import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
 
-const countUniqueCartItems = (cart) => {
+const countCartItems = (cart) => {
   const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
   const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
   return productCount + bundleCount;
@@ -49,14 +49,15 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
       try {
         const res = await api.getCart();
         if (cancelled) return;
-        const nextCount = countUniqueCartItems(res?.data || null);
+        const nextCount = countCartItems(res?.data || null);
         setCartCount(nextCount);
         try {
           window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
         } catch {}
       } catch {
         if (cancelled) return;
-        setCartCount(0);
+        // Keep the cached badge when cart refresh fails; other flows may have
+        // already computed a more accurate fallback count.
       }
     };
 
@@ -91,6 +92,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
         try {
           window.sessionStorage.setItem("cart:cachedCount", String(Math.max(0, provided)));
         } catch {}
+        return;
       }
       refreshCartCount();
     };

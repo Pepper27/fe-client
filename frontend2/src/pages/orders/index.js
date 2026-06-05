@@ -6,7 +6,6 @@ import { formatPrice } from "../../utils/format";
 import {
   getOrderDisplayStatus,
   isOrderPaid,
-  markOrderPaidLocally,
 } from "../../utils/order-status";
 import toast from "react-hot-toast";
 
@@ -102,59 +101,6 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, location.search]);
 
-  // Listen for postMessage from payment popup/tab to refresh order list
-  useEffect(() => {
-    const onMessage = (evt) => {
-      try {
-        const msg = evt?.data || null;
-        if (!msg || msg.type !== 'ZALOPAY_PAID') return;
-        // Refresh current tab list so paid orders update UI and button disappears
-        fetchCounts();
-        fetchOrders(tab);
-      } catch (e) {}
-    };
-    const onStorage = (evt) => {
-      try {
-        if (evt?.key === 'ZALOPAY_PAID' && evt?.newValue) {
-          fetchCounts();
-          fetchOrders(tab);
-        }
-      } catch (e) {}
-    };
-    window.addEventListener('message', onMessage);
-    window.addEventListener('storage', onStorage);
-    // Also refresh when the tab regains focus (user returned from payment tab)
-    const onFocus = () => {
-      try {
-        // Force a full reload when the tab regains focus to ensure UI reflects
-        // any changes performed in the payment tab. This is a last-resort
-        // measure for environments where messaging/storage/polling fail.
-        if (document.visibilityState === 'visible') {
-          window.location.reload();
-        }
-      } catch (e) {}
-    };
-    window.addEventListener('focus', onFocus);
-    // Poll localStorage flag as well (for same-tab payment flows)
-    const pollId = setInterval(() => {
-      try {
-        const v = localStorage.getItem('ZALOPAY_PAID');
-        if (v) {
-          localStorage.removeItem('ZALOPAY_PAID');
-          fetchCounts();
-          fetchOrders(tab);
-        }
-      } catch {}
-    }, 1000);
-    return () => {
-      window.removeEventListener('message', onMessage);
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('focus', onFocus);
-      clearInterval(pollId);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
-
   const initialTabFromQuery = useMemo(() => {
     const qs = new URLSearchParams(location.search || "");
     const t = String(qs.get("tab") || "").trim();
@@ -204,50 +150,6 @@ export default function OrdersPage() {
     delivered: 0,
     cancelled: 0,
   });
-
-  useEffect(() => {
-    const qs = new URLSearchParams(location.search || "");
-    if (qs.get("zalopayReturn") !== "1") return;
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const raw = localStorage.getItem("ZALOPAY_PENDING_ORDER");
-        const pending = raw ? JSON.parse(raw) : null;
-        const orderCode = String(pending?.orderCode || "");
-        const appTransId = String(pending?.appTransId || "");
-        if (!orderCode && !appTransId) {
-          navigate("/orders?tab=pending", { replace: true });
-          return;
-        }
-
-        const res = await api.zalopayConfirm({ orderCode, appTransId });
-        if (cancelled) return;
-
-        if (isOrderPaid(res?.data)) {
-          const paidOrderCode = String(res?.data?.orderCode || orderCode || "");
-          markOrderPaidLocally(paidOrderCode);
-          try {
-            localStorage.setItem("ZALOPAY_PAID", paidOrderCode);
-            localStorage.removeItem("ZALOPAY_PENDING_ORDER");
-          } catch {}
-          navigate("/orders?tab=confirmed", { replace: true });
-          return;
-        }
-
-        navigate("/orders?tab=pending", { replace: true });
-      } catch (e) {
-        if (cancelled) return;
-        toast.error(e?.message || "Xác nhận thanh toán thất bại");
-        navigate("/orders?tab=pending", { replace: true });
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [location.search, navigate]);
 
   useEffect(() => {
     setTab(initialTabFromQuery);
@@ -523,54 +425,7 @@ export default function OrdersPage() {
         toast.error("Đường dẫn thanh toán không khả dụng");
         return;
       }
-      try {
-        localStorage.setItem(
-          'ZALOPAY_PENDING_ORDER',
-          JSON.stringify({
-            orderCode: String(o?.orderCode || ''),
-            appTransId: String(o?.payment?.appTransId || ''),
-          }),
-        );
-      } catch {}
-      const w = window.open(url, "_blank");
-      // Start a short-lived poll for this order to detect quick completion when
-      // opener messaging/storage isn't reliable (some browsers restrict messaging).
-      try {
-        const orderCode = String(o.orderCode || "");
-        if (orderCode) {
-          const POLL_MS = 2000;
-          const TIMEOUT_MS = 30 * 1000; // 30s
-          const start = Date.now();
-          const id = setInterval(async () => {
-            try {
-              let latest = null;
-              try {
-                const confirmRes = await api.zalopayConfirm({ orderCode });
-                latest = confirmRes?.data || null;
-              } catch {
-                const res = me
-                  ? await api.v1ClientOrderByCode(orderCode)
-                  : await api.getOrderByCode(orderCode);
-                latest = res?.data || null;
-              }
-              if (latest && (isOrderPaid(latest) || getOrderDisplayStatus(latest) !== "pending")) {
-                clearInterval(id);
-                // Ensure list updated
-                fetchCounts();
-                fetchOrders(tab);
-                try { localStorage.removeItem('ZALOPAY_PAID'); } catch {}
-                // Close payment window if still open
-                try { if (w && !w.closed) w.close(); } catch (e) {}
-              } else if (Date.now() - start > TIMEOUT_MS) {
-                clearInterval(id);
-              }
-            } catch (e) {
-              // ignore polling errors, stop when timeout
-              if (Date.now() - start > TIMEOUT_MS) clearInterval(id);
-            }
-          }, POLL_MS);
-        }
-      } catch (e) {}
+      window.open(url, "_blank");
     } catch (e) {
       toast.error("Không thể mở trang thanh toán");
     }
