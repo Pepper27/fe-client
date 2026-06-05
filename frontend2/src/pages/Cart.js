@@ -401,6 +401,7 @@ export default function Cart() {
   const bundles = cart?.bundles || [];
   // legacy product lines
   const products = cart?.products || [];
+  const hasCartItems = products.length > 0 || bundles.length > 0;
   const charmById = useMemo(() => {
     const m = new Map();
     for (const p of charms || []) m.set(String(p?._id), p);
@@ -711,28 +712,29 @@ export default function Cart() {
                             <div style={{ fontWeight: 900, fontSize: 20 }}>{title}</div>
                             {inlineAttrs ? <div style={{ color: '#333', marginTop: 6 }}>{inlineAttrs}</div> : null}
                             {(function(){
+                              const engravingText = String(pl?.engraving?.text || '').trim();
                               // attempt to read client-side fallback map
                               try {
                                 const key = 'engraving_preview_map';
                                 const raw = localStorage.getItem(key);
                                 const map = raw ? JSON.parse(raw) : {};
                                 const preview = map && map[String(pl._id)];
-                                if (preview) {
+                                if (preview && engravingText) {
                                   // render a shallow engraving-like UI even if server didn't persist engraving
                                   return (
                                     <div style={{ color: '#374151', marginTop: 6, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 10 }}>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <div>Khắc:</div>
-                                        <div style={{ fontWeight: 800 }}>{String(pl?.engraving?.text || '')}</div>
+                                        <div style={{ fontWeight: 800 }}>{engravingText}</div>
                                       </div>
                                       <img src={preview} alt={`Preview khắc`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }} />
                                     </div>
                                   );
                                 }
                               } catch (e) {}
-                              return pl?.engraving ? (
+                              return engravingText ? (
                                 <div style={{ color: '#374151', marginTop: 6, fontWeight: 700 }}>
-                                  Khắc: {String(pl.engraving.text)}
+                                  Khắc: {engravingText}
                                 </div>
                               ) : null;
                             })()}
@@ -972,15 +974,13 @@ export default function Cart() {
                         })}
                       </div>
 
-                    ) : (
+                    ) : null}
+
+                    {!hasCartItems ? (
                       <div className="cart2-empty">
-                        Giỏ hàng đang trống. Vào {" "}
-                        <a className="font-semibold underline" href="/design/mix">
-                          Mix Charm
-                        </a>{" "}
-                        để tạo 1 thiết kế.
+                        Giỏ hàng đang trống!
                       </div>
-                    )}
+                    ) : null}
                   </>
                 )}
               </div>

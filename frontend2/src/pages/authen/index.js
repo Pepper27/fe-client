@@ -386,8 +386,8 @@ export default function Authentication() {
         <h1 className="auth-title">{heading}</h1>
         <p className="auth-subtitle">
           {activeTab === "register"
-            ? "Đăng ký ngay để nhận các ưu đãi độc quyền từ Pandora"
-            : "Đăng nhập ngay để nhận các ưu đãi độc quyền từ Pandora"}
+            ? "Đăng ký ngay để nhận các ưu đãi độc quyền từ Kim Bảo"
+            : "Đăng nhập ngay để nhận các ưu đãi độc quyền từ Kim Bảo"}
         </p>
 
         {me ? (
