@@ -15,6 +15,12 @@ import { api } from "../../../utils/api";
 import { formatPrice } from "../../../utils/format";
 import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
 
+const countUniqueCartItems = (cart) => {
+  const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
+  const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
+  return productCount + bundleCount;
+};
+
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   const navigate = useNavigate();
   const [me, setMe] = useState(null);
@@ -39,6 +45,21 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   useEffect(() => {
     let cancelled = false;
 
+    const refreshCartCount = async () => {
+      try {
+        const res = await api.getCart();
+        if (cancelled) return;
+        const nextCount = countUniqueCartItems(res?.data || null);
+        setCartCount(nextCount);
+        try {
+          window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
+        } catch {}
+      } catch {
+        if (cancelled) return;
+        setCartCount(0);
+      }
+    };
+
     const refresh = () => {
       // Prefer legacy cookie auth (has register/logout/forgot).
       // If BE later switches header UI to v1 bearer, we can flip this.
@@ -59,42 +80,21 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
       refresh();
       // After login/logout, cart content can change (cookie/session tied to user).
       // Refresh badge immediately so user doesn't need a full reload.
-      onCartChanged();
+      refreshCartCount();
     };
     window.addEventListener("auth:changed", onAuthChanged);
-    // listen to cart changes to update badge
-    const onCartChanged = async (evt) => {
-      try {
-        // If emitter provided immediate count, use it to avoid an extra request
-        const provided = evt && evt.detail && typeof evt.detail.count === 'number' ? evt.detail.count : null;
-        if (typeof provided === 'number') {
-          setCartCount(provided);
-          try { window.sessionStorage.setItem('cart:cachedCount', String(provided)); } catch {}
-          return;
-        }
-        const res = await api.getCart();
-        const cart = res?.data || null;
-        const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
-        setCartCount(qty);
-        try { window.sessionStorage.setItem('cart:cachedCount', String(qty)); } catch {}
-      } catch {
-        setCartCount(0);
-      }
-    };
-    // call once to populate initial badge
-    try {
-      const hasBuyNow = typeof window !== 'undefined' && window.sessionStorage && window.sessionStorage.getItem('checkout:buyNow');
-      if (hasBuyNow) {
+    // Use optimistic counts when provided, then reconcile with the current cart.
+    const onCartChanged = (evt) => {
+      const provided = evt?.detail?.count;
+      if (typeof provided === "number" && Number.isFinite(provided)) {
+        setCartCount(Math.max(0, provided));
         try {
-          const cached = window.sessionStorage.getItem('cart:cachedCount');
-          if (cached !== null) setCartCount(Number(cached));
+          window.sessionStorage.setItem("cart:cachedCount", String(Math.max(0, provided)));
         } catch {}
-      } else {
-        onCartChanged();
       }
-    } catch {
-      onCartChanged();
-    }
+      refreshCartCount();
+    };
+    refreshCartCount();
     window.addEventListener('cart:changed', onCartChanged);
     return () => {
       cancelled = true;

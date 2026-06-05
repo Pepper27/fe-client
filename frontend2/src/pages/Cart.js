@@ -47,6 +47,12 @@ const normAttr = (v) => {
   return s;
 };
 
+const countUniqueCartItems = (cart) => {
+  const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
+  const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
+  return productCount + bundleCount;
+};
+
 export default function Cart() {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
@@ -342,14 +348,25 @@ export default function Cart() {
   const removeBundle = async (bundleId) => {
     const prev = cart;
     try {
+      let nextCart = null;
       setCart((c) => {
         if (!c) return c;
         const next = { ...c, bundles: (c.bundles || []).filter((b) => String(b.bundleId) !== String(bundleId)) };
+        nextCart = next;
         return next;
       });
+      if (nextCart) {
+        const nextCount = countUniqueCartItems(nextCart);
+        try {
+          window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: nextCount } }));
+        } catch {}
+      }
       await api.deleteBundle(bundleId);
     } catch (e) {
       setCart(prev);
+      try {
+        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countUniqueCartItems(prev) } }));
+      } catch {}
       toast.error(e.message || "Delete failed");
     }
   };
@@ -357,15 +374,26 @@ export default function Cart() {
   const removeProductLine = async (lineId) => {
     const prev = cart;
     try {
+      let nextCart = null;
       setCart((c) => {
         if (!c) return c;
         const next = { ...c, products: (c.products || []).filter((p) => String(p._id) !== String(lineId)) };
+        nextCart = next;
         return next;
       });
+      if (nextCart) {
+        const nextCount = countUniqueCartItems(nextCart);
+        try {
+          window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: nextCount } }));
+        } catch {}
+      }
       await api.deleteProduct(lineId);
       toast.success("Xóa sản phẩm khỏi giỏ hàng thành công");
     } catch (e) {
       setCart(prev);
+      try {
+        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countUniqueCartItems(prev) } }));
+      } catch {}
       toast.error(e.message || "Delete failed");
     }
   };
