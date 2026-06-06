@@ -711,14 +711,10 @@ export default function CheckoutPage() {
       toast.error("Vui lòng chọn địa chỉ giao hàng");
       return;
     }
-    const orderEmail = String(selectedAddress.email || "")
+    const orderEmail = String(selectedAddress.email || me?.email || "")
       .trim()
       .toLowerCase();
-    if (!orderEmail) {
-      toast.error("Vui lòng nhập email để nhận thông tin đơn hàng");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orderEmail)) {
+    if (orderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orderEmail)) {
       toast.error("Email không hợp lệ");
       return;
     }
@@ -807,7 +803,7 @@ export default function CheckoutPage() {
         fullName: selectedAddress.fullName,
         phone: selectedAddress.phone,
         address: selectedAddress.address,
-        email: orderEmail,
+        email: orderEmail || undefined,
         method,
       });
       // If Zalopay flow was used, BE returns zalopay.orderUrl for redirect.
