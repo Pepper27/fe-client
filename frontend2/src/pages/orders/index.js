@@ -7,6 +7,7 @@ import {
   getOrderDisplayStatus,
   isOrderPaid,
 } from "../../utils/order-status";
+import { isAuthBlockedInTab } from "../../utils/auth-tab";
 import toast from "react-hot-toast";
 
 const statusLabel = (s) => {
@@ -121,6 +122,10 @@ export default function OrdersPage() {
     let cancelled = false;
 
     const refreshMe = () => {
+      if (isAuthBlockedInTab()) {
+        setMe(null);
+        return;
+      }
       api
         .v1AuthMe()
         .then((res) => {

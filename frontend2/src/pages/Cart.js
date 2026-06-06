@@ -5,6 +5,7 @@ import { api } from "../utils/api";
 import "./Cart.scss";
 import { formatPrice } from "../utils/format";
 import toast from "react-hot-toast";
+import { countCartLines, dispatchCartChanged } from "../utils/cart-count";
 
 // Find variant by identifier: prefer _id (or id), fallback to code/variantCode
 const findVariant = (product, identifier) => {
@@ -45,12 +46,6 @@ const normAttr = (v) => {
   const s = String(v).trim();
   if (!s || s === "0") return null;
   return s;
-};
-
-const countCartItems = (cart) => {
-  const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
-  const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
-  return productCount + bundleCount;
 };
 
 const readAfterZalopayMarker = () => {
@@ -266,11 +261,8 @@ export default function Cart() {
         return next;
       });
       try {
-        const nextCount = countCartItems(nextCart);
-        window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
-        window.dispatchEvent(
-          new CustomEvent("cart:changed", { detail: { count: nextCount } }),
-        );
+        const nextCount = countCartLines(nextCart);
+        dispatchCartChanged(nextCount);
       } catch {}
       const products = nextCart?.products || [];
       const bundles = nextCart?.bundles || [];
@@ -320,11 +312,8 @@ export default function Cart() {
           const nextCart = res?.data || null;
           setCart(nextCart);
           try {
-            const nextCount = countCartItems(nextCart);
-            window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
-            window.dispatchEvent(
-              new CustomEvent("cart:changed", { detail: { count: nextCount } }),
-            );
+            const nextCount = countCartLines(nextCart);
+            dispatchCartChanged(nextCount);
           } catch {}
         } catch (e) {
           if (e?.status === 401) {
@@ -427,9 +416,9 @@ export default function Cart() {
         return next;
       });
       if (nextCart) {
-        const nextCount = countCartItems(nextCart);
+        const nextCount = countCartLines(nextCart);
         try {
-          window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: nextCount } }));
+          dispatchCartChanged(nextCount);
         } catch {}
       }
       await api.deleteBundle(bundleId);
@@ -437,7 +426,7 @@ export default function Cart() {
     } catch (e) {
       setCart(prev);
       try {
-        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countCartItems(prev) } }));
+        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countCartLines(prev) } }));
       } catch {}
       toast.error(e.message || "Delete failed");
     }
@@ -454,9 +443,9 @@ export default function Cart() {
         return next;
       });
       if (nextCart) {
-        const nextCount = countCartItems(nextCart);
+        const nextCount = countCartLines(nextCart);
         try {
-          window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: nextCount } }));
+          dispatchCartChanged(nextCount);
         } catch {}
       }
       await api.deleteProduct(lineId);
@@ -465,7 +454,7 @@ export default function Cart() {
     } catch (e) {
       setCart(prev);
       try {
-        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countCartItems(prev) } }));
+        window.dispatchEvent(new CustomEvent("cart:changed", { detail: { count: countCartLines(prev) } }));
       } catch {}
       toast.error(e.message || "Delete failed");
     }

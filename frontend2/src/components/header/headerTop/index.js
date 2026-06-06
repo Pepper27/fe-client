@@ -14,12 +14,9 @@ import { Link } from "react-router-dom";
 import { api } from "../../../utils/api";
 import { formatPrice } from "../../../utils/format";
 import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
-
-const countCartItems = (cart) => {
-  const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
-  const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
-  return productCount + bundleCount;
-};
+import { cacheCartCount, countCartLines } from "../../../utils/cart-count";
+import { publishAuthSync } from "../../../utils/auth-sync";
+import { clearAuthBlockInTab, isAuthBlockedInTab } from "../../../utils/auth-tab";
 
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   const navigate = useNavigate();
@@ -49,11 +46,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
       try {
         const res = await api.getCart();
         if (cancelled) return;
-        const nextCount = countCartItems(res?.data || null);
+        const nextCount = countCartLines(res?.data || null);
         setCartCount(nextCount);
-        try {
-          window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
-        } catch {}
+        cacheCartCount(nextCount);
       } catch {
         if (cancelled) return;
         // Keep the cached badge when cart refresh fails; other flows may have
@@ -62,6 +57,10 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     };
 
     const refresh = () => {
+      if (isAuthBlockedInTab()) {
+        setMe(null);
+        return;
+      }
       // Prefer legacy cookie auth (has register/logout/forgot).
       // If BE later switches header UI to v1 bearer, we can flip this.
       api
@@ -89,9 +88,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
       const provided = evt?.detail?.count;
       if (typeof provided === "number" && Number.isFinite(provided)) {
         setCartCount(Math.max(0, provided));
-        try {
-          window.sessionStorage.setItem("cart:cachedCount", String(Math.max(0, provided)));
-        } catch {}
+        cacheCartCount(provided);
         return;
       }
       refreshCartCount();
@@ -206,7 +203,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
 
   const onLogout = async () => {
     try {
+      clearAuthBlockInTab();
       await api.authLogout();
+      publishAuthSync({ type: "logout" });
     } finally {
       setMe(null);
       window.dispatchEvent(new Event("auth:changed"));
