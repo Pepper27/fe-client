@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { ProductCard } from "../../components/product-card";
 import {
   getWishlist,
-  setWishlist,
   subscribeWishlist,
   syncWishlistFromServer,
 } from "../../utils/wishlist";
@@ -23,8 +22,6 @@ export default function Wishlist() {
     syncWishlistFromServer()
       .then((mapped) => {
         if (cancelled) return;
-        // Keep rendering logic intact but also update local wishlist store.
-        setWishlist(mapped);
         setServerItems(
           mapped.map((it) => ({
             productId: it.id,

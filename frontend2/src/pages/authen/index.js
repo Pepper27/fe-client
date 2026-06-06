@@ -4,7 +4,12 @@ import { IoCloseOutline } from "react-icons/io5";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { FaFacebookF, FaGoogle } from "react-icons/fa";
 import { api } from "../../utils/api";
-import { syncWishlistFromServer } from "../../utils/wishlist";
+import {
+  clearActiveWishlistUser,
+  mergeGuestWishlistToServer,
+  setActiveWishlistUser,
+  syncWishlistFromServer,
+} from "../../utils/wishlist";
 import { publishAuthSync } from "../../utils/auth-sync";
 import { clearAuthBlockInTab, getBlockedAuthState, isAuthBlockedInTab } from "../../utils/auth-tab";
 import "./index.scss";
@@ -67,33 +72,18 @@ export default function Authentication() {
     const resMe = await api.authMe();
     const nextMe = resMe?.data || null;
     setMe(nextMe);
+    const nextUserId = nextMe?.id || nextMe?._id || "";
+    setActiveWishlistUser(nextUserId);
 
-    // Merge local wishlist into server wishlist (preserve local items saved before login)
+    // Merge guest wishlist into the first account that logs in, then clear guest source.
     try {
-      const local = (await import("../../utils/wishlist")).getWishlist();
-      const serverRes = await api.wishlistList().catch(() => null);
-      const serverRows = Array.isArray(serverRes?.data) ? serverRes.data : [];
-      const serverIds = new Set(
-        serverRows.map((r) => String(r?.productId || "")),
-      );
-      const toAdd = (local || []).filter(
-        (it) => it && it.id && !serverIds.has(String(it.id)),
-      );
-      for (const item of toAdd) {
-        try {
-          await api.wishlistAdd({
-            productId: String(item.id),
-            variantCode: "",
-          });
-        } catch {
-          // ignore per-item failures
-        }
-      }
-      try {
-        await syncWishlistFromServer();
-      } catch {
-        // ignore
-      }
+      await mergeGuestWishlistToServer();
+    } catch {
+      // ignore
+    }
+
+    try {
+      await syncWishlistFromServer(nextUserId);
     } catch {
       // ignore
     }
@@ -164,17 +154,23 @@ export default function Authentication() {
     const refreshMe = () => {
       if (isAuthBlockedInTab()) {
         setMe(null);
+        clearActiveWishlistUser();
         return;
       }
       api
         .authMe()
         .then((res) => {
           if (cancelled) return;
-          setMe(res?.data || null);
+          const nextMe = res?.data || null;
+          setMe(nextMe);
+          const nextUserId = nextMe?.id || nextMe?._id || "";
+          if (nextUserId) setActiveWishlistUser(nextUserId);
+          else clearActiveWishlistUser();
         })
         .catch(() => {
           if (cancelled) return;
           setMe(null);
+          clearActiveWishlistUser();
         });
     };
 

@@ -1,34 +1,17 @@
 import { api } from "./api";
 
-const WISHLIST_KEY = "wishlist_products";
+const LEGACY_WISHLIST_KEY = "wishlist_products";
+const GUEST_WISHLIST_KEY = "wishlist:guest";
+const USER_WISHLIST_KEY_PREFIX = "wishlist:user:";
+const ACTIVE_WISHLIST_USER_KEY = "wishlist:activeUserId";
 const WISHLIST_UPDATED_EVENT = "wishlist:updated";
 
 const safeParse = (value) => {
   try {
     return JSON.parse(value);
-  } catch (error) {
+  } catch {
     return [];
   }
-};
-
-export const getWishlist = () => {
-  const raw = localStorage.getItem(WISHLIST_KEY);
-  const parsed = safeParse(raw);
-
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-
-  return parsed.filter((item) => item && item.id);
-};
-
-export const setWishlist = (items) => {
-  const next = Array.isArray(items) ? items.filter((it) => it && it.id) : [];
-  localStorage.setItem(WISHLIST_KEY, JSON.stringify(next));
-  window.dispatchEvent(
-    new CustomEvent(WISHLIST_UPDATED_EVENT, { detail: next }),
-  );
-  return next;
 };
 
 const normalizeItem = (product) => {
@@ -42,6 +25,131 @@ const normalizeItem = (product) => {
     price: product.price ?? 0,
     images: product.images ?? "",
   };
+};
+
+const normalizeItems = (items) => {
+  const rows = Array.isArray(items) ? items : [];
+  return rows.map(normalizeItem).filter(Boolean);
+};
+
+const readKey = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = safeParse(raw);
+    return Array.isArray(parsed) ? parsed.filter((item) => item && item.id) : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeKey = (key, items) => {
+  const next = normalizeItems(items);
+  localStorage.setItem(key, JSON.stringify(next));
+  return next;
+};
+
+const userWishlistKey = (userId) => `${USER_WISHLIST_KEY_PREFIX}${String(userId || "").trim()}`;
+
+const migrateLegacyGuestWishlist = () => {
+  try {
+    const hasGuest = localStorage.getItem(GUEST_WISHLIST_KEY);
+    if (hasGuest !== null) return;
+    const legacy = localStorage.getItem(LEGACY_WISHLIST_KEY);
+    if (!legacy) return;
+    localStorage.setItem(GUEST_WISHLIST_KEY, legacy);
+    localStorage.removeItem(LEGACY_WISHLIST_KEY);
+  } catch {}
+};
+
+const dispatchWishlistUpdated = (items) => {
+  try {
+    window.dispatchEvent(
+      new CustomEvent(WISHLIST_UPDATED_EVENT, { detail: normalizeItems(items) }),
+    );
+  } catch {}
+};
+
+export const getActiveWishlistUserId = () => {
+  try {
+    const raw = localStorage.getItem(ACTIVE_WISHLIST_USER_KEY);
+    const normalized = String(raw || "").trim();
+    return normalized || null;
+  } catch {
+    return null;
+  }
+};
+
+export const setActiveWishlistUser = (userId) => {
+  try {
+    const normalized = String(userId || "").trim();
+    if (!normalized) {
+      localStorage.removeItem(ACTIVE_WISHLIST_USER_KEY);
+      dispatchWishlistUpdated(getGuestWishlist());
+      return null;
+    }
+    localStorage.setItem(ACTIVE_WISHLIST_USER_KEY, normalized);
+    dispatchWishlistUpdated(getWishlist({ userId: normalized }));
+    return normalized;
+  } catch {
+    return null;
+  }
+};
+
+export const clearActiveWishlistUser = () => {
+  try {
+    localStorage.removeItem(ACTIVE_WISHLIST_USER_KEY);
+  } catch {}
+  dispatchWishlistUpdated(getGuestWishlist());
+};
+
+export const getGuestWishlist = () => {
+  migrateLegacyGuestWishlist();
+  return readKey(GUEST_WISHLIST_KEY);
+};
+
+export const setGuestWishlist = (items) => {
+  migrateLegacyGuestWishlist();
+  const next = writeKey(GUEST_WISHLIST_KEY, items);
+  if (!getActiveWishlistUserId()) {
+    dispatchWishlistUpdated(next);
+  }
+  return next;
+};
+
+export const clearGuestWishlist = () => {
+  try {
+    localStorage.removeItem(GUEST_WISHLIST_KEY);
+  } catch {}
+  if (!getActiveWishlistUserId()) {
+    dispatchWishlistUpdated([]);
+  }
+};
+
+export const getUserWishlist = (userId) => {
+  const normalized = String(userId || "").trim();
+  if (!normalized) return [];
+  return readKey(userWishlistKey(normalized));
+};
+
+export const setUserWishlist = (userId, items) => {
+  const normalized = String(userId || "").trim();
+  if (!normalized) return [];
+  const next = writeKey(userWishlistKey(normalized), items);
+  if (getActiveWishlistUserId() === normalized) {
+    dispatchWishlistUpdated(next);
+  }
+  return next;
+};
+
+export const getWishlist = ({ userId } = {}) => {
+  migrateLegacyGuestWishlist();
+  const scopedUserId = String(userId || getActiveWishlistUserId() || "").trim();
+  return scopedUserId ? getUserWishlist(scopedUserId) : getGuestWishlist();
+};
+
+export const setWishlist = (items, { userId } = {}) => {
+  const scopedUserId = String(userId || getActiveWishlistUserId() || "").trim();
+  return scopedUserId ? setUserWishlist(scopedUserId, items) : setGuestWishlist(items);
 };
 
 export const isInWishlist = (id) => {
@@ -60,17 +168,12 @@ export const toggleWishlistItem = (product) => {
     ? current.filter((item) => String(item.id) !== productId)
     : [...current, { ...normalized, id: productId }];
 
-  // Use setWishlist which enforces filtering and dispatches the update event.
   setWishlist(next);
-
   return !exists;
 };
 
-// Prefer server wishlist when logged in (cookie-based). Falls back to local-only.
-export const syncWishlistFromServer = async () => {
-  const res = await api.wishlistList();
-  const rows = Array.isArray(res?.data) ? res.data : [];
-  const mapped = rows
+const mapServerWishlist = (rows) =>
+  (Array.isArray(rows) ? rows : [])
     .map((it) => {
       const id = String(it?.productId || "").trim();
       if (!id) return null;
@@ -83,7 +186,16 @@ export const syncWishlistFromServer = async () => {
       };
     })
     .filter(Boolean);
-  setWishlist(mapped);
+
+export const syncWishlistFromServer = async (userId = getActiveWishlistUserId()) => {
+  const res = await api.wishlistList();
+  const mapped = mapServerWishlist(res?.data || []);
+  const scopedUserId = String(userId || getActiveWishlistUserId() || "").trim();
+  if (scopedUserId) {
+    setUserWishlist(scopedUserId, mapped);
+  } else {
+    setWishlist(mapped);
+  }
   return mapped;
 };
 
@@ -93,8 +205,6 @@ export const toggleWishlistItemApi = async (product) => {
 
   const before = getWishlist();
   const existed = before.some((it) => String(it.id) === normalized.id);
-
-  // Optimistic local update.
   const optimisticLiked = toggleWishlistItem(normalized);
 
   try {
@@ -104,39 +214,32 @@ export const toggleWishlistItemApi = async (product) => {
     }
     await api.wishlistAdd({ productId: normalized.id, variantCode: "" });
     return true;
-  } catch (err) {
-    // If the API request fails (e.g. user not logged in or network error),
-    // keep the optimistic local change so anonymous users still see their
-    // wishlist persisted locally. We will attempt to merge local -> server on
-    // next login.
-    // Log the error for debugging but do not revert.
-    // console.warn('wishlist API failed, keeping local state', err);
+  } catch {
     return optimisticLiked;
   }
 };
 
-// Merge local wishlist into server-side wishlist for the logged-in user.
-// This adds any locally-saved items that are missing on the server.
-export const mergeLocalToServer = async () => {
+export const mergeGuestWishlistToServer = async () => {
   try {
-    const local = getWishlist();
-    if (!Array.isArray(local) || !local.length) return [];
+    const guestItems = getGuestWishlist();
+    if (!guestItems.length) {
+      return syncWishlistFromServer();
+    }
+
     const res = await api.wishlistList().catch(() => null);
     const serverRows = Array.isArray(res?.data) ? res.data : [];
     const serverIds = new Set(serverRows.map((r) => String(r?.productId || "")));
-    const toAdd = local.filter((it) => it && it.id && !serverIds.has(String(it.id)));
+    const toAdd = guestItems.filter(
+      (item) => item && item.id && !serverIds.has(String(item.id)),
+    );
+
     for (const item of toAdd) {
-      try {
-        await api.wishlistAdd({ productId: String(item.id), variantCode: "" });
-      } catch (e) {
-        // ignore per-item failures
-      }
+      await api.wishlistAdd({ productId: String(item.id), variantCode: "" });
     }
-    // Return updated server list (best-effort)
-    const refreshed = await api.wishlistList().catch(() => null);
-    const rows = Array.isArray(refreshed?.data) ? refreshed.data : [];
-    return rows;
-  } catch (e) {
+
+    clearGuestWishlist();
+    return syncWishlistFromServer();
+  } catch {
     return [];
   }
 };
@@ -147,7 +250,12 @@ export const subscribeWishlist = (callback) => {
   };
 
   const storageHandler = (event) => {
-    if (event.key === WISHLIST_KEY) {
+    if (
+      event.key === GUEST_WISHLIST_KEY ||
+      event.key === ACTIVE_WISHLIST_USER_KEY ||
+      event.key === LEGACY_WISHLIST_KEY ||
+      String(event.key || "").startsWith(USER_WISHLIST_KEY_PREFIX)
+    ) {
       callback(getWishlist());
     }
   };
@@ -160,3 +268,6 @@ export const subscribeWishlist = (callback) => {
     window.removeEventListener("storage", storageHandler);
   };
 };
+
+// Legacy alias kept for compatibility with older imports.
+export const mergeLocalToServer = mergeGuestWishlistToServer;

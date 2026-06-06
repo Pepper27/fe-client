@@ -13,7 +13,12 @@ import "../cartBadge.scss";
 import { Link } from "react-router-dom";
 import { api } from "../../../utils/api";
 import { formatPrice } from "../../../utils/format";
-import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
+import {
+  clearActiveWishlistUser,
+  getWishlist,
+  setActiveWishlistUser,
+  subscribeWishlist,
+} from "../../../utils/wishlist";
 import { cacheCartCount, countCartLines } from "../../../utils/cart-count";
 import { publishAuthSync } from "../../../utils/auth-sync";
 import { clearAuthBlockInTab, isAuthBlockedInTab } from "../../../utils/auth-tab";
@@ -59,6 +64,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
     const refresh = () => {
       if (isAuthBlockedInTab()) {
         setMe(null);
+        clearActiveWishlistUser();
         return;
       }
       // Prefer legacy cookie auth (has register/logout/forgot).
@@ -67,11 +73,16 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
         .authMe()
         .then((res) => {
           if (cancelled) return;
-          setMe(res?.data || null);
+          const nextMe = res?.data || null;
+          setMe(nextMe);
+          const nextUserId = nextMe?.id || nextMe?._id || "";
+          if (nextUserId) setActiveWishlistUser(nextUserId);
+          else clearActiveWishlistUser();
         })
         .catch(() => {
           if (cancelled) return;
           setMe(null);
+          clearActiveWishlistUser();
         });
     };
 
@@ -204,6 +215,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   const onLogout = async () => {
     try {
       clearAuthBlockInTab();
+      clearActiveWishlistUser();
       await api.authLogout();
       publishAuthSync({ type: "logout" });
     } finally {
