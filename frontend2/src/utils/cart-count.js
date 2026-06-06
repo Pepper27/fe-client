@@ -1,5 +1,22 @@
+const readBuyNowLineId = () => {
+  try {
+    const raw = window.sessionStorage.getItem("checkout:buyNow");
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    if (parsed?.kind !== "product") return "";
+    return String(parsed?.lineId || "").trim();
+  } catch {
+    return "";
+  }
+};
+
 export const countCartLines = (cart) => {
-  const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
+  const buyNowLineId = readBuyNowLineId();
+  const productCount = Array.isArray(cart?.products)
+    ? cart.products.filter(
+        (line) => String(line?._id || line?.id || "") !== buyNowLineId,
+      ).length
+    : 0;
   const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
   return productCount + bundleCount;
 };
