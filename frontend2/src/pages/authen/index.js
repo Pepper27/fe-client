@@ -8,6 +8,15 @@ import { syncWishlistFromServer } from "../../utils/wishlist";
 import "./index.scss";
 import toast from "react-hot-toast";
 
+const initialRegisterForm = {
+  fullName: "",
+  email: "",
+  phone: "",
+  birthday: "",
+  password: "",
+  confirmPassword: "",
+};
+
 export default function Authentication() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -20,14 +29,7 @@ export default function Authentication() {
   const [me, setMe] = useState(null);
 
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
-  const [registerForm, setRegisterForm] = useState({
-    fullName: "",
-    email: "",
-    phone: "",
-    birthday: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [registerForm, setRegisterForm] = useState(initialRegisterForm);
 
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotStep, setForgotStep] = useState("email"); // email | reset
@@ -230,6 +232,7 @@ export default function Authentication() {
     try {
       await api.authRegister({ fullName, email, password, phone });
       toast.success("Đăng ký thành công. Vui lòng đăng nhập.");
+      setRegisterForm(initialRegisterForm);
       navigate("/authen", { replace: true });
     } catch (err) {
       showError(err, "Đăng ký thất bại");
