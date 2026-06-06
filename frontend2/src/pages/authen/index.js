@@ -195,7 +195,7 @@ export default function Authentication() {
     toast.error(
       reason === "account_switched"
         ? "Tài khoản này đã bị thay thế bởi một đăng nhập khác trên trình duyệt này"
-        : "Bạn đã đăng xuất ở tab khác",
+        : "Bạn đã đăng xuất!",
     );
     navigate(`${location.pathname}${location.search}`, { replace: true });
   }, [location.pathname, location.search, location.state, navigate]);
