@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { api } from "../../utils/api";
+import { syncCartBadge } from "../../utils/cart-count";
+import { isAuthBlockedInTab } from "../../utils/auth-tab";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
@@ -57,6 +59,14 @@ const normAttr = (v) => {
   return s;
 };
 
+const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const getAddressStorageScope = (me) => {
+  const userKey =
+    me?._id || me?.id || me?.email || me?.phone || me?.username || null;
+  return userKey ? `user:${String(userKey).trim().toLowerCase()}` : "guest";
+};
+
 const readCheckoutBundleIds = () => {
   try {
     const raw = sessionStorage.getItem("checkout:bundleIds");
@@ -102,6 +112,8 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [errors, setErrors] = useState({});
+  const [me, setMe] = useState(null);
+  const [authResolved, setAuthResolved] = useState(false);
 
   const buyNowRef = React.useRef(null);
   const placedRef = React.useRef(false);
@@ -250,23 +262,8 @@ export default function CheckoutPage() {
     return readCheckoutProductLineIds() || [];
   });
 
-  // Addresses are client-only for now.
-  const [addresses, setAddresses] = useState(() => {
-    try {
-      const raw = localStorage.getItem("checkout:addresses");
-      const parsed = raw ? JSON.parse(raw) : null;
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
-  const [selectedAddressId, setSelectedAddressId] = useState(() => {
-    try {
-      return localStorage.getItem("checkout:selectedAddressId") || "";
-    } catch {
-      return "";
-    }
-  });
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
   const [newAddress, setNewAddress] = useState({
     fullName: "",
     phone: "",
@@ -280,6 +277,63 @@ export default function CheckoutPage() {
   const [searchResults, setSearchResults] = useState([]);
   const searchAbortRef = useRef(null);
   const searchDebounceRef = useRef(null);
+  const addressStorageScope = useMemo(() => getAddressStorageScope(me), [me]);
+  const addressesStorageKey = useMemo(
+    () => `checkout:addresses:${addressStorageScope}`,
+    [addressStorageScope],
+  );
+  const selectedAddressStorageKey = useMemo(
+    () => `checkout:selectedAddressId:${addressStorageScope}`,
+    [addressStorageScope],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshMe = () => {
+      if (isAuthBlockedInTab()) {
+        setMe(null);
+        setAuthResolved(true);
+        return;
+      }
+      api
+        .authMe()
+        .then((res) => {
+          if (cancelled) return;
+          setMe(res?.data || null);
+          setAuthResolved(true);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setMe(null);
+          setAuthResolved(true);
+        });
+    };
+
+    refreshMe();
+    window.addEventListener("auth:changed", refreshMe);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("auth:changed", refreshMe);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authResolved) return;
+    try {
+      const raw = localStorage.getItem(addressesStorageKey);
+      const parsed = raw ? JSON.parse(raw) : null;
+      setAddresses(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setAddresses([]);
+    }
+
+    try {
+      setSelectedAddressId(localStorage.getItem(selectedAddressStorageKey) || "");
+    } catch {
+      setSelectedAddressId("");
+    }
+  }, [addressesStorageKey, authResolved, selectedAddressStorageKey]);
 
   // Nominatim search for address suggestions (OpenStreetMap)
   const searchAddress = async (q) => {
@@ -333,9 +387,7 @@ export default function CheckoutPage() {
   const notifyCartChanged = async () => {
     try {
       const res = await api.getCart();
-      const cart = res?.data || null;
-      const qty = (cart?.products || []).reduce((s, p) => s + (Number(p.quantity) || 0), 0) + (cart?.bundles || []).reduce((s, b) => s + (Number(b.quantity) || 0), 0);
-      try { window.dispatchEvent(new CustomEvent('cart:changed', { detail: { count: qty } })); } catch (e) { try { window.dispatchEvent(new Event('cart:changed')); } catch {} }
+      syncCartBadge(res?.data || null);
       return;
     } catch (e) {
       try { window.dispatchEvent(new Event('cart:changed')); } catch {}
@@ -485,7 +537,7 @@ export default function CheckoutPage() {
   const persistAddresses = (next) => {
     setAddresses(next);
     try {
-      localStorage.setItem("checkout:addresses", JSON.stringify(next));
+      localStorage.setItem(addressesStorageKey, JSON.stringify(next));
     } catch {
       // ignore
     }
@@ -494,7 +546,7 @@ export default function CheckoutPage() {
   const saveSelectedAddressId = (id) => {
     setSelectedAddressId(id);
     try {
-      localStorage.setItem("checkout:selectedAddressId", String(id || ""));
+      localStorage.setItem(selectedAddressStorageKey, String(id || ""));
     } catch {
       // ignore
     }
@@ -668,6 +720,83 @@ export default function CheckoutPage() {
       toast.error("Email không hợp lệ");
       return;
     }
+
+    const buildStockErrorMessage = (err) => {
+      const rawMessage = String(err?.message || err?.data?.message || "").trim();
+      const isStockError = /hết hàng|out of stock|không đủ hàng|insufficient stock|sold out/i.test(rawMessage);
+      if (!isStockError) return rawMessage || "Đặt hàng thất bại";
+
+      const candidates = [];
+
+      for (const lineId of productLineIds || []) {
+        const line = (cart?.products || []).find((p) => String(p?._id) === String(lineId));
+        if (!line) continue;
+        const prodMeta = productMetaMap.get(String(line?.productId || "")) || null;
+        const displayName = prodMeta?.name || line?.name || line?.productName || "Sản phẩm";
+        const keys = [
+          line?._id,
+          line?.variantId,
+          line?.variantCode,
+          line?.productId,
+          line?.sku,
+        ]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        candidates.push({ name: displayName, keys });
+      }
+
+      for (const bundle of selectedBundles || []) {
+        const braceletMeta = productMetaMap.get(String(bundle?.bracelet?.productId || "")) || null;
+        const braceletName =
+          braceletMeta?.name ||
+          bundle?.bracelet?.label ||
+          bundle?.bracelet?.typeName ||
+          bundle?.bracelet?.typeCode ||
+          "Vòng tay";
+        const braceletKeys = [
+          bundle?.bundleId,
+          bundle?.bracelet?.variantId,
+          bundle?.bracelet?.variantCode,
+          bundle?.bracelet?.productId,
+        ]
+          .map((value) => String(value || "").trim())
+          .filter(Boolean);
+        candidates.push({ name: braceletName, keys: braceletKeys });
+
+        for (const item of bundle?.items || []) {
+          const charmMeta = productMetaMap.get(String(item?.charmProductId || "")) || null;
+          const charmName = charmMeta?.name || item?.name || "Charm";
+          const charmKeys = [
+            item?._id,
+            item?.charmVariantId,
+            item?.charmVariantCode,
+            item?.variantCode,
+            item?.charmProductId,
+          ]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean);
+          candidates.push({ name: charmName, keys: charmKeys });
+        }
+      }
+
+      for (const candidate of candidates) {
+        if (!candidate?.keys?.length) continue;
+        const matched = candidate.keys.some((key) => {
+          if (!key) return false;
+          return new RegExp(`(^|[^A-Za-z0-9])${escapeRegex(key)}([^A-Za-z0-9]|$)`, "i").test(rawMessage);
+        });
+        if (matched) {
+          return `Sản phẩm ${candidate.name} đã hết hàng!`;
+        }
+      }
+
+      if (candidates.length === 1) {
+        return `Sản phẩm ${candidates[0].name} đã hết hàng!`;
+      }
+
+      return "Một hoặc nhiều sản phẩm trong đơn hàng đã hết hàng. Vui lòng kiểm tra lại giỏ hàng.";
+    };
+
     setPlacing(true);
     try {
       const res = await api.checkoutBundles({
@@ -718,7 +847,7 @@ export default function CheckoutPage() {
         navigate("/orders");
       }
     } catch (e) {
-      toast.error(e?.message || "Đặt hàng thất bại");
+      toast.error(buildStockErrorMessage(e));
 
       // If this was a buy-now session, cleanup the temporary line so cart remains unchanged.
       try {

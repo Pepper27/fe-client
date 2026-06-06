@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../utils/api';
+import { syncCartBadge as syncCartBadgeCount } from '../../utils/cart-count';
 
 export default function ZaloPayReturn() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function ZaloPayReturn() {
   React.useEffect(() => {
     let cancelled = false;
 
-    const syncCartBadge = async () => {
+    const syncBadge = async () => {
       try {
         const key = 'zalopay-return:reloaded';
         const current = `${window.location.pathname}${window.location.search}`;
@@ -30,26 +31,11 @@ export default function ZaloPayReturn() {
 
         const res = await api.getCart();
         if (cancelled) return;
-        const cart = res?.data || null;
-        const count =
-          (Array.isArray(cart?.products) ? cart.products.length : 0) +
-          (Array.isArray(cart?.bundles) ? cart.bundles.length : 0);
-        try {
-          sessionStorage.setItem('cart:cachedCount', String(count));
-        } catch {}
-        try {
-          window.dispatchEvent(
-            new CustomEvent('cart:changed', { detail: { count } }),
-          );
-        } catch {
-          try {
-            window.dispatchEvent(new Event('cart:changed'));
-          } catch {}
-        }
+        syncCartBadgeCount(res?.data || null);
       } catch {}
     };
 
-    syncCartBadge();
+    syncBadge();
     return () => {
       cancelled = true;
     };

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { IoCloseOutline } from "react-icons/io5";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { FaFacebookF, FaGoogle } from "react-icons/fa";
 import { api } from "../../utils/api";
 import { syncWishlistFromServer } from "../../utils/wishlist";
+import { publishAuthSync } from "../../utils/auth-sync";
+import { clearAuthBlockInTab, getBlockedAuthState, isAuthBlockedInTab } from "../../utils/auth-tab";
 import "./index.scss";
 import toast from "react-hot-toast";
 
@@ -20,6 +22,7 @@ const initialRegisterForm = {
 export default function Authentication() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [isForgotOpen, setIsForgotOpen] = useState(false);
   const activeTab =
@@ -60,8 +63,10 @@ export default function Authentication() {
   };
 
   const afterAuthSuccess = async () => {
+    clearAuthBlockInTab();
     const resMe = await api.authMe();
-    setMe(resMe?.data || null);
+    const nextMe = resMe?.data || null;
+    setMe(nextMe);
 
     // Merge local wishlist into server wishlist (preserve local items saved before login)
     try {
@@ -93,6 +98,10 @@ export default function Authentication() {
       // ignore
     }
 
+    publishAuthSync({
+      type: "login",
+      userId: nextMe?.id || nextMe?._id || "",
+    });
     window.dispatchEvent(new Event("auth:changed"));
     navigate("/", { replace: true });
   };
@@ -153,6 +162,10 @@ export default function Authentication() {
     let cancelled = false;
 
     const refreshMe = () => {
+      if (isAuthBlockedInTab()) {
+        setMe(null);
+        return;
+      }
       api
         .authMe()
         .then((res) => {
@@ -173,6 +186,19 @@ export default function Authentication() {
       window.removeEventListener("auth:changed", onAuthChanged);
     };
   }, []);
+
+  useEffect(() => {
+    const blocked = getBlockedAuthState();
+    const reason = location.state?.reason || blocked?.reason;
+    const changed = location.state?.authSessionChanged || Boolean(blocked);
+    if (!changed) return;
+    toast.error(
+      reason === "account_switched"
+        ? "Tài khoản này đã bị thay thế bởi một đăng nhập khác trên trình duyệt này"
+        : "Bạn đã đăng xuất ở tab khác",
+    );
+    navigate(`${location.pathname}${location.search}`, { replace: true });
+  }, [location.pathname, location.search, location.state, navigate]);
 
   const showError = (err, fallback) => {
     toast.error(err?.message || fallback || "Có lỗi xảy ra");
