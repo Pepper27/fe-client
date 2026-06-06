@@ -6,6 +6,8 @@ import {
   Route,
   useParams,
   Navigate,
+  useLocation,
+  useNavigate,
 } from "react-router-dom";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
@@ -30,6 +32,9 @@ import TestAPICall from "./components/TestAPICall";
 import SimpleAPITest from "./components/SimpleAPITest";
 import BestSellersPage from "./pages/product-bestseller/BestSellersPage";
 import BlogDetailPage from "./pages/blog-detail";
+import { api } from "./utils/api";
+import { subscribeAuthSync } from "./utils/auth-sync";
+import { blockAuthInTab, getBlockedAuthState, isAuthBlockedInTab } from "./utils/auth-tab";
 // Thêm dòng này vào nhóm import ở đầu file
 import { 
   DeliveryPaymentPolicy, 
@@ -77,6 +82,7 @@ function renderApp() {
   const root = ReactDOM.createRoot(document.getElementById("root"));
   root.render(
     <BrowserRouter>
+      <AuthSessionSync />
       <div className="app-container">
         <Header />
         <div className="main-content">
@@ -139,6 +145,73 @@ function renderApp() {
       </div>
     </BrowserRouter>,
   );
+}
+
+function AuthSessionSync() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentUserRef = React.useRef(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const refreshCurrentUser = async () => {
+      if (isAuthBlockedInTab()) {
+        currentUserRef.current = null;
+        return null;
+      }
+      try {
+        const res = await api.authMe();
+        if (cancelled) return null;
+        const nextUser = res?.data || null;
+        currentUserRef.current = nextUser ? String(nextUser.id || nextUser._id || "") : null;
+        return currentUserRef.current;
+      } catch {
+        if (cancelled) return null;
+        currentUserRef.current = null;
+        return null;
+      }
+    };
+
+    const handleExternalAuthChange = async (payload) => {
+      const previousUserId = currentUserRef.current;
+      const reason = payload?.type === "logout" ? "logged_out" : "account_switched";
+      blockAuthInTab(reason);
+      const nextUserId = await refreshCurrentUser();
+      window.dispatchEvent(new Event("auth:changed"));
+
+      const switchedAccount =
+        Boolean(previousUserId) && Boolean(nextUserId) && previousUserId !== nextUserId;
+      const loggedOutElsewhere = true;
+      if (!switchedAccount && !loggedOutElsewhere) return;
+      if (location.pathname === "/authen") return;
+      navigate("/authen", {
+        replace: true,
+        state: {
+          authSessionChanged: true,
+          reason,
+        },
+      });
+    };
+
+    if (getBlockedAuthState() && location.pathname !== "/authen") {
+      navigate("/authen", { replace: true });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    refreshCurrentUser();
+    const unsubscribe = subscribeAuthSync((payload) => {
+      handleExternalAuthChange(payload);
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [location.pathname, navigate]);
+
+  return null;
 }
 
 function ProductDetailPageWrapper() {

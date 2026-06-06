@@ -3,12 +3,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
-
 import {
   getOrderDisplayStatus,
   isOrderPaid,
 } from "../../utils/order-status";
-
+import { isAuthBlockedInTab } from "../../utils/auth-tab";
 import toast from "react-hot-toast";
 
 const statusLabel = (s) => {
@@ -122,6 +121,10 @@ export default function OrdersPage() {
     let cancelled = false;
 
     const refreshMe = () => {
+      if (isAuthBlockedInTab()) {
+        setMe(null);
+        return;
+      }
       api
         .v1AuthMe()
         .then((res) => {
@@ -253,11 +256,97 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (!me) return;
+    
+    const qs = new URLSearchParams(location.search || "");
+    const code = String(qs.get("code") || "").trim();
+    
+    const loadOrdersWithConfirmedOrder = async () => {
+      let confirmedOrder = null;
+      
+      // If coming from zalopay payment with code param, fetch that specific order first
+      if (code) {
+        try {
+          const orderRes = await api.v1ClientOrderByCode(code);
+          confirmedOrder = orderRes?.data || null;
+        } catch (e) {
+          console.error('Error fetching confirmed order by code:', e);
+        }
+      }
+      
+      // Now fetch the standard list
+      setLoading(true);
+      try {
+        const s = String(tab);
+        if (me && (s === "pending" || s === "confirmed")) {
+          const [primaryRes, pendingRes] = await Promise.all([
+            api.v1ClientOrdersList({
+              status: s,
+              page: 1,
+              limit: 50,
+            }),
+            api.v1ClientOrdersList({
+              status: "pending",
+              page: 1,
+              limit: 200,
+            }),
+          ]);
+
+          const primaryList = Array.isArray(primaryRes?.data) ? primaryRes.data : [];
+          const pendingList = Array.isArray(pendingRes?.data) ? pendingRes.data : [];
+
+          if (s === "pending") {
+            const filtered = primaryList.filter(
+              (order) => getOrderDisplayStatus(order) === "pending",
+            );
+            setOrders(sortOrders(filtered, s));
+            return;
+          }
+
+          const merged = [...primaryList];
+          const seen = new Set(
+            merged.map((order) => String(order?.orderCode || "")).filter(Boolean),
+          );
+
+          // Add confirmed order at the top if we have one
+          if (confirmedOrder && String(confirmedOrder?.orderCode || "")) {
+            const confCode = String(confirmedOrder.orderCode);
+            if (!seen.has(confCode)) {
+              merged.unshift(confirmedOrder);
+              seen.add(confCode);
+            }
+          }
+
+          for (const order of pendingList) {
+            const orderCode = String(order?.orderCode || "");
+            if (!orderCode || seen.has(orderCode)) continue;
+            if (getOrderDisplayStatus(order) !== "confirmed") continue;
+            merged.push(order);
+            seen.add(orderCode);
+          }
+
+          setOrders(sortOrders(merged, s));
+          return;
+        }
+
+        const res = await api.v1ClientOrdersList({
+          status: s,
+          page: 1,
+          limit: 50,
+        });
+        const list = Array.isArray(res?.data) ? res.data : [];
+        setOrders(sortOrders(list, s));
+      } catch (e) {
+        setOrders([]);
+        toast.error(e?.message || "Tải đơn thất bại");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadOrdersWithConfirmedOrder();
     fetchCounts();
-    fetchOrders(tab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, tab]);
-
 
   // Watch pending Zalopay orders in the current list and poll their status
   useEffect(() => {
@@ -269,7 +358,7 @@ export default function OrdersPage() {
       .filter(Boolean);
     if (!watchList.length) return undefined;
 
-    const POLL_INTERVAL = 3000; // 3s
+    const POLL_INTERVAL = 2000;
     const TIMEOUT_MS = Number(process.env.REACT_APP_POLL_TIMEOUT_MS || 2 * 60 * 1000); // 2m
     const start = Date.now();
     const id = setInterval(async () => {
@@ -289,9 +378,12 @@ export default function OrdersPage() {
             if (latest) {
               // If updated to paid or status changed, refresh whole list to keep ordering
               if (isOrderPaid(latest) || getOrderDisplayStatus(latest) !== "pending") {
+                const cartEvent = new CustomEvent("cart:forceRefresh", { detail: { count: 0 } });
+                window.dispatchEvent(cartEvent);
                 fetchCounts();
                 fetchOrders(tab);
                 clearInterval(id);
+                setActiveTab("confirmed");
                 return;
               }
             }

@@ -108,6 +108,7 @@ a svg {
   /* Autosuggest styles */
   .react-autosuggest__container { position: relative; }
   .react-autosuggest__suggestions-container {
+    display: none;
     position: absolute;
     top: calc(100% + 6px);
     left: 50%;
@@ -120,6 +121,9 @@ a svg {
     z-index: 3000;
     max-height: 460px;
     overflow: auto;
+  }
+  .react-autosuggest__suggestions-container--open {
+    display: block;
   }
   .react-autosuggest__suggestions-list {
     list-style: none;
@@ -366,6 +370,7 @@ a svg {
     }
 
     .react-autosuggest__suggestions-container {
+      display: none;
       position: fixed;
       top: auto;
       left: 50%;
@@ -379,6 +384,10 @@ a svg {
       border-radius: 8px;
       width: calc(100% - 32px);
       max-width: 600px;
+    }
+
+    .react-autosuggest__suggestions-container--open {
+      display: block;
     }
   }
 }

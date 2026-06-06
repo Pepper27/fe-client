@@ -14,12 +14,9 @@ import { Link } from "react-router-dom";
 import { api } from "../../../utils/api";
 import { formatPrice } from "../../../utils/format";
 import { getWishlist, subscribeWishlist } from "../../../utils/wishlist";
-
-const countCartItems = (cart) => {
-  const productCount = Array.isArray(cart?.products) ? cart.products.length : 0;
-  const bundleCount = Array.isArray(cart?.bundles) ? cart.bundles.length : 0;
-  return productCount + bundleCount;
-};
+import { cacheCartCount, countCartLines } from "../../../utils/cart-count";
+import { publishAuthSync } from "../../../utils/auth-sync";
+import { clearAuthBlockInTab, isAuthBlockedInTab } from "../../../utils/auth-tab";
 
 export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
   const navigate = useNavigate();
@@ -49,21 +46,19 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
       try {
         const res = await api.getCart();
         if (cancelled) return;
-        const nextCount = countCartItems(res?.data || null);
+        const nextCount = countCartLines(res?.data || null);
         setCartCount(nextCount);
-        try {
-          window.sessionStorage.setItem("cart:cachedCount", String(nextCount));
-        } catch {}
+        cacheCartCount(nextCount);
       } catch {
         if (cancelled) return;
-        // Keep the cached badge when cart refresh fails; other flows may have
-        // already computed a more accurate fallback count.
       }
     };
 
     const refresh = () => {
-      // Prefer legacy cookie auth (has register/logout/forgot).
-      // If BE later switches header UI to v1 bearer, we can flip this.
+      if (isAuthBlockedInTab()) {
+        setMe(null);
+        return;
+      }
       api
         .authMe()
         .then((res) => {
@@ -76,32 +71,53 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
         });
     };
 
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldRefresh = urlParams.get('refresh') === '1' || urlParams.get('tab') === 'confirmed';
+
     refresh();
+    if (shouldRefresh) {
+      refreshCartCount();
+    }
+
     const onAuthChanged = () => {
       refresh();
-      // After login/logout, cart content can change (cookie/session tied to user).
-      // Refresh badge immediately so user doesn't need a full reload.
       refreshCartCount();
     };
     window.addEventListener("auth:changed", onAuthChanged);
-    // Use optimistic counts when provided, then reconcile with the current cart.
+
+
     const onCartChanged = (evt) => {
       const provided = evt?.detail?.count;
       if (typeof provided === "number" && Number.isFinite(provided)) {
         setCartCount(Math.max(0, provided));
-        try {
-          window.sessionStorage.setItem("cart:cachedCount", String(Math.max(0, provided)));
-        } catch {}
+        cacheCartCount(provided);
         return;
       }
       refreshCartCount();
     };
-    refreshCartCount();
     window.addEventListener('cart:changed', onCartChanged);
+
+
+    const onCartForceRefresh = (evt) => {
+      const customCount = evt?.detail?.count !== undefined ? evt.detail.count : 0;
+      setCartCount(customCount);
+      cacheCartCount(customCount);
+
+      refreshCartCount();
+    };
+    window.addEventListener('cart:forceRefresh', onCartForceRefresh);
+    window.addEventListener('storage', refreshCartCount); 
+
+
+    refreshCartCount();
+
     return () => {
       cancelled = true;
       window.removeEventListener("auth:changed", onAuthChanged);
       window.removeEventListener('cart:changed', onCartChanged);
+
+      window.removeEventListener('cart:forceRefresh', onCartForceRefresh);
+      window.removeEventListener('storage', refreshCartCount);
     };
   }, []);
 
@@ -206,7 +222,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
 
   const onLogout = async () => {
     try {
+      clearAuthBlockInTab();
       await api.authLogout();
+      publishAuthSync({ type: "logout" });
     } finally {
       setMe(null);
       window.dispatchEvent(new Event("auth:changed"));

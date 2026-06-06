@@ -6,6 +6,7 @@ import "swiper/css/navigation";
 import "swiper/css/thumbs";
 // import { FreeMode, Navigation, Thumbs } from 'swiper/modules';
 import { api } from "../../utils/api";
+import { syncCartBadge } from "../../utils/cart-count";
 // import Breadcrumb from '@/components/Breadcrumb';
 import "./index.scss"; // Import file SCSS đẹp chuẩn
 import "./product-detail-engrave.css";
@@ -1028,24 +1029,7 @@ export default function ProductDetailPage() {
     const notifyCartChanged = async (cartOverride = null) => {
       const cart = cartOverride || (await fetchCartSafe());
       try {
-        const qty =
-          (cart?.products || []).reduce(
-            (s, p) => s + (Number(p.quantity) || 0),
-            0,
-          ) +
-          (cart?.bundles || []).reduce(
-            (s, b) => s + (Number(b.quantity) || 0),
-            0,
-          );
-        try {
-          window.dispatchEvent(
-            new CustomEvent("cart:changed", { detail: { count: qty } }),
-          );
-        } catch (e) {
-          try {
-            window.dispatchEvent(new Event("cart:changed"));
-          } catch {}
-        }
+        syncCartBadge(cart);
         return cart;
       } catch (e) {
         try {
