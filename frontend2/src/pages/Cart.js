@@ -658,7 +658,10 @@ export default function Cart() {
   };
 
   const goCheckout = () => {
-    if (!selectedCount) return;
+    if (!selectedCount) {
+      toast.error("Vui lòng chọn sản phẩm để đặt hàng!");
+      return;
+    }
     // recompute selection at click time to ensure latest state
     const selBundleIds = (bundles || []).filter((b) => selected[`b:${b.bundleId}`] !== false).map((b) => String(b.bundleId));
     const selProductLineIds = (products || []).filter((p) => selected[`p:${p._id}`] !== false).map((p) => String(p._id));
@@ -1072,7 +1075,6 @@ export default function Cart() {
                 <button
                   type="button"
                   className="cart2-pay"
-                  disabled={!selectedCount}
                   onClick={goCheckout}
                 >
                   Mua hàng
