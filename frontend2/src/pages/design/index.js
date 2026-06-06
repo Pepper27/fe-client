@@ -66,6 +66,15 @@ const isInStock = (variant) => {
   return (Number(variant?.quantity) || 0) > 0;
 };
 
+const hasInStockVariant = (product, { size } = {}) => {
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  return variants.some((variant) => {
+    if (!String(variant?.code || "").trim()) return false;
+    if (size !== undefined && Number(variant?.size) !== Number(size)) return false;
+    return isInStock(variant);
+  });
+};
+
 export default function DesignBuilder() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -340,6 +349,16 @@ export default function DesignBuilder() {
     if (!bracelet) return null;
     return findVariantByCode(bracelet, braceletVariantCode);
   }, [bracelet, braceletVariantCode]);
+
+  const visibleBracelets = useMemo(
+    () => (bracelets || []).filter((product) => hasInStockVariant(product, { size: sizeCm })),
+    [bracelets, sizeCm],
+  );
+
+  const visibleCharms = useMemo(
+    () => (charms || []).filter((product) => hasInStockVariant(product)),
+    [charms],
+  );
 
   const braceletPriceLocal = Number(braceletVariant?.price) || 0;
   const charmsPriceLocal = useMemo(() => {
@@ -1063,8 +1082,15 @@ export default function DesignBuilder() {
   };
 
   const selectCharm = (p) => {
+    const firstInStock = (Array.isArray(p?.variants) ? p.variants : []).find(
+      (variant) => String(variant?.code || "").trim() && isInStock(variant),
+    );
+    if (!firstInStock) {
+      toast.error("Charm này đã hết hàng");
+      return;
+    }
     setSelectedCharm(p);
-    const firstCode = p?.variants?.[0]?.code || "";
+    const firstCode = String(firstInStock?.code || "");
     setSelectedCharmVariantCode(firstCode);
   };
 
@@ -1971,9 +1997,9 @@ export default function DesignBuilder() {
           <div className="mixcharm-note" style={{ marginTop: 10 }}>
             Đang tải...
           </div>
-        ) : bracelets.length ? (
+        ) : visibleBracelets.length ? (
           <div className="mixcharm-carousel" role="list">
-            {bracelets.map((p) => {
+            {visibleBracelets.map((p) => {
               const selected =
                 bracelet && String(bracelet._id) === String(p._id);
               return (
@@ -2016,9 +2042,9 @@ export default function DesignBuilder() {
           <div className="mixcharm-note">Chọn charm rồi click slot để đặt</div>
         </div>
 
-        {charms.length ? (
+        {visibleCharms.length ? (
           <div className="mixcharm-carousel" role="list">
-            {charms.map((p) => {
+            {visibleCharms.map((p) => {
               const selected =
                 selectedCharm && String(selectedCharm._id) === String(p._id);
               return (

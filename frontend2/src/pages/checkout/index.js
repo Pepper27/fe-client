@@ -108,6 +108,10 @@ export default function CheckoutPage() {
   // When redirecting to external payment provider, set this flag so unmount
   // cleanup does not delete the temporary buyNow line.
   const paymentInProgressRef = React.useRef(false);
+  const paymentWindowRef = React.useRef(null);
+  const paymentReloadArmedRef = React.useRef(false);
+  const paymentBundleIdsRef = React.useRef([]);
+  const paymentProductLineIdsRef = React.useRef([]);
 
   const validateAddress = () => {
     const newErrors = {};
@@ -140,6 +144,66 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     buyNowRef.current = readCheckoutBuyNow();
+  }, []);
+
+  useEffect(() => {
+    const armReload = () => {
+      if (!paymentInProgressRef.current) return;
+      paymentReloadArmedRef.current = true;
+    };
+
+    const reloadForFreshData = () => {
+      if (!paymentInProgressRef.current || !paymentReloadArmedRef.current) {
+        return;
+      }
+      paymentInProgressRef.current = false;
+      paymentReloadArmedRef.current = false;
+      try {
+        sessionStorage.setItem(
+          "cart:afterZalopay",
+          JSON.stringify({
+            bundleIds: (paymentBundleIdsRef.current || []).map(String),
+            productLineIds: (paymentProductLineIdsRef.current || []).map(String),
+            at: Date.now(),
+          }),
+        );
+      } catch {}
+      window.location.href = "/cart";
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        armReload();
+        return;
+      }
+      if (document.visibilityState === "visible") {
+        reloadForFreshData();
+      }
+    };
+
+    const onBlur = () => armReload();
+    const onFocus = () => reloadForFreshData();
+
+    const pollId = window.setInterval(() => {
+      try {
+        const w = paymentWindowRef.current;
+        if (!w || w.closed !== true) return;
+        paymentWindowRef.current = null;
+        reloadForFreshData();
+      } catch {
+        // ignore cross-window access errors
+      }
+    }, 1000);
+
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.clearInterval(pollId);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, []);
 
   // Cleanup abandoned buy-now line when leaving checkout.
@@ -256,7 +320,11 @@ export default function CheckoutPage() {
       const res = await api.getCart();
       setCart(res?.data || null);
     } catch (e) {
-      toast.error(e?.message || "Failed to load cart");
+      if (e?.status === 401) {
+        setCart({ products: [], bundles: [] });
+      } else {
+        toast.error(e?.message || "Failed to load cart");
+      }
     } finally {
       setLoading(false);
     }
@@ -400,6 +468,11 @@ export default function CheckoutPage() {
   }, [selectedBundles, productLineIds, cart?.products]);
 
   const selectedCount = selectedBundles.length + (productLineIds || []).length;
+
+  useEffect(() => {
+    paymentBundleIdsRef.current = (bundleIds || []).map(String);
+    paymentProductLineIdsRef.current = (productLineIds || []).map(String);
+  }, [bundleIds, productLineIds]);
 
   const selectedAddress = useMemo(() => {
     return (
@@ -611,22 +684,22 @@ export default function CheckoutPage() {
         try {
           paymentInProgressRef.current = true;
 
-          try {
-            localStorage.setItem(
-              'ZALOPAY_PENDING_ORDER',
-              JSON.stringify({
-                orderCode: String(res?.data?.orderCode || ''),
-                appTransId: String(res?.zalopay?.appTransId || ''),
-              }),
-            );
-          } catch {}
+          paymentReloadArmedRef.current = false;
+          const nextWindow = window.open(res.zalopay.orderUrl, "_blank");
+          if (!nextWindow) {
+            paymentInProgressRef.current = false;
+            toast.error("Trình duyệt đã chặn tab thanh toán mới");
+            return;
+          }
+          paymentWindowRef.current = nextWindow;
+          toast.success("Đã mở tab ZaloPay mới. Quay lại tab này để cập nhật dữ liệu.");
+          return;
 
-          // Don't clear buyNow session keys yet; they will be cleared on confirm or on failure.
-          window.location.href = res.zalopay.orderUrl;
-          return; // navigation will unload the page
         } catch (err) {
-          // fallback to standard flow
           paymentInProgressRef.current = false;
+          paymentWindowRef.current = null;
+          toast.error("Không thể mở tab thanh toán ZaloPay");
+          return;
         }
       }
       const code = res?.data?.orderCode;

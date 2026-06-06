@@ -41,6 +41,73 @@ export default function ProductDetailPage() {
 
   // Optional override preview image to show inside engraving modal when opened
   const [engravePreviewImage, setEngravePreviewImage] = useState(null);
+  const resetEngravingDraft = () => {
+    setEngraving(null);
+    setEngravePreviewImage(null);
+  };
+  const normalizeEngravingText = (value) => String(value?.text || value || "").trim();
+  const hasEngravingData = (value) =>
+    Boolean(
+      normalizeEngravingText(value) ||
+        value?.previewImage ||
+        value?.previewImageSmall ||
+        value?.previewImageLarge,
+    );
+  const getCartProductLines = ({ cart, productId, variantId }) => {
+    const wantProductId = String(productId || "");
+    const wantVariantId = String(variantId || "");
+    return (Array.isArray(cart?.products) ? cart.products : []).filter(
+      (line) =>
+        String(line?.productId || "") === wantProductId &&
+        String(line?.variantId || "") === wantVariantId,
+    );
+  };
+  const resolveCartProductLineId = ({
+    beforeCart,
+    afterCart,
+    productId,
+    variantId,
+    addedQty,
+    engraving: engravingPayload,
+    fallbackLineId,
+  }) => {
+    const beforeLines = getCartProductLines({ cart: beforeCart, productId, variantId });
+    const afterLines = getCartProductLines({ cart: afterCart, productId, variantId });
+    if (!afterLines.length) return fallbackLineId || null;
+
+    const beforeById = new Map(
+      beforeLines.map((line) => [String(line?._id || line?.id || ""), line]),
+    );
+    const wantEngraving = hasEngravingData(engravingPayload);
+    const wantText = normalizeEngravingText(engravingPayload);
+
+    const ranked = afterLines
+      .map((line) => {
+        const id = String(line?._id || line?.id || "");
+        const beforeLine = beforeById.get(id);
+        const qtyDelta =
+          (Number(line?.quantity) || 0) - (Number(beforeLine?.quantity) || 0);
+        const lineHasEngraving = hasEngravingData(line?.engraving);
+        const lineText = normalizeEngravingText(line?.engraving);
+
+        let score = 0;
+        if (wantEngraving) {
+          if (lineHasEngraving) score += 20;
+          if (wantText && lineText === wantText) score += 20;
+        } else if (!lineHasEngraving) {
+          score += 20;
+        }
+        if (id && !beforeById.has(id)) score += 10;
+        if (qtyDelta >= (Number(addedQty) || 0) && qtyDelta > 0) score += 6;
+        else if (qtyDelta > 0) score += 3;
+        if (fallbackLineId && id === String(fallbackLineId)) score += 1;
+
+        return { id, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    return ranked[0]?.id || fallbackLineId || null;
+  };
 
   // product.description is stored as HTML from the admin editor
   const descriptionHtml = useMemo(() => {
@@ -949,10 +1016,18 @@ export default function ProductDetailPage() {
           items: [],
         };
 
-    const notifyCartChanged = async () => {
+    const fetchCartSafe = async () => {
       try {
         const cartRes = await api.getCart();
-        const cart = cartRes?.data || null;
+        return cartRes?.data || null;
+      } catch {
+        return null;
+      }
+    };
+
+    const notifyCartChanged = async (cartOverride = null) => {
+      const cart = cartOverride || (await fetchCartSafe());
+      try {
         const qty =
           (cart?.products || []).reduce(
             (s, p) => s + (Number(p.quantity) || 0),
@@ -971,11 +1046,12 @@ export default function ProductDetailPage() {
             window.dispatchEvent(new Event("cart:changed"));
           } catch {}
         }
-        return;
+        return cart;
       } catch (e) {
         try {
           window.dispatchEvent(new Event("cart:changed"));
         } catch {}
+        return cart;
       }
     };
 
@@ -1001,6 +1077,7 @@ export default function ProductDetailPage() {
         if (!guarded.ok) return null;
         const engravingToSend = engravingArg || engraving || undefined;
 
+        const cartBeforeAdd = await fetchCartSafe();
         const prodRes = await api.addProductToCart({
           productId: product._id,
           variantId: variantIdentifier,
@@ -1008,7 +1085,8 @@ export default function ProductDetailPage() {
           buyNow,
           engraving: engravingToSend,
         });
-        if (!buyNow) await notifyCartChanged();
+        const cartAfterAdd = await fetchCartSafe();
+        if (!buyNow) await notifyCartChanged(cartAfterAdd);
 
         // Try to extract returned product line id from multiple possible shapes.
         // IMPORTANT: Do NOT treat cart._id as a product line id.
@@ -1053,6 +1131,16 @@ export default function ProductDetailPage() {
           const foundLine = exact || byProduct || null;
           lineId = foundLine?._id || foundLine?.id || null;
         }
+        lineId =
+          resolveCartProductLineId({
+            beforeCart: cartBeforeAdd,
+            afterCart: cartAfterAdd,
+            productId: product?._id,
+            variantId: variantIdentifier,
+            addedQty: guarded.qty,
+            engraving: engravingToSend,
+            fallbackLineId: lineId,
+          }) || lineId;
 
         // If engraving contained a client-generated previewImage (data URL), ensure backend stores it
         try {
@@ -1310,14 +1398,16 @@ export default function ProductDetailPage() {
           // fallback attempt
           // call addProductToCart; this API returns the updated cart and lineId on success
            const engravingToSend = engravingArg || engraving || undefined;
+           const cartBeforeAdd = await fetchCartSafe();
            const prodRes = await api.addProductToCart({
-             productId: product._id,
-             variantId: variantIdentifier,
-             quantity: guardedBundleQty.qty,
-             buyNow,
-             engraving: engravingToSend,
-           });
-          if (!buyNow) await notifyCartChanged();
+              productId: product._id,
+              variantId: variantIdentifier,
+              quantity: guardedBundleQty.qty,
+              buyNow,
+              engraving: engravingToSend,
+            });
+          const cartAfterAdd = await fetchCartSafe();
+          if (!buyNow) await notifyCartChanged(cartAfterAdd);
 
           // Try to extract returned line id from multiple possible shapes
           const lineId =
@@ -1325,12 +1415,26 @@ export default function ProductDetailPage() {
             prodRes?.data?._id ||
             prodRes?.lineId ||
             null;
+          const resolvedLineId =
+            resolveCartProductLineId({
+              beforeCart: cartBeforeAdd,
+              afterCart: cartAfterAdd,
+              productId: product?._id,
+              variantId: variantIdentifier,
+              addedQty: guardedBundleQty.qty,
+              engraving: engravingToSend,
+              fallbackLineId: lineId,
+            }) || lineId;
 
           // Ensure engraving preview stored server-side when possible
           try {
-            if (lineId && engravingToSend && engravingToSend.previewImage) {
+            if (
+              resolvedLineId &&
+              engravingToSend &&
+              engravingToSend.previewImage
+            ) {
               try {
-                await api.patchProduct(lineId, { engraving: engravingToSend });
+                await api.patchProduct(resolvedLineId, { engraving: engravingToSend });
               } catch (e) {
                 // ignore patch failures
               }
@@ -1340,12 +1444,12 @@ export default function ProductDetailPage() {
           // (debug logs removed)
 
           // If buyNow requested and we have a lineId, persist it for checkout and navigate
-          if (buyNow && lineId) {
+          if (buyNow && resolvedLineId) {
             try {
               sessionStorage.setItem(
                 "checkout:productLineIds",
                 JSON.stringify({
-                  productLineIds: [String(lineId)],
+                  productLineIds: [String(resolvedLineId)],
                   at: Date.now(),
                 }),
               );
@@ -1353,16 +1457,16 @@ export default function ProductDetailPage() {
               // ignore sessionStorage errors
             }
             toast.success("Đã thêm và chuyển tới thanh toán");
-            return { type: "product", id: String(lineId) };
+            return { type: "product", id: String(resolvedLineId) };
           }
 
           // Non-buyNow: show success toast and return product line info for callers if needed
           toast.success(
             buyNow
               ? "Đã thêm giỏ hàng — vui lòng hoàn tất thanh toán trên trang giỏ hàng"
-              : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${lineId ? `, line:${lineId}` : ""})`,
+              : `Đã thêm giỏ hàng (variant: ${variantIdentifier}${resolvedLineId ? `, line:${resolvedLineId}` : ""})`,
           );
-          return { type: "product", id: lineId };
+          return { type: "product", id: resolvedLineId };
         } catch (eProd) {
           // If fallback failed as well, show combined error info
           // eslint-disable-next-line no-console
@@ -1549,7 +1653,12 @@ export default function ProductDetailPage() {
                   if (maxQty > 0) {
                     const nextN = Number(raw);
                     // Disallow typing beyond available stock.
-                    if (Number.isFinite(nextN) && nextN > maxQty) return;
+                    if (Number.isFinite(nextN) && nextN > maxQty) {
+                      toast.error("Số lượng vượt quá kho!", {
+                        id: "quantity-over-stock",
+                      });
+                      return;
+                    }
                   }
                   setQuantityText(raw);
                 }}
@@ -1626,6 +1735,7 @@ export default function ProductDetailPage() {
                 const q = commitQuantityText(quantityText);
                 // pass engraving to addSingleProductToCart via api call branch
                 const res = await addSingleProductToCart({ buyNow: false, quantity: q, engraving: payload });
+                if (res) resetEngravingDraft();
                 // If backend didn't persist previewImage onto cart, keep a client-side map so cart UI can show it immediately
                 try {
                   if (res && res.id && payload && payload.previewImage) {
