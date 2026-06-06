@@ -1833,7 +1833,7 @@ export default function ProductDetailPage() {
                 aria-disabled={isSoldOut || addingBuyNow}
                 disabled={isSoldOut || addingBuyNow}
                 onClick={async () => {
-                  // MUA NGAY: add to cart then navigate to checkout
+                  // MUA NGAY: create a temporary checkout line and go straight to checkout
                   if (isSoldOut) return;
                   try {
                     setAddingBuyNow(true);
@@ -1904,11 +1904,9 @@ export default function ProductDetailPage() {
                         // ignore
                       }
 
-                      // Fallback: navigate to cart
-                      window.location.href = "/cart";
+                      toast.error("Không thể chuyển thẳng đến trang thanh toán");
                     } else {
-                      // fallback: navigate to cart
-                      window.location.href = "/cart";
+                      toast.error("Không thể chuyển thẳng đến trang thanh toán");
                     }
                   } catch (e) {
                     // error handled in addSingleProductToCart
