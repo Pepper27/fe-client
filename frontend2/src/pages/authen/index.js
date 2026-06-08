@@ -43,6 +43,7 @@ export default function Authentication() {
   const [forgotStep, setForgotStep] = useState("email"); // email | reset
   const [forgotOtp, setForgotOtp] = useState("");
   const [forgotNewPassword, setForgotNewPassword] = useState("");
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState("");
 
   const googleTokenClientRef = useRef(null);
   const fbReadyRef = useRef(false);
@@ -205,8 +206,8 @@ export default function Authentication() {
     if (busy) return;
     const email = String(loginForm.email || "").trim();
     const password = String(loginForm.password || "");
-    if (!email) return toast.error("Vui lòng nhập email");
-    if (!password) return toast.error("Vui lòng nhập mật khẩu");
+    if (!email) return toast.error("Vui lòng nhập email của bạn!");
+    if (!password) return toast.error("Vui lòng nhập mật khẩu của bạn!");
 
     setBusy(true);
     try {
@@ -234,21 +235,21 @@ export default function Authentication() {
     const phoneDigits = phone.replace(/[^0-9+]/g, "");
 
     if (!fullName || fullName.length < 2)
-      return toast.error("Vui lòng nhập họ và tên");
-    if (!email) return toast.error("Vui lòng nhập email");
+      return toast.error("Vui lòng nhập họ và tên của bạn!");
+    if (!email) return toast.error("Vui lòng nhập email của bạn!");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower))
-      return toast.error("Email không hợp lệ");
-    if (!phone) return toast.error("Vui lòng nhập số điện thoại");
+      return toast.error("Email không đúng định dạng!");
+    if (!phone) return toast.error("Vui lòng nhập số điện thoại của bạn!");
     if (!/^(\+?84|0)\d{8,10}$/.test(phoneDigits))
       return toast.error("Số điện thoại không hợp lệ");
     if (birthday) {
       const today = new Date().toISOString().slice(0, 10);
       if (birthday > today) return toast.error("Ngày sinh không hợp lệ");
     }
-    if (!password) return toast.error("Vui lòng nhập mật khẩu");
+    if (!password) return toast.error("Vui lòng nhập mật khẩu của bạn!");
     if (password.length < 6) return toast.error("Mật khẩu tối thiểu 6 ký tự");
     if (password !== confirmPassword)
-      return toast.error("Xác nhận mật khẩu không khớp");
+      return toast.error("Xác nhận mật khẩu không khớp!");
 
     setBusy(true);
     try {
@@ -268,12 +269,13 @@ export default function Authentication() {
     setForgotStep("email");
     setForgotOtp("");
     setForgotNewPassword("");
+    setForgotConfirmPassword("");
   };
 
   const onForgotSendOtp = async () => {
     if (busy) return;
     const email = String(forgotEmail || "").trim();
-    if (!email) return toast.error("Vui lòng nhập email");
+    if (!email) return toast.error("Vui lòng nhập email của bạn!");
 
     setBusy(true);
     try {
@@ -292,11 +294,16 @@ export default function Authentication() {
     const email = String(forgotEmail || "").trim();
     const otp = String(forgotOtp || "").trim();
     const newPassword = String(forgotNewPassword || "");
-    if (!email) return toast.error("Vui lòng nhập email");
+    const confirmPassword = String(forgotConfirmPassword || "");
+    if (!email) return toast.error("Vui lòng nhập email của bạn!");
     if (!otp) return toast.error("Vui lòng nhập OTP");
     if (!newPassword) return toast.error("Vui lòng nhập mật khẩu mới");
     if (newPassword.length < 6)
       return toast.error("Mật khẩu tối thiểu 6 ký tự");
+    if (!confirmPassword)
+      return toast.error("Vui lòng xác nhận mật khẩu mới");
+    if (newPassword !== confirmPassword)
+      return toast.error("Xác nhận mật khẩu không khớp!");
 
     setBusy(true);
     try {
@@ -356,54 +363,54 @@ export default function Authentication() {
     }
   };
 
-  const onFacebookLogin = async () => {
-    if (busy) return;
-    const fbAppId = process.env.REACT_APP_FACEBOOK_APP_ID;
-    if (!fbAppId) return toast.error("Thiếu REACT_APP_FACEBOOK_APP_ID");
+  // const onFacebookLogin = async () => {
+  //   if (busy) return;
+  //   const fbAppId = process.env.REACT_APP_FACEBOOK_APP_ID;
+  //   if (!fbAppId) return toast.error("Thiếu REACT_APP_FACEBOOK_APP_ID");
 
-    setBusy(true);
-    try {
-      await loadScriptOnce(
-        "https://connect.facebook.net/en_US/sdk.js",
-        "facebook-sdk",
-      );
-      if (!window.FB) throw new Error("Facebook SDK chưa sẵn sàng");
-      if (!fbReadyRef.current) {
-        try {
-          window.FB.init({
-            appId: fbAppId,
-            cookie: true,
-            xfbml: false,
-            version: "v20.0",
-          });
-          fbReadyRef.current = true;
-        } catch {
-          // ignore
-        }
-      }
+  //   setBusy(true);
+  //   try {
+  //     await loadScriptOnce(
+  //       "https://connect.facebook.net/en_US/sdk.js",
+  //       "facebook-sdk",
+  //     );
+  //     if (!window.FB) throw new Error("Facebook SDK chưa sẵn sàng");
+  //     if (!fbReadyRef.current) {
+  //       try {
+  //         window.FB.init({
+  //           appId: fbAppId,
+  //           cookie: true,
+  //           xfbml: false,
+  //           version: "v20.0",
+  //         });
+  //         fbReadyRef.current = true;
+  //       } catch {
+  //         // ignore
+  //       }
+  //     }
 
-      const accessToken = await new Promise((resolve, reject) => {
-        window.FB.login(
-          (response) => {
-            const token = response?.authResponse?.accessToken;
-            if (!token) {
-              return reject(new Error("Bạn đã hủy đăng nhập Facebook"));
-            }
-            resolve(token);
-          },
-          { scope: "email,public_profile" },
-        );
-      });
+  //     const accessToken = await new Promise((resolve, reject) => {
+  //       window.FB.login(
+  //         (response) => {
+  //           const token = response?.authResponse?.accessToken;
+  //           if (!token) {
+  //             return reject(new Error("Bạn đã hủy đăng nhập Facebook"));
+  //           }
+  //           resolve(token);
+  //         },
+  //         { scope: "email,public_profile" },
+  //       );
+  //     });
 
-      await api.authOauthFacebook({ accessToken });
-      toast.success("Đăng nhập Facebook thành công");
-      await afterAuthSuccess();
-    } catch (err) {
-      showError(err, "Đăng nhập Facebook thất bại");
-    } finally {
-      setBusy(false);
-    }
-  };
+  //     await api.authOauthFacebook({ accessToken });
+  //     toast.success("Đăng nhập Facebook thành công");
+  //     await afterAuthSuccess();
+  //   } catch (err) {
+  //     showError(err, "Đăng nhập Facebook thất bại");
+  //   } finally {
+  //     setBusy(false);
+  //   }
+  // };
 
   return (
     <div className="auth-page">
@@ -496,7 +503,7 @@ export default function Authentication() {
                 <FaGoogle className="social-icon" aria-hidden="true" />
                 ĐĂNG NHẬP GOOGLE
               </button>
-              <button
+              {/* <button
                 type="button"
                 className="social-btn facebook-btn"
                 onClick={onFacebookLogin}
@@ -504,7 +511,7 @@ export default function Authentication() {
               >
                 <FaFacebookF className="social-icon" aria-hidden="true" />
                 ĐĂNG NHẬP FACEBOOK
-              </button>
+              </button> */}
             </form>
           ) : (
             <form className="auth-form" onSubmit={onRegisterSubmit}>
@@ -608,7 +615,7 @@ export default function Authentication() {
                 <FaGoogle className="social-icon" aria-hidden="true" />
                 ĐĂNG KÝ GOOGLE
               </button>
-              <button
+              {/* <button
                 type="button"
                 className="social-btn facebook-btn"
                 onClick={onFacebookLogin}
@@ -616,7 +623,7 @@ export default function Authentication() {
               >
                 <FaFacebookF className="social-icon" aria-hidden="true" />
                 ĐĂNG KÝ FACEBOOK
-              </button>
+              </button> */}
             </form>
           )}
         </div>
@@ -675,6 +682,14 @@ export default function Authentication() {
                   aria-label="Mật khẩu mới"
                   value={forgotNewPassword}
                   onChange={(e) => setForgotNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                />
+                <input
+                  type="password"
+                  placeholder="Xác nhận mật khẩu mới"
+                  aria-label="Xác nhận mật khẩu mới"
+                  value={forgotConfirmPassword}
+                  onChange={(e) => setForgotConfirmPassword(e.target.value)}
                   autoComplete="new-password"
                 />
               </>

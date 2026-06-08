@@ -422,7 +422,7 @@ export default function Cart() {
         } catch {}
       }
       await api.deleteBundle(bundleId);
-      window.location.reload();
+      toast.success("Xóa sản phẩm khỏi giỏ hàng thành công!");
     } catch (e) {
       setCart(prev);
       try {
@@ -449,8 +449,7 @@ export default function Cart() {
         } catch {}
       }
       await api.deleteProduct(lineId);
-      toast.success("Xóa sản phẩm khỏi giỏ hàng thành công");
-      window.location.reload();
+      toast.success("Xóa sản phẩm khỏi giỏ hàng thành công!");
     } catch (e) {
       setCart(prev);
       try {

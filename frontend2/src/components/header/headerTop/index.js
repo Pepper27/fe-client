@@ -193,7 +193,7 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
 
   const renderSuggestion = (s) => (
     s.__empty ? (
-      <div className="search-suggestion search-empty">Không có kế quả tìm kiếm phù hợp!</div>
+      <div className="search-suggestion search-empty">Không có kết quả tìm kiếm phù hợp!</div>
     ) : s.__more ? (
       <div className="search-suggestion search-more">Xem thêm {s.total} sản phẩm</div>
     ) : (

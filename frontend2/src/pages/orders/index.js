@@ -415,7 +415,7 @@ export default function OrdersPage() {
       return;
     try {
       await api.v1ClientCancelOrder(code, { reason: "Khách huỷ (list)" });
-      toast.success("Huỷ đơn thành công");
+      toast.success("Huỷ đơn hàng thành công!");
       // Jump to cancelled tab; effect will refresh counts + list.
       setActiveTab("cancelled");
     } catch (e) {
@@ -424,7 +424,7 @@ export default function OrdersPage() {
           "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.",
         );
       } else {
-        toast.error(e?.message || "Huỷ đơn thất bại");
+        toast.error(e?.message || "Huỷ đơn hàng thất bại");
       }
     }
   };

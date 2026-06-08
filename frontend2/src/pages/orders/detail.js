@@ -74,7 +74,7 @@ export default function OrderDetailPage() {
       try {
         const res = await api.v1ClientCancelOrder(order.orderCode, { reason: "Khách huỷ (frontend)" });
         setOrder(res?.data || null);
-        toast.success("Huỷ đơn thành công");
+        toast.success("Huỷ đơn hàng thành công!");
         navigate("/orders?tab=cancelled", { replace: true });
       } catch (e) {
         if (e?.status === 409) {
@@ -87,7 +87,7 @@ export default function OrderDetailPage() {
           }
           toast.error("Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra lại.");
         } else {
-          toast.error(e?.message || "Huỷ đơn thất bại");
+          toast.error(e?.message || "Huỷ đơn hàng thất bại!");
         }
       }
     });

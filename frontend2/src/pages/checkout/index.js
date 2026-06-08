@@ -146,7 +146,7 @@ export default function CheckoutPage() {
       newAddress.email &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newAddress.email)
     ) {
-      newErrors.email = "Email không hợp lệ";
+      newErrors.email = "Email không đúng định dạng!";
     }
 
     setErrors(newErrors);
@@ -614,7 +614,7 @@ export default function CheckoutPage() {
       email &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     ) {
-      newErrors.email = "Email không hợp lệ!";
+      newErrors.email = "Email không đúng định dạng!";
     }
 
     // nếu có lỗi -> stop
@@ -708,21 +708,21 @@ export default function CheckoutPage() {
       return;
     }
     if (!selectedAddress) {
-      toast.error("Vui lòng chọn địa chỉ giao hàng");
+      toast.error("Vui lòng chọn địa chỉ giao hàng!");
       return;
     }
     const orderEmail = String(selectedAddress.email || me?.email || "")
       .trim()
       .toLowerCase();
     if (orderEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orderEmail)) {
-      toast.error("Email không hợp lệ");
+      toast.error("Email không đúng định dạng!");
       return;
     }
 
     const buildStockErrorMessage = (err) => {
       const rawMessage = String(err?.message || err?.data?.message || "").trim();
       const isStockError = /hết hàng|out of stock|không đủ hàng|insufficient stock|sold out/i.test(rawMessage);
-      if (!isStockError) return rawMessage || "Đặt hàng thất bại";
+      if (!isStockError) return rawMessage || "Đặt hàng thất bại!";
 
       const candidates = [];
 

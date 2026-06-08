@@ -200,7 +200,7 @@ export default function DesignList() {
           </div>
         ) : (
           <div className="designlist-empty">
-            Chưa có design nào trong giỏ. Vào <Link to="/design/mix">Mix Charm</Link> để tạo design.
+            Chưa có thiết kế nào, hãy tạo ra những bản thiết kế độc đáo của riêng bạn!
           </div>
         )}
       </div>

@@ -769,7 +769,7 @@ function ProductsPage() {
               ) : (
                 <>
                   {filteredItems.length === 0 ? (
-                    <div className="products-empty">Không có kế quả tìm kiếm phù hợp!</div>
+                    <div className="products-empty">Không có kết quả tìm kiếm phù hợp!</div>
                   ) : null}
                   {/* Log dữ liệu (đã bọc trong Fragment) */}
                   {/* Map danh sách sản phẩm */}
