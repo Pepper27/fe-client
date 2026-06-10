@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { api } from "../../utils/api";
+import { api, clearClientToken, hasClientToken } from "../../utils/api";
 import { syncCartBadge } from "../../utils/cart-count";
 import { isAuthBlockedInTab } from "../../utils/auth-tab";
 import "./index.scss";
@@ -300,7 +300,11 @@ export default function CheckoutPage() {
         .authMe()
         .then((res) => {
           if (cancelled) return;
-          setMe(res?.data || null);
+          const nextMe = res?.data || null;
+          if (!nextMe && hasClientToken()) {
+            clearClientToken();
+          }
+          setMe(nextMe);
           setAuthResolved(true);
         })
         .catch(() => {

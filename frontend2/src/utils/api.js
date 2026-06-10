@@ -88,6 +88,16 @@ const readClientToken = () => {
   }
 };
 
+export const clearClientToken = () => {
+  try {
+    localStorage.removeItem("clientAccessToken");
+  } catch {
+    // ignore
+  }
+};
+
+export const hasClientToken = () => Boolean(readClientToken());
+
 const withClientAuth = (options = {}) => {
   const token = readClientToken();
   if (!token) return options;
@@ -371,11 +381,7 @@ export const api = {
     request(`/api/public/auth/logout`, {
       method: "POST",
     }).finally(() => {
-      try {
-        localStorage.removeItem("clientAccessToken");
-      } catch {
-        // ignore
-      }
+      clearClientToken();
     }),
   authForgotPassword: ({ email }) =>
     request(`/api/public/auth/forgot-password`, {

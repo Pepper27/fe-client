@@ -11,7 +11,7 @@ import { RiFileList2Line } from "react-icons/ri";
 import "./index.scss";
 import "../cartBadge.scss";
 import { Link } from "react-router-dom";
-import { api } from "../../../utils/api";
+import { api, clearClientToken, hasClientToken } from "../../../utils/api";
 import { formatPrice } from "../../../utils/format";
 import {
   clearActiveWishlistUser,
@@ -70,6 +70,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
         .then((res) => {
           if (cancelled) return;
           const nextMe = res?.data || null;
+          if (!nextMe && hasClientToken()) {
+            clearClientToken();
+          }
           setMe(nextMe);
           const nextUserId = nextMe?.id || nextMe?._id || "";
           if (nextUserId) setActiveWishlistUser(nextUserId);

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import { IoCloseOutline } from "react-icons/io5";
 import { IoEyeOffOutline, IoEyeOutline } from "react-icons/io5";
 import { FaFacebookF, FaGoogle } from "react-icons/fa";
-import { api } from "../../utils/api";
+import { api, clearClientToken, hasClientToken } from "../../utils/api";
 import {
   clearActiveWishlistUser,
   mergeGuestWishlistToServer,
@@ -163,6 +163,9 @@ export default function Authentication() {
         .then((res) => {
           if (cancelled) return;
           const nextMe = res?.data || null;
+          if (!nextMe && hasClientToken()) {
+            clearClientToken();
+          }
           setMe(nextMe);
           const nextUserId = nextMe?.id || nextMe?._id || "";
           if (nextUserId) setActiveWishlistUser(nextUserId);
