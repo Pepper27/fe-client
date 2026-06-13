@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
-import { getOrderDisplayStatus } from "../../utils/order-status";
+import { getOrderDisplayStatus, isOrderPaid } from "../../utils/order-status";
 import { useTransition } from "react";
 import toast from "react-hot-toast";
 
@@ -63,12 +63,22 @@ export default function OrderDetailPage() {
 
   const canCancel = (order) => {
     if (!order) return false;
+    if (
+      String(order?.method || "").trim().toLowerCase() === "zalopay" &&
+      isOrderPaid(order)
+    ) {
+      return false;
+    }
     return ["pending", "confirmed"].includes(getOrderDisplayStatus(order));
   };
 
   const handleCancel = async () => {
     if (!order) return;
     if (guestView) return;
+    if (!canCancel(order)) {
+      toast.error("Đơn ZaloPay đã thanh toán không thể huỷ");
+      return;
+    }
     if (!window.confirm("Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?")) return;
     startTransition(async () => {
       try {

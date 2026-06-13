@@ -20,6 +20,17 @@ const statusLabel = (s) => {
   return v || "-";
 };
 
+const canCancelOrder = (order) => {
+  if (!order) return false;
+  if (
+    String(order?.method || "").trim().toLowerCase() === "zalopay" &&
+    isOrderPaid(order)
+  ) {
+    return false;
+  }
+  return ["pending", "confirmed"].includes(getOrderDisplayStatus(order));
+};
+
 const sortOrders = (list, status) => {
   if (status !== "cancelled") return list;
   return [...list].sort((a, b) => {
@@ -407,6 +418,13 @@ export default function OrdersPage() {
   const cancelFromList = async (orderCode) => {
     const code = String(orderCode || "").trim();
     if (!code) return;
+    const targetOrder = (orders || []).find(
+      (item) => String(item?.orderCode || "").trim() === code,
+    );
+    if (!canCancelOrder(targetOrder)) {
+      toast.error("Đơn ZaloPay đã thanh toán không thể huỷ");
+      return;
+    }
     if (
       !window.confirm(
         "Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?",
@@ -680,7 +698,7 @@ export default function OrdersPage() {
                       >
                         Xem chi tiết
                       </button>
-                        {["pending", "confirmed"].includes(getOrderDisplayStatus(o)) ? (
+                        {canCancelOrder(o) ? (
                           <button
                             type="button"
                             className="orders-btn orders-btnSecondary"
