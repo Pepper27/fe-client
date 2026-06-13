@@ -22,13 +22,14 @@ const statusLabel = (s) => {
 
 const canCancelOrder = (order) => {
   if (!order) return false;
-  if (
+   if (
     String(order?.method || "").trim().toLowerCase() === "zalopay" &&
     isOrderPaid(order)
   ) {
     return false;
   }
-  return ["pending", "confirmed"].includes(getOrderDisplayStatus(order));
+  // Chỉ cho hủy khi trạng thái hiển thị thực tế là pending (chưa thanh toán / chưa xác nhận)
+  return getOrderDisplayStatus(order) === "pending";
 };
 
 const sortOrders = (list, status) => {
@@ -59,7 +60,15 @@ export default function OrdersPage() {
   const [guestEmail, setGuestEmail] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
 
-  // Restore guest lookup session so back-navigation doesn't wipe results.
+  const [counts, setCounts] = useState({
+    pending: 0,
+    confirmed: 0,
+    shipping: 0,
+    delivered: 0,
+    cancelled: 0,
+  });
+
+  // Restore guest lookup session
   useEffect(() => {
     if (me) return;
     try {
@@ -74,13 +83,10 @@ export default function OrdersPage() {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) setOrders(parsed);
       }
-    } catch {
-      // ignore storage errors
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    } catch {}
   }, [me]);
 
-  // If guest has email in URL but only stale orders cached, refresh from API.
+  // Refresh guest orders if stale
   useEffect(() => {
     if (me) return;
     const qs = new URLSearchParams(location.search || "");
@@ -106,31 +112,23 @@ export default function OrdersPage() {
         }
       })
       .catch(() => {})
-      .finally(() => {});
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      return () => {
+        cancelled = true;
+      };
   }, [me, location.search]);
+
   const initialTabFromQuery = useMemo(() => {
     const qs = new URLSearchParams(location.search || "");
     const t = String(qs.get("tab") || "").trim();
-    if (
-      t === "pending" ||
-      t === "confirmed" ||
-      t === "shipping" ||
-      t === "delivered" ||
-      t === "cancelled"
-    ) {
+    if (["pending", "confirmed", "shipping", "delivered", "cancelled"].includes(t)) {
       return t;
     }
     return "pending";
   }, [location.search]);
 
-  // Load profile via v1 bearer; if not logged in, show guest email flow.
+  // Load profile / Auth check
   useEffect(() => {
     let cancelled = false;
-
     const refreshMe = () => {
       if (isAuthBlockedInTab()) {
         setMe(null);
@@ -144,7 +142,6 @@ export default function OrdersPage() {
         })
         .catch(() => {
           if (cancelled) return;
-          // If token missing/expired after logout, switch to guest mode.
           setMe(null);
         });
     };
@@ -157,14 +154,6 @@ export default function OrdersPage() {
       window.removeEventListener("auth:changed", onAuthChanged);
     };
   }, []);
-
-  const [counts, setCounts] = useState({
-    pending: 0,
-    confirmed: 0,
-    shipping: 0,
-    delivered: 0,
-    cancelled: 0,
-  });
 
   useEffect(() => {
     setTab(initialTabFromQuery);
@@ -182,22 +171,20 @@ export default function OrdersPage() {
           limit: 200,
         });
         const pendingList = Array.isArray(pendingRes?.data) ? pendingRes.data : [];
+        
+        // Đếm số lượng đơn thực tế đã thanh toán thành công (confirmed) nằm trong cục pending từ server
         const paidPendingCount = pendingList.filter(
-          (order) => getOrderDisplayStatus(order) === "confirmed",
+          (order) => isOrderPaid(order) || getOrderDisplayStatus(order) === "confirmed"
         ).length;
 
         if (paidPendingCount > 0) {
           nextCounts.pending = Math.max(0, Number(nextCounts.pending) - paidPendingCount);
           nextCounts.confirmed = Math.max(0, Number(nextCounts.confirmed) + paidPendingCount);
         }
-      } catch {
-        // keep server counts when pending list cannot be adjusted
-      }
+      } catch {}
 
       setCounts((p) => ({ ...p, ...nextCounts }));
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
   const fetchOrders = async (nextTab) => {
@@ -206,55 +193,42 @@ export default function OrdersPage() {
     try {
       if (me && (s === "pending" || s === "confirmed")) {
         const [primaryRes, pendingRes] = await Promise.all([
-          api.v1ClientOrdersList({
-            status: s,
-            page: 1,
-            limit: 50,
-          }),
-          api.v1ClientOrdersList({
-            status: "pending",
-            page: 1,
-            limit: 200,
-          }),
+          api.v1ClientOrdersList({ status: s, page: 1, limit: 50 }),
+          api.v1ClientOrdersList({ status: "pending", page: 1, limit: 200 }),
         ]);
 
         const primaryList = Array.isArray(primaryRes?.data) ? primaryRes.data : [];
         const pendingList = Array.isArray(pendingRes?.data) ? pendingRes.data : [];
 
+        // Tab CHỜ XÁC NHẬN: Chỉ hiển thị các đơn CHƯA THANH TOÁN (hoặc thanh toán thất bại/hủy)
         if (s === "pending") {
-          setOrders(
-            sortOrders(
-              primaryList.filter(
-                (order) => getOrderDisplayStatus(order) === "pending",
-              ),
-              s,
-            ),
+          const filteredPending = primaryList.filter(
+            (order) => !isOrderPaid(order) && getOrderDisplayStatus(order) === "pending"
           );
+          setOrders(sortOrders(filteredPending, s));
           return;
         }
 
+        // Tab CHỜ LẤY HÀNG: Gom các đơn đã thanh toán thành công (confirmed)
         const merged = [...primaryList];
-        const seen = new Set(
-          merged.map((order) => String(order?.orderCode || "")).filter(Boolean),
-        );
+        const seen = new Set(merged.map((order) => String(order?.orderCode || "")).filter(Boolean));
 
         for (const order of pendingList) {
           const orderCode = String(order?.orderCode || "");
           if (!orderCode || seen.has(orderCode)) continue;
-          if (getOrderDisplayStatus(order) !== "confirmed") continue;
-          merged.push(order);
-          seen.add(orderCode);
+          
+          // Nếu đơn hàng từ cổng ZaloPay báo đã thanh toán thành công -> chuyển sang tab confirmed
+          if (isOrderPaid(order) || getOrderDisplayStatus(order) === "confirmed") {
+            merged.push(order);
+            seen.add(orderCode);
+          }
         }
 
         setOrders(sortOrders(merged, s));
         return;
       }
 
-      const res = await api.v1ClientOrdersList({
-        status: s,
-        page: 1,
-        limit: 50,
-      });
+      const res = await api.v1ClientOrdersList({ status: s, page: 1, limit: 50 });
       const list = Array.isArray(res?.data) ? res.data : [];
       setOrders(sortOrders(list, s));
     } catch (e) {
@@ -265,6 +239,7 @@ export default function OrdersPage() {
     }
   };
 
+  // Effect fetch chính theo Tab & User state
   useEffect(() => {
     if (!me) return;
     
@@ -273,8 +248,6 @@ export default function OrdersPage() {
     
     const loadOrdersWithConfirmedOrder = async () => {
       let confirmedOrder = null;
-      
-      // If coming from zalopay payment with code param, fetch that specific order first
       if (code) {
         try {
           const orderRes = await api.v1ClientOrderByCode(code);
@@ -284,22 +257,13 @@ export default function OrdersPage() {
         }
       }
       
-      // Now fetch the standard list
       setLoading(true);
       try {
         const s = String(tab);
         if (me && (s === "pending" || s === "confirmed")) {
           const [primaryRes, pendingRes] = await Promise.all([
-            api.v1ClientOrdersList({
-              status: s,
-              page: 1,
-              limit: 50,
-            }),
-            api.v1ClientOrdersList({
-              status: "pending",
-              page: 1,
-              limit: 200,
-            }),
+            api.v1ClientOrdersList({ status: s, page: 1, limit: 50 }),
+            api.v1ClientOrdersList({ status: "pending", page: 1, limit: 200 }),
           ]);
 
           const primaryList = Array.isArray(primaryRes?.data) ? primaryRes.data : [];
@@ -307,21 +271,19 @@ export default function OrdersPage() {
 
           if (s === "pending") {
             const filtered = primaryList.filter(
-              (order) => getOrderDisplayStatus(order) === "pending",
+              (order) => !isOrderPaid(order) && getOrderDisplayStatus(order) === "pending"
             );
             setOrders(sortOrders(filtered, s));
             return;
           }
 
           const merged = [...primaryList];
-          const seen = new Set(
-            merged.map((order) => String(order?.orderCode || "")).filter(Boolean),
-          );
+          const seen = new Set(merged.map((order) => String(order?.orderCode || "")).filter(Boolean));
 
-          // Add confirmed order at the top if we have one
           if (confirmedOrder && String(confirmedOrder?.orderCode || "")) {
             const confCode = String(confirmedOrder.orderCode);
-            if (!seen.has(confCode)) {
+            // Chỉ đưa vào danh sách Confirmed nếu đơn đó thực sự đã thanh toán thành công
+            if (!seen.has(confCode) && (isOrderPaid(confirmedOrder) || getOrderDisplayStatus(confirmedOrder) === "confirmed")) {
               merged.unshift(confirmedOrder);
               seen.add(confCode);
             }
@@ -330,20 +292,17 @@ export default function OrdersPage() {
           for (const order of pendingList) {
             const orderCode = String(order?.orderCode || "");
             if (!orderCode || seen.has(orderCode)) continue;
-            if (getOrderDisplayStatus(order) !== "confirmed") continue;
-            merged.push(order);
-            seen.add(orderCode);
+            if (isOrderPaid(order) || getOrderDisplayStatus(order) === "confirmed") {
+              merged.push(order);
+              seen.add(orderCode);
+            }
           }
 
           setOrders(sortOrders(merged, s));
           return;
         }
 
-        const res = await api.v1ClientOrdersList({
-          status: s,
-          page: 1,
-          limit: 50,
-        });
+        const res = await api.v1ClientOrdersList({ status: s, page: 1, limit: 50 });
         const list = Array.isArray(res?.data) ? res.data : [];
         setOrders(sortOrders(list, s));
       } catch (e) {
@@ -356,22 +315,24 @@ export default function OrdersPage() {
     
     loadOrdersWithConfirmedOrder();
     fetchCounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, tab]);
 
-  // Watch pending Zalopay orders in the current list and poll their status
   useEffect(() => {
     if (!orders || !orders.length) return undefined;
+    if (tab !== "pending") return undefined;
+
     const watchList = orders
       .filter((o) => String(o.method || "").toLowerCase() === "zalopay")
       .filter((o) => !isOrderPaid(o))
       .map((o) => String(o.orderCode || ""))
       .filter(Boolean);
+      
     if (!watchList.length) return undefined;
 
     const POLL_INTERVAL = 2000;
-    const TIMEOUT_MS = Number(process.env.REACT_APP_POLL_TIMEOUT_MS || 2 * 60 * 1000); // 2m
+    const TIMEOUT_MS = Number(process.env.REACT_APP_POLL_TIMEOUT_MS || 2 * 60 * 1000); 
     const start = Date.now();
+    
     const id = setInterval(async () => {
       try {
         for (const code of watchList) {
@@ -386,20 +347,30 @@ export default function OrdersPage() {
                 : await api.getOrderByCode(code);
               latest = res?.data || null;
             }
+            
             if (latest) {
-              // If updated to paid or status changed, refresh whole list to keep ordering
-              if (isOrderPaid(latest) || getOrderDisplayStatus(latest) !== "pending") {
+              // TRƯỜNG HỢP 1: Thanh toán thành công (isOrderPaid === true)
+              if (isOrderPaid(latest) || getOrderDisplayStatus(latest) === "confirmed") {
+                toast.success(`Đơn hàng #${code} đã thanh toán thành công!`);
                 const cartEvent = new CustomEvent("cart:forceRefresh", { detail: { count: 0 } });
                 window.dispatchEvent(cartEvent);
                 fetchCounts();
-                fetchOrders(tab);
                 clearInterval(id);
-                setActiveTab("confirmed");
+                setActiveTab("confirmed"); 
                 return;
               }
+              
+           if (getOrderDisplayStatus(latest) === "cancelled") {
+              toast.error(`Đơn hàng #${code} đã bị huỷ hoặc thanh toán lỗi.`);
+              fetchCounts();
+              fetchOrders("pending"); 
+              clearInterval(id);
+              
+              return;
+            }
             }
           } catch (e) {
-            // ignore per-order errors
+
           }
         }
         if (Date.now() - start > TIMEOUT_MS) {
@@ -410,10 +381,8 @@ export default function OrdersPage() {
       }
     }, POLL_INTERVAL);
 
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orders, me, tab]);
-
+  return () => clearInterval(id);
+}, [orders, me, tab]);
 
   const cancelFromList = async (orderCode) => {
     const code = String(orderCode || "").trim();
@@ -422,25 +391,17 @@ export default function OrdersPage() {
       (item) => String(item?.orderCode || "").trim() === code,
     );
     if (!canCancelOrder(targetOrder)) {
-      toast.error("Đơn ZaloPay đã thanh toán không thể huỷ");
+      toast.error("Đơn hàng này không thể huỷ ở trạng thái hiện tại");
       return;
     }
-    if (
-      !window.confirm(
-        "Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?",
-      )
-    )
-      return;
+    if (!window.confirm("Sau khi huỷ bạn không thể khôi phục đơn hàng. Bạn có chắc muốn huỷ?")) return;
     try {
       await api.v1ClientCancelOrder(code, { reason: "Khách huỷ (list)" });
       toast.success("Huỷ đơn hàng thành công!");
-      // Jump to cancelled tab; effect will refresh counts + list.
       setActiveTab("cancelled");
     } catch (e) {
       if (e?.status === 409) {
-        toast.error(
-          "Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.",
-        );
+        toast.error("Đơn hàng đã thay đổi trạng thái, vui lòng kiểm tra chi tiết.");
       } else {
         toast.error(e?.message || "Huỷ đơn hàng thất bại");
       }
@@ -448,9 +409,7 @@ export default function OrdersPage() {
   };
 
   const sendGuestEmail = async () => {
-    const email = String(guestEmail || "")
-      .trim()
-      .toLowerCase();
+    const email = String(guestEmail || "").trim().toLowerCase();
     if (!email || !email.includes("@")) {
       toast.error("Nhập email hợp lệ");
       return;
@@ -458,7 +417,6 @@ export default function OrdersPage() {
     setSendingEmail(true);
     try {
       const res = await api.emailOrders({ email });
-      // If backend returns an order snapshot, show it immediately.
       if (Array.isArray(res?.data)) {
         setOrders(res.data);
         try {
@@ -468,7 +426,6 @@ export default function OrdersPage() {
       try {
         sessionStorage.setItem("orders:guestEmail", email);
       } catch {}
-      // Persist email in URL so refresh/back keeps context.
       try {
         const qs = new URLSearchParams(location.search || "");
         qs.set("email", email);
@@ -487,18 +444,12 @@ export default function OrdersPage() {
     setTab(next);
     const qs = new URLSearchParams(location.search || "");
     qs.set("tab", next);
-    navigate(
-      { pathname: "/orders", search: `?${qs.toString()}` },
-      { replace: true },
-    );
+    navigate({ pathname: "/orders", search: `?${qs.toString()}` }, { replace: true });
   };
 
   const orderLinesSummary = (order) => {
     const cart = Array.isArray(order?.cart) ? order.cart : [];
-    const totalQty = cart.reduce(
-      (sum, it) => sum + (Number(it?.quantity) || 0),
-      0,
-    );
+    const totalQty = cart.reduce((sum, it) => sum + (Number(it?.quantity) || 0), 0);
     const label = totalQty === 1 ? "1 sản phẩm" : `${totalQty} sản phẩm`;
     return { totalQty, label };
   };
@@ -517,17 +468,16 @@ export default function OrdersPage() {
     return parts.length ? parts.join(" · ") : "Mặc định";
   };
 
-
   const isZaloPending = (o) => {
     if (!o) return false;
     if (getOrderDisplayStatus(o) === "cancelled") return false;
     if (String(o.method || "").toLowerCase() !== "zalopay") return false;
+    // Đơn hàng CHƯA ĐƯỢC thanh toán thành công mới hiển thị nút bấm
     if (isOrderPaid(o)) return false;
-    // Prefer explicit expiresAt, else fallback to createdAt + 2 hours for legacy orders
+
     const PAYMENT_WINDOW_MS = Number(process.env.REACT_APP_PAYMENT_WINDOW_MS || 2 * 60 * 60 * 1000);
     const expRaw = o?.payment?.expiresAt || null;
     const exp = expRaw ? new Date(expRaw) : new Date(Date.parse(o.createdAt || Date.now()) + PAYMENT_WINDOW_MS);
-    // Also ensure we have an orderUrl to open
     const hasUrl = Boolean(o?.payment?.orderUrl);
     return hasUrl && exp && exp.getTime() > Date.now();
   };
@@ -545,7 +495,6 @@ export default function OrdersPage() {
     }
   };
 
-
   return (
     <div className="orders-page">
       <div className="container orders-mobileContainer">
@@ -556,77 +505,28 @@ export default function OrdersPage() {
 
         {me ? (
           <>
-            <div
-              className="orders-mobileTabs"
-              role="tablist"
-              aria-label="Trạng thái"
-            >
-              <button
-                type="button"
-                className={
-                  "orders-mobileTab " + (tab === "pending" ? "is-active" : "")
-                }
-                onClick={() => setActiveTab("pending")}
-              >
+            <div className="orders-mobileTabs" role="tablist" aria-label="Trạng thái">
+              <button type="button" className={"orders-mobileTab " + (tab === "pending" ? "is-active" : "")} onClick={() => setActiveTab("pending")}>
                 Chờ xác nhận
-                {counts.pending ? (
-                  <span className="orders-badge">
-                    {counts.pending > 99 ? "99+" : counts.pending}
-                  </span>
-                ) : null}
+                {counts.pending ? <span className="orders-badge">{counts.pending > 99 ? "99+" : counts.pending}</span> : null}
               </button>
-              <button
-                type="button"
-                className={
-                  "orders-mobileTab " + (tab === "confirmed" ? "is-active" : "")
-                }
-                onClick={() => setActiveTab("confirmed")}
-              >
+              <button type="button" className={"orders-mobileTab " + (tab === "confirmed" ? "is-active" : "")} onClick={() => setActiveTab("confirmed")}>
                 Chờ lấy hàng
-                {counts.confirmed ? (
-                  <span className="orders-badge">
-                    {counts.confirmed > 99 ? "99+" : counts.confirmed}
-                  </span>
-                ) : null}
+                {counts.confirmed ? <span className="orders-badge">{counts.confirmed > 99 ? "99+" : counts.confirmed}</span> : null}
               </button>
-              <button
-                type="button"
-                className={
-                  "orders-mobileTab " + (tab === "shipping" ? "is-active" : "")
-                }
-                onClick={() => setActiveTab("shipping")}
-              >
+              <button type="button" className={"orders-mobileTab " + (tab === "shipping" ? "is-active" : "")} onClick={() => setActiveTab("shipping")}>
                 Đang giao
-                {counts.shipping ? (
-                  <span className="orders-badge">
-                    {counts.shipping > 99 ? "99+" : counts.shipping}
-                  </span>
-                ) : null}
+                {counts.shipping ? <span className="orders-badge">{counts.shipping > 99 ? "99+" : counts.shipping}</span> : null}
               </button>
-              <button
-                type="button"
-                className={
-                  "orders-mobileTab " + (tab === "delivered" ? "is-active" : "")
-                }
-                onClick={() => setActiveTab("delivered")}
-              >
+              <button type="button" className={"orders-mobileTab " + (tab === "delivered" ? "is-active" : "")} onClick={() => setActiveTab("delivered")}>
                 Đã giao
               </button>
-              <button
-                type="button"
-                className={
-                  "orders-mobileTab " + (tab === "cancelled" ? "is-active" : "")
-                }
-                onClick={() => setActiveTab("cancelled")}
-              >
+              <button type="button" className={"orders-mobileTab " + (tab === "cancelled" ? "is-active" : "")} onClick={() => setActiveTab("cancelled")}>
                 Đã huỷ
               </button>
             </div>
 
-            <div
-              className="orders-mobileList"
-              aria-busy={loading ? "true" : "false"}
-            >
+            <div className="orders-mobileList" aria-busy={loading ? "true" : "false"}>
               {orders?.length ? (
                 orders.map((o) => {
                   const line = firstLine(o);
@@ -636,74 +536,42 @@ export default function OrdersPage() {
                       <div className="orders-orderCardHead">
                         <div className="orders-shopName">Mix Charm</div>
                         <div className="orders-orderStatus">
-                          {statusLabel(getOrderDisplayStatus(o))}
+                          {statusLabel(isOrderPaid(o) ? "confirmed" : getOrderDisplayStatus(o))}
                         </div>
                       </div>
 
                       <div className="orders-orderItem">
                         <div className="orders-itemThumb">
                           {(() => {
-                            // Prefer product's first image if included in order line, otherwise use line.image
                             const img = (line?.images && line.images[0]) || line?.image || null;
-                            return img ? (
-                              <img src={img} alt={line?.name || "product"} />
-                            ) : (
-                              <div className="orders-thumbFallback" />
-                            );
+                            return img ? <img src={img} alt={line?.name || "product"} /> : <div className="orders-thumbFallback" />;
                           })()}
                         </div>
                         <div className="orders-itemInfo">
-                          <div className="orders-itemName">
-                            {line?.name || "Sản phẩm"}
-                          </div>
-                          <div className="orders-itemMeta">
-                            Phân loại: {classifyLine(line)}
-                          </div>
+                          <div className="orders-itemName">{line?.name || "Sản phẩm"}</div>
+                          <div className="orders-itemMeta">Phân loại: {classifyLine(line)}</div>
                         </div>
                         <div className="orders-itemRight">
-                          <div className="orders-itemQty">
-                            x{line?.quantity || 1}
-                          </div>
-                          <div className="orders-itemPrice">
-                            {formatPrice(line?.price)}
-                          </div>
+                          <div className="orders-itemQty">x{line?.quantity || 1}</div>
+                          <div className="orders-itemPrice">{formatPrice(line?.price)}</div>
                         </div>
                       </div>
 
                       <div className="orders-orderTotal">
-                        Tổng số tiền ({summary.label}):{" "}
-                        <strong>{formatPrice(o.totalPrice)}</strong>
+                        Tổng số tiền ({summary.label}): <strong>{formatPrice(o.totalPrice)}</strong>
                       </div>
 
                       <div className="orders-orderActions">
-
-                      {isZaloPending(o) ? (
-                        <button
-                          type="button"
-                          className="orders-btn orders-btnPrimary"
-                          onClick={() => handlePayNow(o)}
-                        >
-                          Thanh toán ngay
+                        {isZaloPending(o) ? (
+                          <button type="button" className="orders-btn orders-btnPrimary" onClick={() => handlePayNow(o)}>
+                            Thanh toán ngay
+                          </button>
+                        ) : null}
+                        <button type="button" className="orders-btn" onClick={() => navigate(`/orders/detail/${encodeURIComponent(o.orderCode)}`, { state: { guestEmail: String(guestEmail || "").trim().toLowerCase() } })}>
+                          Xem chi tiết
                         </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="orders-btn"
-                        onClick={() =>
-                          navigate(
-                            `/orders/detail/${encodeURIComponent(o.orderCode)}`,
-                            { state: { guestEmail: String(guestEmail || "").trim().toLowerCase() } },
-                          )
-                        }
-                      >
-                        Xem chi tiết
-                      </button>
                         {canCancelOrder(o) ? (
-                          <button
-                            type="button"
-                            className="orders-btn orders-btnSecondary"
-                            onClick={() => cancelFromList(o.orderCode)}
-                          >
+                          <button type="button" className="orders-btn orders-btnSecondary" onClick={() => cancelFromList(o.orderCode)}>
                             Huỷ
                           </button>
                         ) : null}
@@ -712,33 +580,19 @@ export default function OrdersPage() {
                   );
                 })
               ) : (
-                <div className="orders-empty">
-                  {loading ? "Đang tải..." : "Chưa có đơn ở trạng thái này"}
-                </div>
+                <div className="orders-empty">{loading ? "Đang tải..." : "Chưa có đơn ở trạng thái này"}</div>
               )}
             </div>
           </>
         ) : (
           <>
+            {/* Khối giao diện dành cho Khách vãng lai (Guest) */}
             <div className="orders-guestCard">
               <div className="orders-guestTitle">Tra cứu đơn hàng</div>
-              <div className="orders-guestSub">
-                Nhập email để hệ thống gửi danh sách đơn hàng và trạng thái về
-                cho bạn.
-              </div>
+              <div className="orders-guestSub">Nhập email để hệ thống gửi danh sách đơn hàng và trạng thái về cho bạn.</div>
               <div className="orders-guestForm">
-                <input
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  inputMode="email"
-                />
-                <button
-                  type="button"
-                  className="orders-btn orders-btnPrimary"
-                  onClick={sendGuestEmail}
-                  disabled={sendingEmail}
-                >
+                <input value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder="email@example.com" inputMode="email" />
+                <button type="button" className="orders-btn orders-btnPrimary" onClick={sendGuestEmail} disabled={sendingEmail}>
                   {sendingEmail ? "Đang gửi..." : "Gửi email"}
                 </button>
               </div>
@@ -749,66 +603,43 @@ export default function OrdersPage() {
                 orders.map((o) => (
                   <div key={o.orderCode} className="orders-orderCard">
                     <div className="orders-orderCardHead">
-
-                      <div className="orders-orderStatus">{statusLabel(getOrderDisplayStatus(o))}</div>
-
+                      <div className="orders-orderStatus">
+                        {statusLabel(isOrderPaid(o) ? "confirmed" : getOrderDisplayStatus(o))}
+                      </div>
                     </div>
 
                     <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                       <div className="orders-itemThumb" style={{ flex: "0 0 auto" }}>
-                        {o?.cart?.[0]?.image ? (
-                          <img
-                            src={o.cart[0].image}
-                            alt={o?.cart?.[0]?.name || "product"}
-                          />
-                        ) : (
-                          <div className="orders-thumbFallback" />
-                        )}
+                        {o?.cart?.[0]?.image ? <img src={o.cart[0].image} alt={o?.cart?.[0]?.name || "product"} /> : <div className="orders-thumbFallback" />}
                       </div>
 
                       <div style={{ minWidth: 0, flex: "1 1 auto" }}>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                          title={o?.cart?.[0]?.name || ""}
-                        >
+                        <div style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={o?.cart?.[0]?.name || ""}>
                           {o?.cart?.[0]?.name || "Sản phẩm"}
                         </div>
                         <div style={{ color: "#666", marginTop: 4 }}>
-                          {o.createdAt
-                            ? new Date(o.createdAt).toLocaleString("vi-VN")
-                            : "-"}
+                          {o.createdAt ? new Date(o.createdAt).toLocaleString("vi-VN") : "-"}
                         </div>
-                        <div style={{ color: "#666", marginTop: 4 }}>
-                          Phân loại: {classifyLine(o?.cart?.[0])}
-                        </div>
-                        {(function(){
+                        <div style={{ color: "#666", marginTop: 4 }}>Phân loại: {classifyLine(o?.cart?.[0])}</div>
+                        
+                        {(() => {
                           const pl = o?.cart?.[0];
                           if (!pl) return null;
-                           const engraving = pl.engraving || null;
-                           let preview = engraving && (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) ? (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) : null;
+                          const engraving = pl.engraving || null;
+                          let preview = engraving && (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) ? (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) : null;
                           if (!preview) {
                             try {
-                              const key = 'engraving_preview_map';
-                              const raw = localStorage.getItem(key);
+                              const raw = localStorage.getItem('engraving_preview_map');
                               const map = raw ? JSON.parse(raw) : {};
                               preview = map && map[String(pl._id)];
-                            } catch (e) {
-                              preview = null;
-                            }
+                            } catch { preview = null; }
                           }
                           if (engraving || preview) {
                             return (
                               <div style={{ color: "#666", marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <div style={{ fontWeight: 700 }}>Khắc:</div>
                                 <div>{String(engraving?.text || '')}</div>
-                                {preview ? (
-                                  <img src={preview} alt={`Preview khắc`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }} />
-                                ) : null}
+                                {preview ? <img src={preview} alt={`Preview khắc`} style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }} /> : null}
                               </div>
                             );
                           }
@@ -817,39 +648,15 @@ export default function OrdersPage() {
                       </div>
                     </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        alignItems: "flex-end",
-                        gap: 10,
-                        marginTop: 10,
-                      }}
-                    >
+                    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "flex-end", gap: 10, marginTop: 10 }}>
                       <div style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                          Tổng tiền: {formatPrice(o.totalPrice)}
-                        </div>
-
+                        <div style={{ fontWeight: 600, marginBottom: 8 }}>Tổng tiền: {formatPrice(o.totalPrice)}</div>
                         {isZaloPending(o) ? (
-                          <button
-                            type="button"
-                            className="orders-btn orders-btnPrimary"
-                            onClick={() => handlePayNow(o)}
-                          >
+                          <button type="button" className="orders-btn orders-btnPrimary" onClick={() => handlePayNow(o)}>
                             Thanh toán ngay
                           </button>
                         ) : null}
-
-                        <button
-                          type="button"
-                          className="orders-btn"
-                          onClick={() =>
-                            navigate(
-                              `/orders/detail/${encodeURIComponent(o.orderCode)}`,
-                            )
-                          }
-                        >
+                        <button type="button" className="orders-btn" onClick={() => navigate(`/orders/detail/${encodeURIComponent(o.orderCode)}`)}>
                           Xem chi tiết
                         </button>
                       </div>
