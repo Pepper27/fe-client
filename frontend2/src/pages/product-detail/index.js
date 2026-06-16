@@ -1999,7 +1999,7 @@ export default function ProductDetailPage() {
               />
             </div>
             <ul className="spec-list">
-              <li>
+              {/* <li>
                 <span className="label">Bộ sưu tập:</span>{" "}
                 {(() => {
                   const cols = Array.isArray(product?.collections)
@@ -2022,7 +2022,7 @@ export default function ProductDetailPage() {
                       : null) || (typeof single === "string" ? single : null);
                   return singleName || "-";
                 })()}
-              </li>
+              </li> */}
               <li>
                 <span className="label">Mã sản phẩm:</span>{" "}
                 {product?.code || product?.sku || product?._id}
