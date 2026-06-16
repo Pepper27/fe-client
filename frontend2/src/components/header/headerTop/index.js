@@ -329,9 +329,9 @@ export const HeaderTop = ({ handleSearch, handleDelete, onOpenMenu }) => {
               >
                 <RiFileList2Line />
               </Link>
-              <button className="icon-btn desktop-only">
+              {/* <button className="icon-btn desktop-only">
                 <TfiLocationPin />
-              </button>
+              </button> */}
               <div className="icon-btn has-popover">
                 <Link
                   to="/authen"

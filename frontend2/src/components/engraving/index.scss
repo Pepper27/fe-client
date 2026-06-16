@@ -5,7 +5,8 @@
   display: grid;
   /* place at top center with a gap so it won't be under header */
   place-items: start center;
-  padding-top: 72px; /* adjust to header height */
+  padding-top: 144px; /* clear sticky header stack */
+  padding-bottom: 24px;
 }
 
 .engrave-backdrop {
@@ -17,6 +18,7 @@
 .engrave-sheet {
   position: relative;
   width: min(760px, 100%);
+  max-height: calc(100vh - 168px);
   background: #fff;
   border-radius: 16px 16px 0 0;
   overflow: visible; /* allow vertical slider to render outside */

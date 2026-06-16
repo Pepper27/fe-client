@@ -1,0 +1,123 @@
+@use "../../assets/styles/variables" as *;
+
+.embla {
+  position: relative;
+  width: 100%;
+
+  &__viewport {
+    overflow: hidden;
+  }
+
+  &__container {
+    display: flex;
+    gap: 24px;
+    touch-action: pan-y;
+  }
+
+  &__slide {
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+
+  &__btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 1px solid $color-gray-border;
+    background: $color-bg;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    color: $color-text;
+    font-size: 18px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: $color-text;
+      color: $color-bg;
+      border-color: $color-text;
+    }
+
+    &:disabled {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &--prev {
+      left: -24px;
+    }
+
+    &--next {
+      right: -24px;
+    }
+  }
+
+  &__dots {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  &__dot {
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid $color-gray-border;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &.is-selected {
+      background: $color-main;
+      border-color: $color-main;
+      transform: scale(1.2);
+    }
+  }
+}
+
+/* ---- Slide size presets ---- */
+
+.embla__slide.size-banner {
+  flex: 0 0 100%;
+}
+
+.embla__slide.size-product {
+  flex: 0 0 100%;
+}
+@media (min-width: 640px) {
+  .embla__slide.size-product {
+    flex: 0 0 50%;
+  }
+}
+@media (min-width: 1024px) {
+  .embla__slide.size-product {
+    flex: 0 0 33.333%;
+  }
+}
+@media (min-width: 1280px) {
+  .embla__slide.size-product {
+    flex: 0 0 25%;
+  }
+}
+
+.embla__slide.size-blog {
+  flex: 0 0 100%;
+}
+@media (min-width: 640px) {
+  .embla__slide.size-blog {
+    flex: 0 0 50%;
+  }
+}
+@media (min-width: 1024px) {
+  .embla__slide.size-blog {
+    flex: 0 0 33.333%;
+  }
+}

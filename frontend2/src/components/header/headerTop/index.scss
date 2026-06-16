@@ -589,14 +589,14 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      color: $color-text;
+      color: $color-text-light;
       transition: color 0.3s ease;
 
       svg { 
-        width: 22px; 
-        height: 22px; 
+        width: 20px; 
+        height: 20px; 
         display: block; 
-        stroke-width: 1.5;
+        stroke-width: 1.2;
       }
 
       &:hover { color: $color-main; }
@@ -604,8 +604,8 @@
       &.heart-btn {
         position: relative;
         svg {
-          width: 22px;
-          height: 22px;
+          width: 20px;
+          height: 20px;
         }
       }
 
@@ -630,6 +630,13 @@
         position: relative;
         padding-bottom: 10px;
         margin-bottom: -10px;
+      }
+
+      .account-icon-link {
+        color: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
 
       &.desktop-only {
