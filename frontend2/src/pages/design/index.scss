@@ -1,15 +1,13 @@
 @use "../../assets/styles/variables" as *;
 
 .mixcharm-page {
-  padding-top: 24px;
-  padding-bottom: 40px;
+  padding: 60px 0 100px;
+  background: transparent;
 }
 
 .mixcharm-title {
+  @include heading-style;
   font-size: 42px;
-  line-height: 1.05;
-  font-weight: 800;
-  letter-spacing: -0.02em;
   margin: 0;
 }
 
@@ -17,344 +15,331 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-}
-
-@media (max-width: 640px) {
-  .mixcharm-titleRow {
-    align-items: flex-start;
-  }
+  gap: 20px;
+  margin-bottom: 40px;
 }
 
 .mixcharm-actions {
-  margin-top: 14px;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 16px;
 }
 
 .mixcharm-btn {
-  appearance: none;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  color: #111827;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 14px;
-  font-weight: 700;
+  border: 1px solid $color-gray-border;
+  background: transparent;
+  color: $color-text;
+  padding: 14px 24px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
-}
+  transition: all 0.3s ease;
 
-.mixcharm-btn:hover {
-  background: #f9fafb;
-}
-
-.mixcharm-btn:active {
-  transform: translateY(1px);
+  &:hover {
+    border-color: $color-text;
+  }
 }
 
 .mixcharm-btnPrimary {
-  background: #000;
-  border-color: #000;
-  color: #fff;
-}
+  background: $color-text;
+  border-color: $color-text;
+  color: $color-bg;
 
-.mixcharm-btnPrimary:hover {
-  background: #111;
+  &:hover {
+    background: $color-main;
+    border-color: $color-main;
+    color: $color-white;
+  }
 }
 
 .mixcharm-main {
-  margin-top: 16px;
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) 420px;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 460px;
+  gap: 60px;
   align-items: start;
 }
 
-.mixcharm-left {
-  min-width: 0;
-}
-
-.mixcharm-right {
+.mixcharm-left, .mixcharm-right {
   min-width: 0;
 }
 
 .mixcharm-card {
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  border-radius: 14px;
+  background: $color-white;
+  border: 1px solid $color-gray-border;
 }
 
 .mixcharm-cardPad {
-  padding: 14px;
+  padding: 32px;
 }
 
 .mixcharm-sticky {
   position: sticky;
-  top: 110px;
-  align-self: start;
+  top: 100px;
 }
 
 .mixcharm-canvas {
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border-bottom: 1px solid $color-gray-border;
   display: block;
+  background: $color-bg;
 }
 
 .mixcharm-panel {
-  margin-top: 14px;
+  margin-top: 24px;
 }
 
 .mixcharm-panelTitle {
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #111827;
+  font-family: $font-heading;
+  font-size: 18px;
+  color: $color-text;
+  margin-bottom: 16px;
 }
 
 .mixcharm-muted {
-  color: #6b7280;
+  color: $color-text-light;
+  font-family: $font-body;
+  font-size: 14px;
 }
 
 .mixcharm-slotGrid {
-  margin-top: 10px;
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(8, 1fr);
   gap: 8px;
+  margin-top: 16px;
 }
 
 .mixcharm-slotBtn {
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  font-size: 12px;
-  font-weight: 800;
+  height: 48px;
+  border: 1px solid $color-gray-border;
+  background: transparent;
+  color: $color-text;
+  font-size: 14px;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
-}
+  transition: all 0.3s ease;
 
-.mixcharm-slotBtn:hover {
-  background: #f9fafb;
+  &:hover:not(:disabled) {
+    border-color: $color-main;
+    color: $color-main;
+  }
 }
 
 .mixcharm-slotBtnFilled {
-  background: #000;
-  border-color: #000;
-  color: #fff;
-}
+  background: $color-text;
+  border-color: $color-text;
+  color: $color-bg;
 
-.mixcharm-slotBtnFilled:hover {
-  background: #111;
+  &:hover:not(:disabled) {
+    background: $color-main;
+    border-color: $color-main;
+    color: $color-white;
+  }
 }
 
 .mixcharm-slotBtnDisabled {
+  background: transparent;
+  border-style: dashed;
+  color: $color-gray-border;
   cursor: not-allowed;
-  background: #f9fafb;
-  border-color: #f3f4f6;
-  color: #9ca3af;
 }
 
 .mixcharm-slotBtnClip {
-  border-color: #fcd34d;
-  background: #fffbeb;
-}
-
-.mixcharm-slotBtnClip:hover {
-  background: #fef3c7;
+  border-color: $color-main;
+  color: $color-main;
+  
+  &:hover:not(:disabled) {
+    background: $color-main;
+    color: $color-white;
+  }
 }
 
 .mixcharm-chipRow {
-  margin-top: 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .mixcharm-chipBtn {
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 800;
+  border: 1px solid $color-gray-border;
+  background: transparent;
+  padding: 10px 20px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: $color-text-light;
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
-}
+  transition: all 0.3s ease;
 
-.mixcharm-chipBtn:hover {
-  background: #f9fafb;
+  &:hover:not(.mixcharm-chipBtnDisabled) {
+    color: $color-text;
+    border-color: $color-text;
+  }
 }
 
 .mixcharm-chipBtnActive {
-  background: #000;
-  border-color: #000;
-  color: #fff;
+  background: transparent;
+  border-color: $color-text;
+  color: $color-text;
+  font-weight: 500;
 }
 
 .mixcharm-chipBtnDisabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
-  position: relative;
-}
-
-.mixcharm-chipBtnDisabled::after {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: 50%;
-  height: 2px;
-  background: rgba(17, 24, 39, 0.55);
-  transform: rotate(-12deg);
-  transform-origin: center;
+  text-decoration: line-through;
 }
 
 .mixcharm-carousel {
-  margin-top: 10px;
   display: flex;
-  gap: 12px;
+  gap: 20px;
   overflow-x: auto;
-  padding-bottom: 10px;
+  padding-bottom: 24px;
+  margin-top: 24px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-}
 
-.mixcharm-carousel::-webkit-scrollbar {
-  height: 8px;
-}
-
-.mixcharm-carousel::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.18);
-  border-radius: 999px;
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $color-gray-border;
+  }
 }
 
 .mixcharm-miniCard {
   flex: 0 0 auto;
-  width: 190px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  padding: 10px;
-  text-align: left;
+  width: 200px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 12px;
   cursor: pointer;
   scroll-snap-align: start;
-  transition: border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
-}
+  transition: all 0.3s ease;
 
-.mixcharm-miniCard:hover {
-  border-color: #111827;
-  box-shadow: 0 10px 26px rgba(17, 24, 39, 0.10);
-}
-
-.mixcharm-miniCard:active {
-  transform: translateY(1px);
+  &:hover {
+    background: $color-white;
+    border-color: $color-gray-border;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+  }
 }
 
 .mixcharm-miniCardSelected {
-  border-color: #000;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+  background: $color-white;
+  border-color: $color-text;
 }
 
 .mixcharm-miniThumb {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
+  background: $color-bg;
   overflow: hidden;
-  border-radius: 10px;
-  background: #f3f4f6;
+  margin-bottom: 16px;
 }
 
 .mixcharm-miniThumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.mixcharm-miniCard:hover .mixcharm-miniThumb img {
+  transform: scale(1.05);
 }
 
 .mixcharm-miniName {
-  margin-top: 10px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #111827;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 36px;
+  font-family: $font-heading;
+  font-size: 15px;
+  color: $color-text;
+  margin-bottom: 6px;
+  line-height: 1.3;
 }
 
 .mixcharm-miniPrice {
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 800;
-  color: $color-main;
+  font-size: 14px;
+  color: $color-text-light;
 }
 
 .mixcharm-select {
   width: 100%;
-  margin-top: 10px;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 10px 12px;
+  padding: 14px 16px;
+  border: 1px solid $color-gray-border;
+  background: transparent;
+  font-family: $font-body;
   font-size: 14px;
+  color: $color-text;
+  margin-top: 16px;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+
+  &:focus {
+    outline: none;
+    border-color: $color-main;
+  }
 }
 
 .mixcharm-section {
-  margin-top: 22px;
+  margin-top: 40px;
+  padding-top: 40px;
+  border-top: 1px solid $color-gray-border;
 }
 
 .mixcharm-sectionHeader {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .mixcharm-sectionTitle {
-  font-size: 16px;
-  font-weight: 900;
-  color: #111827;
+  @include heading-style;
+  font-size: 24px;
 }
 
 .mixcharm-note {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: 13px;
+  color: $color-text-light;
+  font-style: italic;
 }
 
 .mixcharm-error {
-  margin-top: 12px;
-  border-radius: 12px;
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  padding: 12px;
-  color: #b91c1c;
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid rgba($color-hot, 0.2);
+  background: rgba($color-hot, 0.05);
+  color: $color-hot;
   font-size: 13px;
+  font-style: italic;
 }
 
 @media (max-width: 1024px) {
   .mixcharm-main {
     grid-template-columns: 1fr;
+    gap: 40px;
   }
-
   .mixcharm-sticky {
     position: static;
-    top: auto;
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .mixcharm-title {
-    font-size: 34px;
+    font-size: 32px;
   }
-
+  .mixcharm-cardPad {
+    padding: 20px;
+  }
+  .mixcharm-slotGrid {
+    grid-template-columns: repeat(6, 1fr);
+  }
   .mixcharm-miniCard {
     width: 160px;
-  }
-
-  .mixcharm-slotGrid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }

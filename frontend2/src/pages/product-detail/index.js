@@ -9,7 +9,7 @@ import { api } from "../../utils/api";
 import { syncCartBadge } from "../../utils/cart-count";
 // import Breadcrumb from '@/components/Breadcrumb';
 import "./index.scss"; // Import file SCSS đẹp chuẩn
-import "./product-detail-engrave.css";
+import "./product-detail-engrave.Scss";
 import { InformationDetail } from "./info";
 import { formatPrice } from "../../utils/format";
 import { useParams } from "react-router-dom";

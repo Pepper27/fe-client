@@ -1,53 +1,50 @@
-@import "../../assets/styles/variables.scss";
+@use "../../assets/styles/variables" as *;
 
 .wishlist-page {
-  padding: 32px 20px 56px;
-  color: $color-black;
+  padding: 60px 0 100px;
+  color: $color-text;
+  min-height: 50vh;
+
   .products-grid.products-grid-wishlist { 
     display: grid;
     grid-template-columns: repeat(4, 1fr) !important; 
-    gap: 25px;
+    gap: 40px 24px;
   }
 
   .products-grid-wishlist {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 25px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 40px 24px;
   }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1200px) {
+    .products-grid.products-grid-wishlist,
     .products-grid-wishlist {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr) !important;
     }
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 900px) {
+    .products-grid.products-grid-wishlist,
     .products-grid-wishlist {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, 1fr) !important;
+      gap: 30px 16px;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .products-grid.products-grid-wishlist,
+    .products-grid-wishlist {
+      grid-template-columns: 1fr !important;
     }
   }
 }
 
 .wishlist-empty {
   text-align: center;
-  font-size: 16px;
-  color: #666;
+  padding: 80px 20px;
+  font-family: $font-heading;
+  font-size: 20px;
+  font-style: italic;
+  color: $color-text-light;
 }
-
-// .products-grid-wishlist {
-//   display: grid;
-//   grid-template-columns: repeat(5, 1fr);
-//   gap: 25px;
-// }
-
-// @media (max-width: 1024px) {
-//   .products-grid-wishlist {
-//     grid-template-columns: repeat(2, 1fr);
-//   }
-// }
-
-// @media (max-width: 640px) {
-//   .products-grid-wishlist {
-//     grid-template-columns: 1fr;
-//   }
-// }

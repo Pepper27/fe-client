@@ -1,363 +1,378 @@
-@import "../../assets/styles/variables";
+@use "../../assets/styles/variables" as *;
 
 .auth-page {
-	min-height: calc(100vh - 180px);
-	padding: 36px 20px 56px;
-	background: #fff;
+  min-height: calc(100vh - 200px);
+  padding: 80px 20px 120px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .auth-shell {
-	max-width: 720px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
 }
 
 .auth-title {
-	text-align: center;
-	font-size: 28px;
-	font-weight: 800;
-	letter-spacing: 1px;
-	margin: 0 0 12px;
+  @include heading-style;
+  text-align: center;
+  font-size: 36px;
+  margin: 0 0 16px;
 }
 
 .auth-subtitle {
-	text-align: center;
-	font-size: 16px;
-	font-weight: 600;
-	margin: 0 0 36px;
-	color: #333;
+  text-align: center;
+  font-size: 14px;
+  color: $color-text-light;
+  margin: 0 0 40px;
+  font-style: italic;
 }
 
 .auth-me {
-	max-width: 440px;
-	margin: 0 auto 18px;
-	border: 1px solid #e5e5e5;
-	background: #fafafa;
-	padding: 14px 14px;
+  margin: 0 0 24px;
+  border: 1px solid $color-gray-border;
+  background: $color-white;
+  padding: 20px;
+  text-align: center;
 }
 
 .auth-meText {
-	font-size: 14px;
-	font-weight: 700;
-	color: #111;
+  font-size: 15px;
+  color: $color-text;
+  margin-bottom: 8px;
 }
 
 .auth-meHint {
-	margin-top: 6px;
-	font-size: 13px;
-	color: #444;
+  font-size: 13px;
+  color: $color-text-light;
 }
 
 .auth-toast {
-	max-width: 440px;
-	margin: 0 auto 18px;
-	padding: 12px 14px;
-	font-size: 13px;
-	font-weight: 700;
-	border: 1px solid;
-	cursor: pointer;
+  margin: 0 0 24px;
+  padding: 16px;
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
 }
 
 .auth-toastError {
-	background: #fff3f3;
-	border-color: #ffb4b4;
-	color: #8a1212;
+  background: rgba($color-hot, 0.1);
+  color: $color-hot;
+  border: 1px solid rgba($color-hot, 0.2);
 }
 
 .auth-toastSuccess {
-	background: #f2fff6;
-	border-color: #9be3b1;
-	color: #0b5b25;
+  background: rgba($color-main, 0.1);
+  color: $color-main;
+  border: 1px solid rgba($color-main, 0.2);
 }
 
 .auth-tabs {
-	display: flex;
-	justify-content: center;
-	gap: 10px;
-	margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-bottom: 40px;
+  border-bottom: 1px solid $color-gray-border;
 }
 
 .auth-tab {
-	width: min(250px, 100%);
-	text-align: center;
-	padding: 12px 10px;
-	text-decoration: none;
-	color: #7d7d7d;
-	font-size: 28px;
-	font-weight: 500;
-	border-bottom: 3px solid #d8d8d8;
+  padding: 0 0 16px;
+  text-decoration: none;
+  color: $color-text-light;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  position: relative;
+  transition: color 0.3s ease;
 
-	&.active {
-		color: #222;
-		border-bottom-color: #222;
-	}
+  &:hover {
+    color: $color-text;
+  }
+
+  &.active {
+    color: $color-text;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 1px;
+      background: $color-text;
+    }
+  }
 }
 
 .auth-card {
-	max-width: 440px;
-	margin: auto;
-	border: 1px solid #d9d9d9;
-	padding: 34px 34px;
-	background: #fff;
+  background: $color-white;
+  padding: 40px;
+  border: 1px solid $color-gray-border;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.02);
 }
 
 .auth-form {
-	display: flex;
-	flex-direction: column;
-	gap: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 
-	input {
-		width: 100%;
-		height: 44px;
-		border: 1px solid #cfcfcf;
-		padding: 0 12px;
-		font-size: 13px;
-		outline: none;
-		background: #fff;
-		border-radius: 0;
-		box-sizing: border-box;
+  input {
+    width: 100%;
+    height: 48px;
+    border: none;
+    border-bottom: 1px solid $color-gray-border;
+    padding: 0 12px;
+    font-family: $font-body;
+    font-size: 15px;
+    color: $color-text;
+    background: transparent;
+    transition: border-color 0.3s ease;
 
-		&:focus {
-			border-color: #999;
-		}
-	}
+    &::placeholder {
+      color: $color-text-light;
+      font-style: italic;
+    }
+
+    &:focus {
+      outline: none;
+      border-color: $color-main;
+    }
+  }
 }
 
 .password-row {
-	position: relative;
-	width: 100%;
+  position: relative;
+  width: 100%;
 
-	input {
-		display: block;
-		width: 100%;
-		padding-right: 46px;
-	}
+  input {
+    padding-right: 48px;
+  }
 
-	.password-toggle {
-		position: absolute;
-		top: 50%;
-		right: 14px;
-		transform: translateY(-50%);
-		border: none;
-		background: transparent;
-		cursor: pointer;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		font-size: 0;
-		line-height: 1;
-		color: #222;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+  .password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: $color-text-light;
+    transition: color 0.3s ease;
 
-		svg {
-			width: 22px;
-			height: 22px;
-			display: block;
-		}
-	}
+    &:hover {
+      color: $color-text;
+    }
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
 }
 
 .forgot-row {
-	display: flex;
-	justify-content: flex-end;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
 
-	button {
-		border: none;
-		background: transparent;
-		padding: 0;
-		cursor: pointer;
-		color: #222;
-		font-size: 14px;
-		font-weight: 700;
-		text-decoration: underline;
-	}
+  button {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    color: $color-text-light;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    transition: color 0.3s ease;
+
+    &:hover {
+      color: $color-text;
+    }
+  }
 }
 
 .primary-action {
-	height: 48px;
-	border: none;
-	background: #000;
-	color: #fff;
-	font-weight: 800;
-	font-size: 14px;
-	letter-spacing: 1px;
-	cursor: pointer;
+  height: 54px;
+  border: 1px solid $color-text;
+  background: $color-text;
+  color: $color-bg;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: $color-main;
+    border-color: $color-main;
+    color: $color-white;
+  }
 }
 
 .divider-text {
-	text-align: center;
-	font-size: 20px;
-	font-weight: 700;
-	color: #222;
+  text-align: center;
+  font-family: $font-heading;
+  font-size: 16px;
+  color: $color-text-light;
+  margin: 32px 0;
+  position: relative;
+
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 30px);
+    height: 1px;
+    background: $color-gray-border;
+  }
+
+  &::before { left: 0; }
+  &::after { right: 0; }
 }
 
 .social-btn {
-	height: 48px;
-	border: none;
-	font-weight: 700;
-	font-size: 13px;
-	letter-spacing: 0.6px;
-	cursor: pointer;
-	position: relative;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+  height: 54px;
+  border: 1px solid $color-gray-border;
+  background: transparent;
+  color: $color-text;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.3s ease;
 
-	.social-icon {
-		position: absolute;
-		left: 16px;
-		font-size: 20px;
-	}
+  &:hover {
+    background: $color-bg;
+    border-color: $color-text;
+  }
+
+  .social-icon {
+    font-size: 20px;
+  }
 }
 
-.google-btn {
-	background: #f7c4d0;
-	color: #222;
-}
-
-.facebook-btn {
-	background: #1f6feb;
-	color: #fff;
+.google-btn, .facebook-btn {
+  /* Override the old specific colors to fit the luxury theme */
 }
 
 .forgot-modal-overlay {
-	position: fixed;
-	inset: 0;
-	background: rgba(0, 0, 0, 0.45);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	z-index: 4000;
-	padding: 20px;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  padding: 20px;
 }
 
 .forgot-modal {
-	width: min(100%, 620px);
-	background: #fff;
-	padding: 34px 38px 36px;
-	border: 1px solid #dadada;
+  width: 100%;
+  max-width: 500px;
+  background: $color-white;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.05);
 }
 
 .forgot-modal-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding-bottom: 22px;
-	border-bottom: 2px solid #e8e8e8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
 
-	h2 {
-		margin: 0;
-		font-size: 22px;
-		line-height: 1;
-		font-weight: 800;
-	}
+  h2 {
+    @include heading-style;
+    font-size: 24px;
+    margin: 0;
+  }
 }
 
 .forgot-modal-close {
-	border: none;
-	background: transparent;
-	cursor: pointer;
-	padding: 0;
-	line-height: 1;
-	display: flex;
-	align-items: center;
-	justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: $color-text-light;
+  transition: color 0.3s ease;
 
-	svg {
-		width: 42px;
-		height: 42px;
-		color: #222;
-	}
+  &:hover {
+    color: $color-text;
+  }
+
+  svg {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 .forgot-modal-text {
-	font-size: 16px;
-	line-height: 1.35;
-	font-weight: 500;
-	color: #222;
-	margin: 28px 0 22px;
+  font-size: 14px;
+  color: $color-text-light;
+  margin-bottom: 24px;
+  line-height: 1.6;
 }
 
 .forgot-modal input {
-	width: 100%;
-	height: 58px;
-	border: 2px solid #d4d4d4;
-	padding: 0 18px;
-	font-size: 24px;
-	outline: none;
-	box-sizing: border-box;
-	margin-top: 14px;
-}
+  width: 100%;
+  height: 54px;
+  border: 1px solid $color-gray-border;
+  padding: 0 16px;
+  font-family: $font-body;
+  font-size: 15px;
+  outline: none;
+  margin-bottom: 16px;
+  transition: border-color 0.3s ease;
 
-.forgot-modal input:first-of-type {
-	margin-top: 0;
+  &:focus {
+    border-color: $color-main;
+  }
 }
 
 .forgot-modal-submit {
-	width: 100%;
-	height: 72px;
-	margin-top: 22px;
-	border: none;
-	background: #000;
-	color: #fff;
-	font-size: 16px;
-	font-weight: 500;
-	letter-spacing: 1px;
-	cursor: pointer;
+  width: 100%;
+  height: 54px;
+  border: 1px solid $color-text;
+  background: $color-text;
+  color: $color-bg;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: $color-main;
+    border-color: $color-main;
+    color: $color-white;
+  }
 }
 
-@media (max-width: 768px) {
-	.auth-page {
-		padding: 24px 16px 44px;
-	}
-
-	.auth-title {
-		font-size: 28px;
-	}
-
-	.auth-subtitle {
-		font-size: 14px;
-		margin-bottom: 24px;
-	}
-
-	.auth-tab {
-		font-size: 16px;
-	}
-
-	.auth-card {
-		padding: 24px 18px 26px;
-	}
-
-	.forgot-modal {
-		padding: 22px 18px 20px;
-	}
-
-	.forgot-modal-header {
-		padding-bottom: 14px;
-
-		h2 {
-			font-size: 30px;
-		}
-	}
-
-	.forgot-modal-close svg {
-		width: 30px;
-		height: 30px;
-	}
-
-	.forgot-modal-text {
-		font-size: 23px;
-		margin: 16px 0 14px;
-	}
-
-	.forgot-modal input {
-		height: 46px;
-		font-size: 16px;
-	}
-
-	.forgot-modal-submit {
-		height: 52px;
-		font-size: 16px;
-		margin-top: 14px;
-	}
+@media (max-width: 640px) {
+  .auth-page {
+    padding: 40px 16px;
+  }
+  .auth-card {
+    padding: 30px 20px;
+  }
+  .auth-title {
+    font-size: 28px;
+  }
+  .forgot-modal {
+    padding: 30px 20px;
+  }
 }

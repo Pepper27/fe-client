@@ -10,11 +10,12 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f5;
+  background-color: var(--app-bg, #fcfbf9);
 }
 
 .App {
   min-height: 100vh;
+  background-color: var(--app-bg, #fcfbf9);
 }
 
 /* Home Page Styles */
