@@ -1,11 +1,49 @@
-// Màu sắc
-$color-main: #017EBD;
-$color-hot: #ff0000;
+// // Màu sắc
+// $color-main: #017EBD;
+// $color-hot: #ff0000;
+// $color-white: #ffffff;
+// $color-black: #000000;
+// $color-gray-border: #e5e7eb;
+// $color-gray-light: #f3f4f6;
+// $color-gray-card: #F5F5F5;
+
+// // Mixins
+// @mixin flex-between {
+//   display: flex;
+//   justify-content: space-between;
+//   align-items: center;
+// }
+
+// @mixin flex-center {
+//   display: flex;
+//   justify-content: center;
+//   align-items: center;
+// }
+
+// @mixin transition-standard {
+//   transition: all 0.3s ease;
+// }
+
+// Typography
+$font-heading: 'Lora', serif;
+$font-body: 'Be Vietnam Pro', sans-serif;
+
+// Colors - Quiet Luxury Jewelry Palette
+$color-main: #b8976b; // Warm metallic gold/champagne
+$color-main-hover: #9c7f56;
+$color-hot: #8b3a3a; // Deep rich red for wishlist/accents
+$color-text: #2c2c2c; // Deep charcoal, softer than black
+$color-text-light: #5c5c5c;
+$color-bg: #fcfbf9; // Ivory/Cream base
 $color-white: #ffffff;
-$color-black: #000000;
-$color-gray-border: #e5e7eb;
-$color-gray-light: #f3f4f6;
-$color-gray-card: #F5F5F5;
+$color-black: #1a1a1a;
+$color-gray-border: #e8e4dc; // Soft warm gray border
+$color-gray-light: #f5f2eb;
+$color-gray-card: #ffffff;
+
+// Spacing & Structure
+$border-radius: 2px; // Sharp, elegant edges or very slight rounding
+$container-max-width: 1440px;
 
 // Mixins
 @mixin flex-between {
@@ -21,5 +59,13 @@ $color-gray-card: #F5F5F5;
 }
 
 @mixin transition-standard {
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@mixin heading-style {
+  font-family: $font-heading;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  color: $color-text;
+  text-transform: uppercase;
 }

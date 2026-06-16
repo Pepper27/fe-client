@@ -1,43 +1,441 @@
-@import "../../../assets/styles/variables";
+// @import "../../../assets/styles/variables";
 
-a svg {
-  color: black;
-}
+// a svg {
+//   color: black;
+// }
+
+// .header-top {
+//   position: relative;
+//   z-index: 2000;
+//   width: 100%;
+
+//   /* Use shared .container styles from src/index.css */
+//   > .container {
+//     width: 100%;
+//   }
+
+//   &::after {
+//     content: "";
+//     display: block;
+//     width: 100%;
+//     height: 6px;
+//     background: $color-main;
+//   }
+
+//   .top-content {
+//     @include flex-between;
+//     padding: 15px 0;
+
+//     // Responsive cho Tablet & Mobile
+//     @media (max-width: 1024px) {
+//       padding: 15px 0;
+//     }
+//     @media (max-width: 768px) {
+//       padding: 10px 0;
+//     }
+//   }
+
+//   .mobile-toggle {
+//     display: none; // Mặc định ẩn trên Desktop
+//     gap: 10px;
+
+//     @media (max-width: 768px) {
+//       display: flex;
+//     }
+
+//     .btn-mobile {
+//       background: transparent;
+//       border: none;
+//       font-size: 24px;
+//       cursor: pointer;
+//       padding: 0;
+//       display: flex;
+//       align-items: center;
+//     }
+//   }
+
+//   .logo {
+//     width: 220px;
+//     height: 55px;
+//     object-fit: contain;
+
+//     @media (max-width: 768px) {
+//       width: 140px;
+//       height: 30px;
+//     }
+//   }
+
+//   .right-group {
+//     display: flex;
+//     gap: 10px;
+//     align-items: center;
+
+//     @media (max-width: 1024px) {
+//       gap: 10px;
+//     }
+//   }
+
+//   .search-wrapper {
+//     display: flex;
+//     border: 1px solid black;
+//     padding: 8px 18px;
+
+//     input {
+//       border: none;
+//       outline: none;
+//       font-size: 16px;
+//       font-weight: 600;
+//       width: 200px;
+
+//       @media (max-width: 1200px) {
+//         width: 150px;
+//       }
+//     }
+
+//     button {
+//       background: transparent;
+//       border: none;
+//       font-size: 18px;
+//       cursor: pointer;
+//     }
+
+//     // Ẩn hoàn toàn search bar gốc khi màn hình nhỏ hơn 768px
+//     @media (max-width: 768px) {
+//       display: none !important;
+//     }
+//   }
+
+//   /* Autosuggest styles */
+//   .react-autosuggest__container { position: relative; }
+//   .react-autosuggest__suggestions-container {
+//     display: none;
+//     position: absolute;
+//     top: calc(100% + 6px);
+//     left: 50%;
+//     transform: translateX(-50%);
+//     width: 450px;
+//     max-width: calc(100vw - 32px);
+//     background: $color-white;
+//     box-shadow: 0 18px 44px rgba(16,24,40,0.08);
+//     border: 1px solid rgba(0,0,0,0.04);
+//     z-index: 3000;
+//     max-height: 460px;
+//     overflow: auto;
+//   }
+//   .react-autosuggest__suggestions-container--open {
+//     display: block;
+//   }
+//   .react-autosuggest__suggestions-list {
+//     list-style: none;
+//     margin: 0;
+//     padding: 8px 0;
+//   }
+//   .react-autosuggest__suggestions-list li {
+//     padding: 12px 16px;
+//     display: flex;
+//     gap: 12px;
+//     align-items: flex-start;
+//     border-bottom: 1px solid #f3f4f6;
+//   }
+//   .search-suggestion { display: flex; gap: 12px; align-items: flex-start; }
+//   .search-suggestion .ss-right { flex: 1; }
+//   .search-suggestion .ss-name { font-weight: 700; text-decoration: underline; font-size: 16px; color: #111827; }
+//   .search-suggestion .ss-price { margin-top: 8px; font-weight: 700; color: #111827; }
+//   .search-suggestion.search-more { padding: 14px 16px; font-weight: 700; color: #111827; cursor: pointer; }
+//   .search-suggestion.search-empty { padding: 14px 16px; font-weight: 700; color: #6b7280; cursor: default; }
+//   .react-autosuggest__suggestion--highlighted { background: #f8fafc; }
+
+//   .icon-actions {
+//     display: flex;
+//     gap: 5px; /* more spacing for larger icons */
+
+//       .icon-btn {
+//       background: transparent;
+//       border: none;
+//       padding: 0;
+//       margin: 0;
+//       width: auto;
+//       height: auto;
+//       display: flex;
+//       align-items: center;
+//       justify-content: center;
+//       cursor: pointer;
+//       color: #000;
+//       transition: transform 120ms ease, color 120ms ease;
+
+//       @media (max-width: 768px) {
+//         width: 48px;
+//         height: 48px;
+//       }
+
+//       svg { width: 28px; height: 28px; display: block; }
+
+//         &.heart-btn svg {
+//           /* larger heart graphic */
+//           width: 32px;
+//           height: 32px;
+//           color: #fca5a5;
+//         }
+
+//         &.heart-btn {
+//           position: relative;
+//         }
+
+//         &.heart-btn .wishlist-badge {
+//           position: absolute;
+//           top: -4px;
+//           right: -4px;
+//           min-width: 14px;
+//           height: 14px;
+//           padding: 0 4px;
+//           background: $color-main;
+//           color: #fff;
+//           border-radius: 999px;
+//           font-size: 10px;
+//           font-weight: 700;
+//           display: inline-flex;
+//           align-items: center;
+//           justify-content: center;
+//         }
+
+//       &.has-popover {
+//         position: relative;
+
+//         &::after {
+//           content: "";
+//           position: absolute;
+//           left: 50%;
+//           bottom: -12px;
+//           width: 38px;
+//           height: 4px;
+//           // border-radius: 999px;
+//           background: $color-main;
+//           transform: translateX(-50%);
+//           opacity: 0;
+//           transition: opacity 120ms ease;
+//         }
+
+//         &:hover::after,
+//         &:focus-visible::after,
+//         &:focus-within::after {
+//           opacity: 1;
+//         }
+//       }
+
+//       &:hover { transform: translateY(-2px); }
+
+//       &.desktop-only {
+//         @media (max-width: 768px) {
+//           display: none !important;
+//         }
+//       }
+//       /* account popover */
+//       &.has-popover .popover-box { display: none; }
+//       &.has-popover:hover .popover-box,
+//       &.has-popover:focus-within .popover-box { display: block; }
+//     }
+//   }
+
+//   /* popover content for account */
+//   .popover-box {
+//     position: absolute;
+//     top: calc(100% + 14px);
+//     right: -16px;
+//     width: 250px;
+//     background: $color-white;
+//     box-shadow: 0 18px 44px rgba(16, 24, 40, 0.16);
+//     z-index: 2147483647 !important;
+//     display: none;
+//     pointer-events: auto;
+//     text-align: center;
+//     margin-top: 0;
+//     border: 1px solid rgba(0, 0, 0, 0.04);
+
+//     @media (max-width: 500px) {
+//       width: 95vw;
+//       left: 50%;
+//       right: auto;
+//       transform: translateX(-50%);
+//       padding: 18px 4vw 18px 4vw;
+//     }
+//   }
+// }
+
+// /* Mobile Search Modal */
+// .mobile-search-modal {
+//   display: none;
+//   position: fixed;
+//   top: 0;
+//   left: 0;
+//   right: 0;
+//   bottom: 0;
+//   z-index: 9999;
+
+//   @media (max-width: 768px) {
+//     display: flex;
+//     flex-direction: column;
+//   }
+
+//   .mobile-search-overlay {
+//     position: absolute;
+//     top: 0;
+//     left: 0;
+//     right: 0;
+//     bottom: 0;
+//     background: rgba(0, 0, 0, 0.5);
+//     animation: fadeIn 0.3s ease;
+//   }
+
+//   .mobile-search-container {
+//     position: relative;
+//     z-index: 10000;
+//     margin-top: 0;
+//     background: $color-white;
+//     border-radius: 0 0 16px 16px;
+//     width: 100%;
+//     max-height: 80vh;
+//     display: flex;
+//     flex-direction: column;
+//     animation: slideDown 0.3s ease;
+//     overflow: visible;
+
+//     .mobile-search-header {
+//       display: flex;
+//       justify-content: space-between;
+//       align-items: center;
+//       padding: 16px;
+//       border-bottom: 1px solid #e5e7eb;
+
+//       h3 {
+//         margin: 0;
+//         font-size: 16px;
+//         font-weight: 700;
+//         color: #111827;
+//       }
+
+//       .close-btn {
+//         background: transparent;
+//         border: none;
+//         font-size: 24px;
+//         cursor: pointer;
+//         padding: 0;
+//         display: flex;
+//         align-items: center;
+//         color: #111827;
+//       }
+//     }
+
+//     .mobile-search-input-wrapper {
+//       display: flex;
+//       align-items: center;
+//       padding: 12px 16px;
+//       border-bottom: 1px solid #e5e7eb;
+//       position: relative;
+//       gap: 8px;
+//       overflow: visible;
+
+//       .react-autosuggest__container {
+//         flex: 1;
+//         width: 100%;
+//         position: relative;
+//         overflow: visible;
+//       }
+
+//       .mobile-search-input {
+//         width: 100%;
+//         border: 1px solid #d1d5db;
+//         padding: 10px 12px;
+//         border-radius: 8px;
+//         font-size: 16px;
+//         outline: none;
+//         font-weight: 500;
+
+//         &:focus {
+//           border-color: $color-main;
+//           box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+//         }
+//       }
+
+//       .mobile-search-clear {
+//         background: transparent;
+//         border: none;
+//         font-size: 20px;
+//         cursor: pointer;
+//         padding: 0;
+//         color: #6b7280;
+//         display: flex;
+//         align-items: center;
+//         flex-shrink: 0;
+//       }
+//     }
+
+//     .react-autosuggest__suggestions-container {
+//       display: none;
+//       position: fixed;
+//       top: auto;
+//       left: 50%;
+//       transform: translateX(-50%);
+//       z-index: 10001 !important;
+//       background: $color-white;
+//       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+//       border: 1px solid #e5e7eb;
+//       max-height: 300px;
+//       overflow-y: auto;
+//       border-radius: 8px;
+//       width: calc(100% - 32px);
+//       max-width: 600px;
+//     }
+
+//     .react-autosuggest__suggestions-container--open {
+//       display: block;
+//     }
+//   }
+// }
+
+// @keyframes slideDown {
+//   from {
+//     transform: translateY(-100%);
+//     opacity: 0;
+//   }
+//   to {
+//     transform: translateY(0);
+//     opacity: 1;
+//   }
+// }
+
+// @keyframes fadeIn {
+//   from {
+//     opacity: 0;
+//   }
+//   to {
+//     opacity: 0.5;
+//   }
+// }
+@use "../../../assets/styles/variables" as *;
 
 .header-top {
   position: relative;
   z-index: 2000;
   width: 100%;
+  background-color: $color-bg;
+  border-bottom: 1px solid $color-gray-border;
 
-  /* Use shared .container styles from src/index.css */
   > .container {
     width: 100%;
   }
 
-  &::after {
-    content: "";
-    display: block;
-    width: 100%;
-    height: 6px;
-    background: $color-main;
-  }
-
   .top-content {
     @include flex-between;
-    padding: 15px 0;
+    padding: 24px 0;
 
-    // Responsive cho Tablet & Mobile
-    @media (max-width: 1024px) {
-      padding: 15px 0;
-    }
     @media (max-width: 768px) {
-      padding: 10px 0;
+      padding: 16px 0;
     }
   }
 
   .mobile-toggle {
-    display: none; // Mặc định ẩn trên Desktop
-    gap: 10px;
+    display: none;
+    gap: 12px;
 
     @media (max-width: 768px) {
       display: flex;
@@ -51,44 +449,58 @@ a svg {
       padding: 0;
       display: flex;
       align-items: center;
+      color: $color-text;
     }
   }
 
   .logo {
-    width: 220px;
-    height: 55px;
+    width: auto;
+    height: 48px;
     object-fit: contain;
 
     @media (max-width: 768px) {
-      width: 140px;
-      height: 30px;
+      height: 32px;
     }
   }
 
   .right-group {
     display: flex;
-    gap: 10px;
+    gap: 24px;
     align-items: center;
 
     @media (max-width: 1024px) {
-      gap: 10px;
+      gap: 16px;
     }
   }
 
   .search-wrapper {
     display: flex;
-    border: 1px solid black;
-    padding: 8px 18px;
+    border-bottom: 1px solid $color-text;
+    padding: 6px 0;
+    align-items: center;
+    transition: border-color 0.3s ease;
+
+    &:focus-within {
+      border-color: $color-main;
+    }
 
     input {
       border: none;
       outline: none;
-      font-size: 16px;
-      font-weight: 600;
-      width: 200px;
+      font-size: 14px;
+      font-weight: 400;
+      width: 220px;
+      background: transparent;
+      color: $color-text;
+      font-family: $font-body;
+
+      &::placeholder {
+        color: $color-text-light;
+        font-style: italic;
+      }
 
       @media (max-width: 1200px) {
-        width: 150px;
+        width: 160px;
       }
     }
 
@@ -97,9 +509,15 @@ a svg {
       border: none;
       font-size: 18px;
       cursor: pointer;
+      color: $color-text;
+      padding: 0 4px;
+      transition: color 0.3s ease;
+
+      &:hover {
+        color: $color-main;
+      }
     }
 
-    // Ẩn hoàn toàn search bar gốc khi màn hình nhỏ hơn 768px
     @media (max-width: 768px) {
       display: none !important;
     }
@@ -110,14 +528,14 @@ a svg {
   .react-autosuggest__suggestions-container {
     display: none;
     position: absolute;
-    top: calc(100% + 6px);
+    top: calc(100% + 12px);
     left: 50%;
     transform: translateX(-50%);
     width: 450px;
     max-width: calc(100vw - 32px);
     background: $color-white;
-    box-shadow: 0 18px 44px rgba(16,24,40,0.08);
-    border: 1px solid rgba(0,0,0,0.04);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+    border: 1px solid $color-gray-border;
     z-index: 3000;
     max-height: 460px;
     overflow: auto;
@@ -131,104 +549,95 @@ a svg {
     padding: 8px 0;
   }
   .react-autosuggest__suggestions-list li {
-    padding: 12px 16px;
+    padding: 16px 20px;
     display: flex;
-    gap: 12px;
+    gap: 16px;
     align-items: flex-start;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid $color-gray-light;
+    transition: background-color 0.3s ease;
+
+    &:last-child {
+      border-bottom: none;
+    }
   }
-  .search-suggestion { display: flex; gap: 12px; align-items: flex-start; }
+  .search-suggestion { display: flex; gap: 16px; align-items: flex-start; }
   .search-suggestion .ss-right { flex: 1; }
-  .search-suggestion .ss-name { font-weight: 700; text-decoration: underline; font-size: 16px; color: #111827; }
-  .search-suggestion .ss-price { margin-top: 8px; font-weight: 700; color: #111827; }
-  .search-suggestion.search-more { padding: 14px 16px; font-weight: 700; color: #111827; cursor: pointer; }
-  .search-suggestion.search-empty { padding: 14px 16px; font-weight: 700; color: #6b7280; cursor: default; }
-  .react-autosuggest__suggestion--highlighted { background: #f8fafc; }
+  .search-suggestion .ss-name { 
+    font-family: $font-heading;
+    font-size: 16px;
+    color: $color-text; 
+    margin-bottom: 6px;
+  }
+  .search-suggestion .ss-price { 
+    font-weight: 500; 
+    color: $color-main; 
+  }
+  .search-suggestion.search-more { padding: 16px 20px; font-weight: 500; color: $color-main; cursor: pointer; text-align: center; justify-content: center; }
+  .search-suggestion.search-empty { padding: 16px 20px; font-style: italic; color: $color-text-light; cursor: default; justify-content: center; }
+  .react-autosuggest__suggestion--highlighted { background: $color-bg; }
 
   .icon-actions {
     display: flex;
-    gap: 5px; /* more spacing for larger icons */
+    gap: 20px;
 
-      .icon-btn {
+    .icon-btn {
       background: transparent;
       border: none;
       padding: 0;
       margin: 0;
-      width: auto;
-      height: auto;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      color: #000;
-      transition: transform 120ms ease, color 120ms ease;
+      color: $color-text;
+      transition: color 0.3s ease;
 
-      @media (max-width: 768px) {
-        width: 48px;
-        height: 48px;
+      svg { 
+        width: 22px; 
+        height: 22px; 
+        display: block; 
+        stroke-width: 1.5;
       }
 
-      svg { width: 28px; height: 28px; display: block; }
+      &:hover { color: $color-main; }
 
-        &.heart-btn svg {
-          /* larger heart graphic */
-          width: 32px;
-          height: 32px;
-          color: #fca5a5;
+      &.heart-btn {
+        position: relative;
+        svg {
+          width: 22px;
+          height: 22px;
         }
+      }
 
-        &.heart-btn {
-          position: relative;
-        }
-
-        &.heart-btn .wishlist-badge {
-          position: absolute;
-          top: -4px;
-          right: -4px;
-          min-width: 14px;
-          height: 14px;
-          padding: 0 4px;
-          background: $color-main;
-          color: #fff;
-          border-radius: 999px;
-          font-size: 10px;
-          font-weight: 700;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-        }
+      &.heart-btn .wishlist-badge {
+        position: absolute;
+        top: -6px;
+        right: -8px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        background: $color-main;
+        color: #fff;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
 
       &.has-popover {
         position: relative;
-
-        &::after {
-          content: "";
-          position: absolute;
-          left: 50%;
-          bottom: -12px;
-          width: 38px;
-          height: 4px;
-          // border-radius: 999px;
-          background: $color-main;
-          transform: translateX(-50%);
-          opacity: 0;
-          transition: opacity 120ms ease;
-        }
-
-        &:hover::after,
-        &:focus-visible::after,
-        &:focus-within::after {
-          opacity: 1;
-        }
+        padding-bottom: 10px;
+        margin-bottom: -10px;
       }
-
-      &:hover { transform: translateY(-2px); }
 
       &.desktop-only {
         @media (max-width: 768px) {
           display: none !important;
         }
       }
+
       /* account popover */
       &.has-popover .popover-box { display: none; }
       &.has-popover:hover .popover-box,
@@ -236,27 +645,38 @@ a svg {
     }
   }
 
-  /* popover content for account */
   .popover-box {
     position: absolute;
-    top: calc(100% + 14px);
-    right: -16px;
-    width: 250px;
+    top: calc(100% + 4px);
+    right: 0;
+    width: 240px;
     background: $color-white;
-    box-shadow: 0 18px 44px rgba(16, 24, 40, 0.16);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
     z-index: 2147483647 !important;
     display: none;
     pointer-events: auto;
-    text-align: center;
-    margin-top: 0;
-    border: 1px solid rgba(0, 0, 0, 0.04);
+    text-align: left;
+    border: 1px solid $color-gray-border;
+    padding: 16px 0;
+
+    a {
+      display: block;
+      padding: 10px 24px;
+      color: $color-text;
+      font-size: 14px;
+      transition: background-color 0.3s ease, color 0.3s ease;
+
+      &:hover {
+        background-color: $color-bg;
+        color: $color-main;
+      }
+    }
 
     @media (max-width: 500px) {
-      width: 95vw;
+      width: 90vw;
       left: 50%;
       right: auto;
       transform: translateX(-50%);
-      padding: 18px 4vw 18px 4vw;
     }
   }
 }
@@ -265,10 +685,7 @@ a svg {
 .mobile-search-modal {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9999;
 
   @media (max-width: 768px) {
@@ -278,39 +695,33 @@ a svg {
 
   .mobile-search-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    animation: fadeIn 0.3s ease;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
   }
 
   .mobile-search-container {
     position: relative;
     z-index: 10000;
-    margin-top: 0;
-    background: $color-white;
-    border-radius: 0 0 16px 16px;
+    background: $color-bg;
     width: 100%;
     max-height: 80vh;
     display: flex;
     flex-direction: column;
-    animation: slideDown 0.3s ease;
     overflow: visible;
 
     .mobile-search-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px;
-      border-bottom: 1px solid #e5e7eb;
+      padding: 20px;
+      border-bottom: 1px solid $color-gray-border;
 
       h3 {
         margin: 0;
-        font-size: 16px;
-        font-weight: 700;
-        color: #111827;
+        font-family: $font-heading;
+        font-size: 18px;
+        color: $color-text;
       }
 
       .close-btn {
@@ -319,40 +730,33 @@ a svg {
         font-size: 24px;
         cursor: pointer;
         padding: 0;
-        display: flex;
-        align-items: center;
-        color: #111827;
+        color: $color-text;
       }
     }
 
     .mobile-search-input-wrapper {
       display: flex;
       align-items: center;
-      padding: 12px 16px;
-      border-bottom: 1px solid #e5e7eb;
-      position: relative;
-      gap: 8px;
-      overflow: visible;
+      padding: 16px 20px;
+      border-bottom: 1px solid $color-gray-border;
+      gap: 12px;
 
       .react-autosuggest__container {
         flex: 1;
         width: 100%;
-        position: relative;
-        overflow: visible;
       }
 
       .mobile-search-input {
         width: 100%;
-        border: 1px solid #d1d5db;
-        padding: 10px 12px;
-        border-radius: 8px;
-        font-size: 16px;
+        border: 1px solid $color-gray-border;
+        padding: 12px 16px;
+        background: $color-white;
+        font-size: 15px;
         outline: none;
-        font-weight: 500;
+        color: $color-text;
 
         &:focus {
           border-color: $color-main;
-          box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
         }
       }
 
@@ -361,53 +765,19 @@ a svg {
         border: none;
         font-size: 20px;
         cursor: pointer;
-        padding: 0;
-        color: #6b7280;
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
+        color: $color-text-light;
       }
     }
 
     .react-autosuggest__suggestions-container {
       display: none;
-      position: fixed;
-      top: auto;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10001 !important;
       background: $color-white;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e5e7eb;
-      max-height: 300px;
+      max-height: calc(80vh - 140px);
       overflow-y: auto;
-      border-radius: 8px;
-      width: calc(100% - 32px);
-      max-width: 600px;
     }
 
     .react-autosuggest__suggestions-container--open {
       display: block;
     }
-  }
-}
-
-@keyframes slideDown {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.5;
   }
 }

@@ -1,110 +1,67 @@
-/* Footer.scss */
 @use "../../assets/styles/variables" as *;
+
 .footer-main {
-  padding-bottom: 20px;
-  background-color: #d5d7d8; // blue-300
-  margin-top: 50px;
+  padding: 80px 0 40px;
+  background-color: $color-black;
+  color: $color-bg;
+  margin-top: 80px;
 
   @media (max-width: 768px) {
-    padding-top: 20px;
-    padding-bottom: 0;
-  }
-}
-
-.newsletter-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: var(--pri);
-  padding: 30px 70px;
-  border-radius: 20px;
-  gap: 30px;
-
-  @media (max-width: 1024px) { padding: 20px 30px; flex-direction: column; }
-
-  .newsletter-text {
-    color: white;
-    font-size: 22px;
-    font-weight: 700;
-    text-transform: capitalize;
-  }
-
-  .newsletter-form {
-    flex: 1;
-    display: flex;
-    background: $color-white;
-    padding: 12px 20px;
-    gap: 10px;
-    width: 100%;
-
-    input {
-      flex: 1;
-      padding: 0 22px;
-      outline: none;
-    }
-
-    button {
-      background: $color-black;
-      color: $color-white;
-      padding: 10px 25px;
-      border: none;
-      cursor: pointer;
-    }
+    padding-top: 60px;
   }
 }
 
 .footer-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin-top: 45px;
-  position: relative;
-  padding-bottom: 15px;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 60px;
+  margin-bottom: 60px;
 
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -15px;
-    width: 100%;
-    height: 1px;
-    background: var(--pri);
+  @media (max-width: 1024px) { 
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 40px; 
   }
-
-  @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  @media (max-width: 640px) { 
+    grid-template-columns: 1fr; 
+  }
 }
 
 .footer-column {
   h4 {
-    text-transform: uppercase;
-    color: var(--pri);
-    font-weight: 700;
-    font-size: 16px;
-    position: relative;
-    margin-bottom: 25px;
+    @include heading-style;
+    color: $color-main;
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
 
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: -10px;
-      left: 0;
-      width: 40px;
-      height: 3px;
-      background: var(--pri);
-    }
+  .description {
+    color: rgba($color-bg, 0.7);
+    line-height: 1.8;
+    margin-bottom: 20px;
   }
 
   .content-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    color: var(--pri);
+    gap: 16px;
 
-    a {
+    span, a {
+      color: rgba($color-bg, 0.7);
       text-decoration: none;
-      color: inherit;
-      transition: all 0.5s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: color 0.3s ease;
+      line-height: 1.6;
+
+      svg {
+        color: $color-main;
+        margin-top: 4px;
+        flex-shrink: 0;
+      }
+
       &:hover {
-        transform: translateX(15px);
-        color: white;
+        color: $color-main;
       }
     }
   }
@@ -112,27 +69,50 @@
 
 .social-icons {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 16px;
 
   .icon-circle {
-    width: 33px;
-    height: 33px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
+    border: 1px solid rgba($color-main, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    &.youtube { background: red; }
-    &.fb { background: blue; }
-    &.zalo { background: #0068ff; }
+    color: $color-main;
+    transition: all 0.3s ease;
+    cursor: pointer;
+
+    &:hover { 
+      background: $color-main;
+      color: $color-black;
+      border-color: $color-main;
+    }
   }
 }
 
 .footer-bottom {
   display: flex;
   justify-content: space-between;
-  margin-top: 27px;
-  color: gray;
-  font-size: 14px;
+  align-items: center;
+  padding-top: 30px;
+  border-top: 1px solid rgba($color-bg, 0.1);
+  color: rgba($color-bg, 0.5);
+  font-size: 13px;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+
+  .bottom-links {
+    display: flex;
+    gap: 24px;
+
+    a {
+      color: inherit;
+      &:hover { color: $color-main; }
+    }
+  }
 }
