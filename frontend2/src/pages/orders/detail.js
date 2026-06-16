@@ -6,6 +6,7 @@ import { formatPrice } from "../../utils/format";
 import { getOrderDisplayStatus, isOrderPaid } from "../../utils/order-status";
 import { useTransition } from "react";
 import toast from "react-hot-toast";
+import { useChatPageContext } from "../../chatbot/ChatContext";
 
 const statusKey = (s) => {
   const v = String(s || "");
@@ -193,6 +194,30 @@ export default function OrderDetailPage() {
       delivered: k === "delivered",
     };
   }, [order]);
+
+  const chatContext = useMemo(() => ({
+    pageType: "order-detail",
+    order: order
+      ? {
+          orderCode: order.orderCode,
+          status: statusLabel(getOrderDisplayStatus(order)),
+          paymentStatus: isOrderPaid(order) ? "Đã thanh toán" : "Chưa thanh toán",
+          method: order.method,
+          totalText: formatPrice(Number(order?.totalPrice) || 0),
+          canCancel: canCancel(order),
+          items: lines.slice(0, 8).map((line) => ({
+            name: line?.name || "Sản phẩm",
+            quantity: Number(line?.quantity) || 1,
+            priceText: formatPrice((Number(line?.price) || 0) * (Number(line?.quantity) || 1)),
+          })),
+        }
+      : null,
+    user: {
+      isLoggedIn: !guestView,
+    },
+  }), [guestView, lines, order]);
+
+  useChatPageContext(chatContext);
 
   return (
     <div className="orders-page">

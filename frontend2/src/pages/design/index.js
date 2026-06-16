@@ -4,6 +4,7 @@ import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 import toast from "react-hot-toast";
+import { useChatPageContext } from "../../chatbot/ChatContext";
 
 const TYPES = [
   { code: "vong-tay-mem", label: "Vòng tay mềm" },
@@ -209,6 +210,21 @@ export default function DesignBuilder() {
   const [groupTf, setGroupTf] = useState({ xN: 0, yN: 0, scale: 1, rot: 0 });
   const pointersRef = useRef(new Map());
   const gestureRef = useRef(null);
+
+  const chatContext = useMemo(() => ({
+    pageType: "design-builder",
+    design: {
+      braceletType: typeCode,
+      braceletName: bracelet?.name || "",
+      sizeCm,
+      usedSlots: Object.keys(itemsBySlot || {}).length,
+      slotCount: Number(validation?.rule?.slotCount) || Number(validation?.slotCount) || 0,
+      totalText: formatPrice(Number(validation?.pricing?.total || validation?.total || 0)),
+      selectedCharmName: selectedCharm?.name || "",
+    },
+  }), [bracelet, itemsBySlot, selectedCharm, sizeCm, typeCode, validation]);
+
+  useChatPageContext(chatContext);
 
   useEffect(() => {
     if (!wristUrl) {

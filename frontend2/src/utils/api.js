@@ -489,6 +489,13 @@ export const api = {
     );
   },
 
+  chatbotMessage: ({ message, history, context }) =>
+    request(`/api/public/chatbot/message`, {
+      method: "POST",
+      body: JSON.stringify({ message, history, context }),
+      timeoutMs: 45000,
+    }),
+
   // Wishlist (requires legacy cookie auth currently)
   wishlistList: () => request(`/api/public/wishlist`),
   wishlistAdd: ({ productId, variantCode }) =>

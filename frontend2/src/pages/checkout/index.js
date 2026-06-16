@@ -9,6 +9,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaf
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import toast from "react-hot-toast";
+import { useChatPageContext } from "../../chatbot/ChatContext";
 
 // Fix for default marker icons when using webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -508,6 +509,11 @@ export default function CheckoutPage() {
     return (bundles || []).filter((b) => set.has(String(b.bundleId)));
   }, [cart?.bundles, bundleIds]);
 
+  const selectedProducts = useMemo(() => {
+    const products = cart?.products || [];
+    return products.filter((p) => (productLineIds || []).includes(String(p._id)));
+  }, [cart?.products, productLineIds]);
+
   const total = useMemo(() => {
     const bundlesTotal = (selectedBundles || []).reduce(
       (sum, b) =>
@@ -515,15 +521,42 @@ export default function CheckoutPage() {
         (Number(b?.priceSnapshot?.total) || 0) * (Number(b?.quantity) || 1),
       0,
     );
-
-    // include product lines
-    const products = cart?.products || [];
-    const selectedProducts = products.filter((p) => (productLineIds || []).includes(String(p._id)));
     const productsTotal = selectedProducts.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 1), 0);
     return bundlesTotal + productsTotal;
-  }, [selectedBundles, productLineIds, cart?.products]);
+  }, [selectedBundles, selectedProducts]);
 
   const selectedCount = selectedBundles.length + (productLineIds || []).length;
+
+  const chatContext = useMemo(() => ({
+    pageType: "checkout",
+    cart: {
+      itemCount: selectedCount,
+      totalText: formatPrice(total),
+      items: [
+        ...selectedBundles.slice(0, 4).map((bundle) => ({
+          name: bundle?.bracelet?.name || "Thiết kế mix charm",
+          quantity: Number(bundle?.quantity) || 1,
+          kind: "bundle",
+          priceText: formatPrice((Number(bundle?.priceSnapshot?.total) || 0) * (Number(bundle?.quantity) || 1)),
+        })),
+        ...selectedProducts.slice(0, 6).map((line) => ({
+          name: line?.name || "Sản phẩm",
+          quantity: Number(line?.quantity) || 1,
+          kind: "product",
+          priceText: formatPrice((Number(line?.price) || 0) * (Number(line?.quantity) || 1)),
+        })),
+      ],
+    },
+    user: {
+      firstName: String((me?.fullName || "").split(" ").slice(-1)[0] || "").trim(),
+      isLoggedIn: Boolean(me),
+    },
+    order: {
+      method,
+    },
+  }), [me, method, selectedBundles, selectedCount, selectedProducts, total]);
+
+  useChatPageContext(chatContext);
 
   useEffect(() => {
     paymentBundleIdsRef.current = (bundleIds || []).map(String);

@@ -35,6 +35,8 @@ import BlogDetailPage from "./pages/blog-detail";
 import { api } from "./utils/api";
 import { subscribeAuthSync } from "./utils/auth-sync";
 import { blockAuthInTab, getBlockedAuthState, isAuthBlockedInTab } from "./utils/auth-tab";
+import { ChatProvider } from "./chatbot/ChatContext";
+import { ChatWidget } from "./chatbot/ChatWidget";
 // Thêm dòng này vào nhóm import ở đầu file
 import { 
   DeliveryPaymentPolicy, 
@@ -82,67 +84,70 @@ function renderApp() {
   const root = ReactDOM.createRoot(document.getElementById("root"));
   root.render(
     <BrowserRouter>
-      <AuthSessionSync />
-      <div className="app-container">
-        <Header />
-        <div className="main-content">
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <>
-                  <BannerImage />
-                  <Home />
-                </>
-              }
-            />
-            <Route path="/products" element={<Products />} />
-            <Route
-              path="/products/collections/:collectionSlug"
-              element={<Products />}
-            />
-            <Route
-              path="/products/best-sellers"
-              element={<BestSellersPage />}
-            />
-            <Route path="/blogs/:slug" element={<BlogDetailPage />} />
-            <Route
-              path="/product/:slug"
-              element={<ProductDetailPageWrapper />}
-            />
-            <Route path="/collections/:slug" element={<CollectionRedirect />} />
-            <Route path="/wishlist" element={<Wishlist />} />
-            <Route path="/authen" element={<Authentication />} />
-            <Route path="/design" element={<DesignList />} />
-            <Route path="/design/mix" element={<DesignBuilder />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/zalopay/return" element={<ZaloPayReturn />} />
-            <Route path="/orders" element={<OrdersPage />} />
-            <Route
-              path="/orders/detail/:orderCode"
-              element={<OrderDetailPage />}
-            />
-            <Route path="/chinh-sach-nhan-hang" element={<DeliveryPaymentPolicy />} />
-            <Route path="/chinh-sach-bao-hanh" element={<WarrantyPolicy />} />
-            <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
-            <Route path="/dieu-khoan-dich-vu" element={<TermsOfService />} />
-            <Route path="/admin/tao-san-pham" element={<ProductCreatePage />} />
-            <Route path="/test-api" element={<TestAPICall />} />
-            <Route path="/simple-test" element={<SimpleAPITest />} />
-          </Routes>
+      <ChatProvider>
+        <AuthSessionSync />
+        <div className="app-container">
+          <Header />
+          <div className="main-content">
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <>
+                    <BannerImage />
+                    <Home />
+                  </>
+                }
+              />
+              <Route path="/products" element={<Products />} />
+              <Route
+                path="/products/collections/:collectionSlug"
+                element={<Products />}
+              />
+              <Route
+                path="/products/best-sellers"
+                element={<BestSellersPage />}
+              />
+              <Route path="/blogs/:slug" element={<BlogDetailPage />} />
+              <Route
+                path="/product/:slug"
+                element={<ProductDetailPageWrapper />}
+              />
+              <Route path="/collections/:slug" element={<CollectionRedirect />} />
+              <Route path="/wishlist" element={<Wishlist />} />
+              <Route path="/authen" element={<Authentication />} />
+              <Route path="/design" element={<DesignList />} />
+              <Route path="/design/mix" element={<DesignBuilder />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/zalopay/return" element={<ZaloPayReturn />} />
+              <Route path="/orders" element={<OrdersPage />} />
+              <Route
+                path="/orders/detail/:orderCode"
+                element={<OrderDetailPage />}
+              />
+              <Route path="/chinh-sach-nhan-hang" element={<DeliveryPaymentPolicy />} />
+              <Route path="/chinh-sach-bao-hanh" element={<WarrantyPolicy />} />
+              <Route path="/chinh-sach-bao-mat" element={<PrivacyPolicy />} />
+              <Route path="/dieu-khoan-dich-vu" element={<TermsOfService />} />
+              <Route path="/admin/tao-san-pham" element={<ProductCreatePage />} />
+              <Route path="/test-api" element={<TestAPICall />} />
+              <Route path="/simple-test" element={<SimpleAPITest />} />
+            </Routes>
+          </div>
+          <Toaster
+            position="top-right"
+            containerStyle={{ zIndex: 2147483647 }}
+            toastOptions={{
+              duration: 3000,
+              success: { duration: 2800 },
+              error: { duration: 3600 },
+            }}
+          />
+          <ChatWidget />
+          <Footer />
         </div>
-        <Toaster
-          position="top-right"
-          containerStyle={{ zIndex: 2147483647 }}
-          toastOptions={{
-            duration: 3000,
-            success: { duration: 2800 },
-            error: { duration: 3600 },
-          }}
-        />
-        <Footer />
-      </div>
+      </ChatProvider>
     </BrowserRouter>,
   );
 }

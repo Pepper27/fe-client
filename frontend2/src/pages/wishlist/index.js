@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ProductCard } from "../../components/product-card";
 import {
   getWishlist,
@@ -6,6 +6,7 @@ import {
   syncWishlistFromServer,
 } from "../../utils/wishlist";
 import "./index.scss";
+import { useChatPageContext } from "../../chatbot/ChatContext";
 
 export default function Wishlist() {
   const [wishlistItems, setWishlistItems] = useState(() => getWishlist());
@@ -54,6 +55,21 @@ export default function Wishlist() {
       images: it?.product?.image || "",
     }))
     : wishlistItems;
+
+  const chatContext = useMemo(() => ({
+    pageType: "wishlist",
+    wishlist: {
+      count: effective.length,
+      items: effective.slice(0, 6).map((item) => ({
+        id: item?.id,
+        slug: item?.slug,
+        name: item?.name,
+        priceText: typeof item?.price === "number" ? `${Number(item.price).toLocaleString("vi-VN")}đ` : "",
+      })),
+    },
+  }), [effective]);
+
+  useChatPageContext(chatContext);
 
   return (
     <div className="container wishlist-page">

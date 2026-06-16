@@ -15,6 +15,7 @@ import { formatPrice } from "../../utils/format";
 import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import EngravingModal from "../../components/engraving/EngravingModal";
+import { useChatPageContext } from "../../chatbot/ChatContext";
 
 export default function ProductDetailPage() {
   const { slug: paramSlug } = useParams();
@@ -283,6 +284,40 @@ export default function ProductDetailPage() {
     if (product.isEngravable !== undefined) return !!product.isEngravable;
     return false;
   }, [product]);
+
+  const chatContext = useMemo(
+    () => ({
+      pageType: "product-detail",
+      product: product
+        ? {
+            id: product._id,
+            slug: product.slug,
+            name: product.name,
+            categoryId: product?.category?._id,
+            categoryName: product?.category?.name,
+            priceMin: product?.priceMin,
+            priceMax: product?.priceMax,
+            selectedSize,
+            selectedMaterial,
+            selectedColor,
+            canEngrave,
+            collections: collectionNames,
+            description: descriptionHtml,
+          }
+        : null,
+    }),
+    [
+      canEngrave,
+      collectionNames,
+      descriptionHtml,
+      product,
+      selectedColor,
+      selectedMaterial,
+      selectedSize,
+    ],
+  );
+
+  useChatPageContext(chatContext);
 
   // Helper function to get material color
   const getMaterialColor = (label) => {

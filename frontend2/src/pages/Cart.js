@@ -6,6 +6,7 @@ import "./Cart.scss";
 import { formatPrice } from "../utils/format";
 import toast from "react-hot-toast";
 import { countCartLines, dispatchCartChanged } from "../utils/cart-count";
+import { useChatPageContext } from "../chatbot/ChatContext";
 
 // Find variant by identifier: prefer _id (or id), fallback to code/variantCode
 const findVariant = (product, identifier) => {
@@ -591,6 +592,36 @@ export default function Cart() {
 
   // grandTotal should reflect only the selected items (total already sums selected bundles + selected products)
   const grandTotal = total;
+
+  const chatContext = useMemo(() => {
+    const productItems = products.slice(0, 6).map((line) => {
+      const meta = getProductForId(line?.productId);
+      return {
+        name: meta?.name || line?.name || "Sản phẩm",
+        quantity: Number(line?.quantity) || 1,
+        kind: "product",
+        priceText: formatPrice((Number(line?.price) || 0) * (Number(line?.quantity) || 1)),
+      };
+    });
+
+    const bundleItems = bundles.slice(0, 4).map((bundle) => ({
+      name: bundle?.bracelet?.name || "Thiết kế mix charm",
+      quantity: Number(bundle?.quantity) || 1,
+      kind: "bundle",
+      priceText: formatPrice((Number(bundle?.priceSnapshot?.total) || 0) * (Number(bundle?.quantity) || 1)),
+    }));
+
+    return {
+      pageType: "cart",
+      cart: {
+        itemCount: products.length + bundles.length,
+        totalText: formatPrice(grandTotal),
+        items: [...productItems, ...bundleItems],
+      },
+    };
+  }, [bundles, grandTotal, products]);
+
+  useChatPageContext(chatContext);
 
   useEffect(() => {
     // Preserve selections on refresh; default new bundles/products to selected.

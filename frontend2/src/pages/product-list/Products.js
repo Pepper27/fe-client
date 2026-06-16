@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ProductCard } from "../../components/product-card";
 import Sidebar from "../../components/sidebar";
 import { api } from "../../utils/api";
 import { mapQueryToFilters } from "../../utils/productsUrl";
 import "./products.scss";
+import { useChatPageContext } from "../../chatbot/ChatContext";
 
 const PAGE_SIZE = 25;
 
@@ -23,6 +24,36 @@ function ProductsPage() {
   const [totalResults, setTotalResults] = useState(0);
   const location = useLocation();
   const { collectionSlug } = useParams();
+
+  const chatContext = useMemo(() => {
+    const qs = new URLSearchParams(location.search || "");
+    return {
+      pageType: "product-list",
+      listing: {
+        query: qs.get("q") || "",
+        categorySlug: category?.slug || qs.get("categorySlug") || "",
+        categoryName: category?.name || "",
+        collectionSlug: collectionSlug || "",
+        collectionName: collectionMeta?.name || "",
+        totalResults,
+        visibleProducts: (filteredItems || []).slice(0, 6).map((item) => ({
+          id: item?._id,
+          slug: item?.slug,
+          name: item?.name,
+          priceText:
+            typeof item?.priceMin === "number" && typeof item?.priceMax === "number"
+              ? item.priceMin === item.priceMax
+                ? `${Number(item.priceMin || 0).toLocaleString("vi-VN")}đ`
+                : `${Number(item.priceMin || 0).toLocaleString("vi-VN")}đ - ${Number(item.priceMax || 0).toLocaleString("vi-VN")}đ`
+              : "",
+        })),
+        filters: activeFilters,
+        sort: activeSort,
+      },
+    };
+  }, [activeFilters, activeSort, category, collectionMeta, collectionSlug, filteredItems, location.search, totalResults]);
+
+  useChatPageContext(chatContext);
 
   useEffect(() => {
     let cancelled = false;

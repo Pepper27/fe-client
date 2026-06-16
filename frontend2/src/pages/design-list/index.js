@@ -4,6 +4,7 @@ import { api } from "../../utils/api";
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 import toast from "react-hot-toast";
+import { useChatPageContext } from "../../chatbot/ChatContext";
 
 const bundleKey = (b) => String(b?.bundleId || b?._id || b?._localId || "");
 
@@ -75,6 +76,16 @@ export default function DesignList() {
     const count = (designs || []).length;
     return { total, count };
   }, [designs]);
+
+  const chatContext = useMemo(() => ({
+    pageType: "design-list",
+    design: {
+      usedSlots: stats.count,
+      totalText: formatPrice(stats.total),
+    },
+  }), [stats]);
+
+  useChatPageContext(chatContext);
 
   const onEdit = (b) => {
     // Persist a lightweight snapshot for the builder to load.
