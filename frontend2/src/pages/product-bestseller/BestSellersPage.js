@@ -5,6 +5,23 @@ import Sidebar from "../../components/sidebar";
 import { api } from "../../utils/api";
 import "./bestseller.scss"; 
 
+const getSoldCount = (item) => {
+  const totalSold = Number(item?.totalSold);
+  if (Number.isFinite(totalSold) && totalSold > 0) return totalSold;
+
+  const variantSold = Array.isArray(item?.variants)
+    ? item.variants.reduce((sum, variant) => sum + Math.max(0, Number(variant?.sold) || 0), 0)
+    : 0;
+  return variantSold;
+};
+
+const sortBestSellers = (items) =>
+  [...(Array.isArray(items) ? items : [])].sort((left, right) => {
+    const soldDiff = getSoldCount(right) - getSoldCount(left);
+    if (soldDiff !== 0) return soldDiff;
+    return (Number(right?.priceMin) || 0) - (Number(left?.priceMin) || 0);
+  });
+
 function BestSellersPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,11 +44,11 @@ function BestSellersPage() {
         limit: 24,
       });
 
-      const productsData = res?.data || [];
+      const productsData = sortBestSellers(res?.data || []);
       const totalPages = res?.meta?.totalPages || 1;
 
       if (isLoadMore) {
-        setItems((prev) => [...prev, ...productsData]);
+        setItems((prev) => sortBestSellers([...prev, ...productsData]));
       } else {
         setItems(productsData);
         // Lưu filter nếu backend có trả về gợi ý filter cho hàng bán chạy
@@ -69,6 +86,8 @@ function BestSellersPage() {
         default:
           break;
       }
+    } else {
+      next = sortBestSellers(next);
     }
     setFilteredItems(next);
   }, [items, activeFilters, activeSort]);

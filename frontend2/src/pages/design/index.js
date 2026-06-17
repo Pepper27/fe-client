@@ -1572,7 +1572,7 @@ export default function DesignBuilder() {
   return (
     <div className="container mixcharm-page">
       <div className="mixcharm-titleRow">
-        <h1 className="mixcharm-title">Mix Charm</h1>
+        {/* <h1 className="mixcharm-title">Mix Charm</h1> */}
         <button
           type="button"
           className="mixcharm-btn"

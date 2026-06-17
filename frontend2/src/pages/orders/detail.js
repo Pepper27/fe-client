@@ -33,7 +33,15 @@ const statusLabel = (s) => {
 
 const classifyLine = (line) => {
   if (!line) return "Mặc định";
-  const size = line?.size || line?.sizeText || line?.sizeCm || null;
+
+  const toMeaningfulPart = (value) => {
+    if (value == null) return "";
+    const text = String(value).trim();
+    if (!text || text === "0") return "";
+    return text;
+  };
+
+  const size = toMeaningfulPart(line?.size) || toMeaningfulPart(line?.sizeText) || toMeaningfulPart(line?.sizeCm);
   const material = line?.material || null;
   const color = line?.color || null;
   const parts = [size, material, color]
@@ -303,6 +311,7 @@ export default function OrderDetailPage() {
                     </div>
                     {(function(){
                       const engraving = it?.engraving || null;
+                      const engravingText = String(engraving?.text || '').trim();
                       let preview = engraving && (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) ? (engraving.previewImageSmall || engraving.previewImage || engraving.previewImageLarge) : null;
                       if (!preview) {
                         try {
@@ -312,11 +321,11 @@ export default function OrderDetailPage() {
                           preview = map && map[String(it._id)];
                         } catch (e) { preview = null; }
                       }
-                      if (engraving || preview) {
+                      if (engravingText || preview) {
                         return (
                           <div className="orders-itemMeta" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ fontWeight: 700 }}>Khắc:</div>
-                            <div>{String(engraving?.text || '')}</div>
+                            {engravingText ? <div>{engravingText}</div> : null}
                             {preview ? (
                               <img src={preview} alt={`Preview khắc`} style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid rgba(0,0,0,0.06)' }} />
                             ) : null}

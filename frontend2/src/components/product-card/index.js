@@ -10,7 +10,26 @@ import {
 import "./index.scss";
 import { formatPrice } from "../../utils/format";
 
+const resolveImageSrc = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = resolveImageSrc(item);
+      if (nested) return nested;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    return resolveImageSrc(
+      value.url || value.secure_url || value.src || value.path || value.image || value.thumbnail,
+    );
+  }
+  return "";
+};
+
 export const ProductCard = ({ id, slug, name, price, images, isSquare, canEngrave }) => {
+  const imageSrc = useMemo(() => resolveImageSrc(images), [images]);
   const productPayload = useMemo(
     // Persist slug in wishlist so detail pages can navigate by slug.
     () => ({
@@ -86,7 +105,7 @@ export const ProductCard = ({ id, slug, name, price, images, isSquare, canEngrav
 
         {/* IMAGE */}
         <div className="image-wrapper">
-          {images ? (<img src={images} alt={name} className="product-image" />) : null}
+          {imageSrc ? <img src={imageSrc} alt={name} className="product-image" /> : null}
         </div>
 
         {/* INFO */}

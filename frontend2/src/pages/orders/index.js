@@ -534,7 +534,7 @@ export default function OrdersPage() {
                   return (
                     <div key={o.orderCode} className="orders-orderCard">
                       <div className="orders-orderCardHead">
-                        <div className="orders-shopName">Mix Charm</div>
+                        {/* <div className="orders-shopName">Mix Charm</div> */}
                         <div className="orders-orderStatus">
                           {statusLabel(isOrderPaid(o) ? "confirmed" : getOrderDisplayStatus(o))}
                         </div>

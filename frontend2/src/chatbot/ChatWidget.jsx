@@ -3,11 +3,10 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { RiSparkling2Line } from "react-icons/ri";
 import { IoCloseOutline, IoSend } from "react-icons/io5";
-import { api } from "../utils/api";
-import { useChatContext } from "./ChatContext";
+import { api, getApiBase } from "../utils/api";
 import "./chatbot.css";
 
-const STORAGE_KEY = "chatbot:conversation";
+const STORAGE_KEY = "chatbot:conversation:v2";
 let chatbotCategoryCatalogPromise = null;
 let chatbotFullCatalogPromise = null;
 const CHATBOT_CATALOG_PAGE_SIZE = 100;
@@ -72,39 +71,6 @@ const MATERIAL_INTENTS = [
   },
 ];
 
-const QUICK_REPLY_MESSAGE_MAP = [
-  {
-    match: ["tu van qua tang cho nu"],
-    message:
-      "Gợi ý 3 sản phẩm trang sức phù hợp làm quà tặng cho nữ, nêu rõ tên sản phẩm và giá.",
-  },
-  {
-    match: ["goi y mix charm nhe nhang"],
-    message:
-      "Gợi ý 1 set mix charm nhẹ nhàng gồm vòng tay và charm phù hợp, nêu rõ tên sản phẩm và giá.",
-  },
-  {
-    match: ["huong dan chon size vong"],
-    message:
-      "Hướng dẫn chọn size vòng tay phù hợp, giải thích ngắn gọn cách đo cổ tay và size nên chọn.",
-  },
-  {
-    match: ["vong tay bac"],
-    message:
-      "Gợi ý vài sản phẩm vòng tay chất liệu bạc, chỉ trả lời sản phẩm thuộc danh mục vòng tay.",
-  },
-  {
-    match: ["nhan bac"],
-    message:
-      "Gợi ý vài sản phẩm nhẫn chất liệu bạc, chỉ trả lời sản phẩm thuộc danh mục nhẫn.",
-  },
-  {
-    match: ["day chuyen bac"],
-    message:
-      "Gợi ý vài sản phẩm dây chuyền chất liệu bạc, chỉ trả lời sản phẩm thuộc danh mục dây chuyền.",
-  },
-];
-
 const normalizeText = (value) =>
   String(value || "")
     .toLowerCase()
@@ -115,22 +81,20 @@ const normalizeText = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const expandQuickReplyMessage = (reply) => {
-  const normalizedReply = normalizeText(reply);
-  const mapped = QUICK_REPLY_MESSAGE_MAP.find((entry) =>
-    entry.match.some((keyword) => normalizedReply.includes(normalizeText(keyword))),
-  );
-  if (mapped) return mapped.message;
+const getNormalizedVariantPrices = (product) => {
+  const prices = Array.isArray(product?.variants)
+    ? product.variants
+        .map((variant) => Number(variant?.price))
+        .filter((price) => Number.isFinite(price) && price > 0)
+        .sort((left, right) => left - right)
+    : [];
+  if (prices.length < 2) return prices;
 
-  const intent = detectProductIntent(reply);
-  if (intent.category || intent.material) {
-    const parts = [];
-    if (intent.category?.displayLabel) parts.push(intent.category.displayLabel);
-    if (intent.material?.displayLabel) parts.push(`chất liệu ${intent.material.displayLabel}`);
-    return `Gợi ý vài sản phẩm ${parts.join(" ")}, chỉ trả lời đúng danh mục người dùng đang hỏi.`.trim();
-  }
+  const baseline = prices[Math.floor((prices.length - 1) / 2)] || prices[0];
+  if (!Number.isFinite(baseline) || baseline <= 0) return prices;
 
-  return reply;
+  const filtered = prices.filter((price) => price <= baseline * 3);
+  return filtered.length ? filtered : prices;
 };
 
 const formatPriceText = (product) => {
@@ -138,17 +102,18 @@ const formatPriceText = (product) => {
 
   const priceMin = Number(product?.priceMin);
   const priceMax = Number(product?.priceMax);
-  if (Number.isFinite(priceMin) && Number.isFinite(priceMax) && priceMin > 0) {
+  const variantPrices = getNormalizedVariantPrices(product);
+  if (
+    Number.isFinite(priceMin) &&
+    Number.isFinite(priceMax) &&
+    priceMin > 0 &&
+    (!variantPrices.length || priceMax <= Math.max(...variantPrices))
+  ) {
     return priceMin === priceMax
       ? `${priceMin.toLocaleString("vi-VN")}đ`
       : `${priceMin.toLocaleString("vi-VN")}đ - ${priceMax.toLocaleString("vi-VN")}đ`;
   }
 
-  const variantPrices = Array.isArray(product?.variants)
-    ? product.variants
-        .map((variant) => Number(variant?.price))
-        .filter((price) => Number.isFinite(price) && price > 0)
-    : [];
   if (!variantPrices.length) return "";
 
   const minPrice = Math.min(...variantPrices);
@@ -158,13 +123,49 @@ const formatPriceText = (product) => {
     : `${minPrice.toLocaleString("vi-VN")}đ - ${maxPrice.toLocaleString("vi-VN")}đ`;
 };
 
+const resolveImageCandidate = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = resolveImageCandidate(item);
+      if (nested) return nested;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    const nested =
+      resolveImageCandidate(value.url) ||
+      resolveImageCandidate(value.secure_url) ||
+      resolveImageCandidate(value.src) ||
+      resolveImageCandidate(value.path) ||
+      resolveImageCandidate(value.image) ||
+      resolveImageCandidate(value.featured_image) ||
+      resolveImageCandidate(value.thumbnail) ||
+      resolveImageCandidate(value.images);
+    return typeof nested === "string" ? nested.trim() : "";
+  }
+  return "";
+};
+
+const toAbsoluteImageUrl = (value) => {
+  const image = resolveImageCandidate(value);
+  if (!image) return "";
+  if (/^(data:|blob:|https?:\/\/|\/\/)/i.test(image)) return image;
+  if (image.startsWith("/")) return `${getApiBase()}${image}`;
+  return `${getApiBase()}/${image.replace(/^\.\//, "")}`;
+};
+
 const getProductImage = (product) => {
-  if (product?.image) return product.image;
-  if (product?.thumbnail) return product.thumbnail;
-  if (Array.isArray(product?.images) && product.images[0]) return product.images[0];
+  if (product?.image) return toAbsoluteImageUrl(product.image);
+  if (product?.thumbnail) {
+    const thumbnail = Array.isArray(product.thumbnail) ? product.thumbnail[0] : product.thumbnail;
+    return toAbsoluteImageUrl(thumbnail);
+  }
+  if (Array.isArray(product?.images) && product.images[0]) return toAbsoluteImageUrl(product.images[0]);
   const variants = Array.isArray(product?.variants) ? product.variants : [];
   for (const variant of variants) {
-    if (Array.isArray(variant?.images) && variant.images[0]) return variant.images[0];
+    if (Array.isArray(variant?.images) && variant.images[0]) return toAbsoluteImageUrl(variant.images[0]);
   }
   return "";
 };
@@ -196,6 +197,56 @@ const detectProductIntent = (message) => ({
   material: detectIntentValue(message, MATERIAL_INTENTS) || null,
 });
 
+const parseBudgetValue = (rawNumber, unit) => {
+  const numeric = Number(String(rawNumber || "").replace(/,/g, "."));
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  if (unit === "k" || unit === "nghin" || unit === "ngan") return Math.round(numeric * 1000);
+  if (unit === "tr" || unit === "trieu" || unit === "cu") return Math.round(numeric * 1000000);
+  if (unit === "ty" || unit === "ti") return Math.round(numeric * 1000000000);
+  return Math.round(numeric);
+};
+
+const detectBudgetConstraint = (message) => {
+  const text = normalizeText(message);
+  if (!text) return null;
+
+  const rangeMatch = text.match(/(?:tu|tren)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|k|nghin|ngan|ty|ti|cu)?\s*(?:den|toi)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|k|nghin|ngan|ty|ti|cu)?/i);
+  if (rangeMatch) {
+    const min = parseBudgetValue(rangeMatch[1], rangeMatch[2]);
+    const max = parseBudgetValue(rangeMatch[3], rangeMatch[4] || rangeMatch[2]);
+    if (Number.isFinite(min) && Number.isFinite(max)) return { min: Math.min(min, max), max: Math.max(min, max) };
+  }
+
+  const underMatch = text.match(/(?:duoi|nho hon|it hon|khong qua|toi da)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|k|nghin|ngan|ty|ti|cu)?/i);
+  if (underMatch) {
+    const max = parseBudgetValue(underMatch[1], underMatch[2]);
+    if (Number.isFinite(max)) return { min: null, max };
+  }
+
+  const overMatch = text.match(/(?:tren|hon|tu)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|k|nghin|ngan|ty|ti|cu)?/i);
+  if (overMatch) {
+    const min = parseBudgetValue(overMatch[1], overMatch[2]);
+    if (Number.isFinite(min)) return { min, max: null };
+  }
+
+  return null;
+};
+
+const getComparableProductPrice = (product) => {
+  const variantPrices = getNormalizedVariantPrices(product);
+  if (!variantPrices.length) return null;
+  return Math.min(...variantPrices);
+};
+
+const productMatchesBudget = (product, budget) => {
+  if (!budget?.min && !budget?.max) return true;
+  const price = getComparableProductPrice(product);
+  if (!Number.isFinite(price) || price <= 0) return false;
+  if (Number.isFinite(budget?.min) && price < budget.min) return false;
+  if (Number.isFinite(budget?.max) && price > budget.max) return false;
+  return true;
+};
+
 const getIntentAwareHaystack = (product) => {
   const tokens = [product?.name, product?.slug, product?.category?.name, product?.category?.slug];
 
@@ -216,10 +267,11 @@ const getIntentAwareHaystack = (product) => {
   return normalizeText(tokens.filter(Boolean).join(" "));
 };
 
-const scoreProductForMessage = (product, message, intent) => {
+const scoreProductForMessage = (product, message, intent, budget) => {
   const haystack = getIntentAwareHaystack(product);
   if (!haystack) return -1;
   if (!productMatchesIntent(product, intent)) return -1;
+  if (!productMatchesBudget(product, budget)) return -1;
 
   let score = 0;
   const tokens = tokenizeSearchText(message);
@@ -237,6 +289,7 @@ const scoreProductForMessage = (product, message, intent) => {
 
   const normalizedName = normalizeText(product?.name);
   if (tokens.some((token) => normalizedName.includes(token))) score += 3;
+  if (budget && productMatchesBudget(product, budget)) score += 4;
   return score;
 };
 
@@ -263,14 +316,19 @@ const productMatchesIntent = (product, intent) => {
   return true;
 };
 
-const buildRecommendationAnswer = (intent, products) => {
+const buildRecommendationAnswer = (intent, products, budget) => {
   const labelParts = [];
   if (intent?.category?.displayLabel) labelParts.push(intent.category.displayLabel);
   if (intent?.material?.displayLabel) labelParts.push(`chất liệu ${intent.material.displayLabel}`);
   const subject = labelParts.length ? labelParts.join(" ") : "sản phẩm phù hợp";
+  const budgetLabel = Number.isFinite(budget?.max)
+    ? ` dưới ${Math.round(budget.max / 1000000).toLocaleString("vi-VN")} triệu`
+    : Number.isFinite(budget?.min)
+      ? ` từ ${Math.round(budget.min / 1000000).toLocaleString("vi-VN")} triệu`
+      : "";
 
   if (!products.length) {
-    return `Mình chưa thấy mẫu ${subject} thật sự phù hợp để gợi ý ngay. Bạn có thể cho mình thêm tầm giá hoặc kiểu dáng để mình lọc sát hơn.`;
+    return `Mình chưa thấy mẫu ${subject}${budgetLabel} thật sự phù hợp để gợi ý ngay. Bạn có thể cho mình thêm kiểu dáng để mình lọc sát hơn.`;
   }
 
   const lines = products.slice(0, 3).map((product, index) => {
@@ -278,7 +336,7 @@ const buildRecommendationAnswer = (intent, products) => {
     return `${index + 1}. ${product.name}${priceText}`;
   });
 
-  return [`Mình gợi ý vài mẫu ${subject} phù hợp với nhu cầu của bạn:`, ...lines].join("\n");
+  return [`Mình gợi ý vài mẫu ${subject}${budgetLabel} phù hợp với nhu cầu của bạn:`, ...lines].join("\n");
 };
 
 const mergeProducts = (...groups) => {
@@ -292,6 +350,28 @@ const mergeProducts = (...groups) => {
     }
   }
   return Array.from(deduped.values());
+};
+
+const hydrateProductCards = async (products) => {
+  const items = Array.isArray(products) ? products.map(normalizeProductCard) : [];
+  if (!items.length) return [];
+  if (items.every((product) => product?.image && product?.priceText)) return items;
+
+  try {
+    const catalog = await getFullCatalogProducts();
+    return items.map((product) => {
+      if (product?.image && product?.priceText) return product;
+      const match = catalog.find((candidate) => {
+        if (!candidate) return false;
+        if (product?.id && candidate?.id && String(candidate.id) === String(product.id)) return true;
+        if (product?.slug && candidate?.slug && String(candidate.slug) === String(product.slug)) return true;
+        return normalizeText(candidate?.name) === normalizeText(product?.name);
+      });
+      return match ? { ...match, ...product, image: product?.image || match.image, priceText: product?.priceText || match.priceText } : product;
+    });
+  } catch {
+    return items;
+  }
 };
 
 const fetchAllCatalogProducts = async () => {
@@ -333,12 +413,12 @@ const getFullCatalogProducts = async () => {
   return chatbotFullCatalogPromise;
 };
 
-const searchFullCatalogProducts = async (message, intent, limit = 8) => {
+const searchFullCatalogProducts = async (message, intent, budget, limit = 8) => {
   const products = await getFullCatalogProducts();
   return products
     .map((product) => ({
       product,
-      score: scoreProductForMessage(product, message, intent),
+      score: scoreProductForMessage(product, message, intent, budget),
     }))
     .filter((entry) => entry.score >= 0)
     .sort((left, right) => right.score - left.score)
@@ -353,7 +433,8 @@ const buildCatalogContext = async (message) => {
       getFullCatalogProducts(),
     ]);
     const intent = detectProductIntent(message);
-    const matchedProducts = await searchFullCatalogProducts(message, intent, 6);
+    const budget = detectBudgetConstraint(message);
+    const matchedProducts = await searchFullCatalogProducts(message, intent, budget, 6);
 
     return {
       scope: "global-catalog",
@@ -422,11 +503,11 @@ const resolveCategorySlug = async (intentCategory) => {
   return match?.slug || intentCategory.fallbackSlug || "";
 };
 
-const fetchIntentMatchedProducts = async (message, intent) => {
+const fetchIntentMatchedProducts = async (message, intent, budget) => {
   if (!intent?.category && !intent?.material) return [];
 
   try {
-    const catalogMatches = await searchFullCatalogProducts(message, intent, 8);
+    const catalogMatches = await searchFullCatalogProducts(message, intent, budget, 8);
     if (catalogMatches.length) return catalogMatches.map(normalizeProductCard);
   } catch {
     // Ignore cache lookup failures and continue with direct API search.
@@ -445,7 +526,7 @@ const fetchIntentMatchedProducts = async (message, intent) => {
     try {
       const res = await api.getProducts(params);
       const products = Array.isArray(res?.data) ? res.data : [];
-      const matched = products.filter((product) => productMatchesIntent(product, intent));
+      const matched = products.filter((product) => productMatchesIntent(product, intent) && productMatchesBudget(product, budget));
       if (matched.length) return matched.map(normalizeProductCard);
     } catch {
       // Ignore rescue lookup failures and keep original assistant reply.
@@ -455,17 +536,41 @@ const fetchIntentMatchedProducts = async (message, intent) => {
   return [];
 };
 
-const enhanceAssistantPayload = async (message, payload) => {
-  const intent = detectProductIntent(message);
-  const initialProducts = Array.isArray(payload?.recommendedProducts)
-    ? payload.recommendedProducts.map(normalizeProductCard)
-    : [];
+const isCompareRequest = (message, payload) => {
+  if (String(payload?.intent || "").trim() === "product_compare") return true;
+  const text = String(message || "").trim();
+  return normalizeText(text).includes("so sanh");
+};
 
-  if (!intent.category && !intent.material) {
+const shouldShowRecommendedProducts = (message, payload) => {
+  if (isCompareRequest(message, payload)) return true;
+  const intent = detectProductIntent(message);
+  return Boolean(intent.category || intent.material);
+};
+
+const enhanceAssistantPayload = async (message, payload) => {
+  if (isCompareRequest(message, payload)) {
+    const products = Array.isArray(payload?.recommendedProducts)
+      ? (await hydrateProductCards(payload.recommendedProducts)).slice(0, 2)
+      : [];
     return {
       answer: String(payload?.answer || "").trim(),
       quickReplies: Array.isArray(payload?.quickReplies) ? payload.quickReplies : [],
-      recommendedProducts: initialProducts.slice(0, 4),
+      recommendedProducts: products,
+    };
+  }
+
+  const intent = detectProductIntent(message);
+  const budget = detectBudgetConstraint(message);
+  const initialProducts = Array.isArray(payload?.recommendedProducts)
+    ? (await hydrateProductCards(payload.recommendedProducts)).filter((product) => productMatchesBudget(product, budget))
+    : [];
+
+  if (!shouldShowRecommendedProducts(message, payload)) {
+    return {
+      answer: String(payload?.answer || "").trim(),
+      quickReplies: Array.isArray(payload?.quickReplies) ? payload.quickReplies : [],
+      recommendedProducts: [],
     };
   }
 
@@ -475,10 +580,7 @@ const enhanceAssistantPayload = async (message, payload) => {
     initialProducts.length === 0 ||
     needsRescue ||
     matchingProducts.length < Math.min(2, initialProducts.length);
-  const fallbackProducts =
-    shouldFetchFallback
-      ? await fetchIntentMatchedProducts(message, intent)
-      : [];
+  const fallbackProducts = shouldFetchFallback ? await fetchIntentMatchedProducts(message, intent, budget) : [];
   const finalProducts = mergeProducts(matchingProducts, fallbackProducts).slice(0, 4);
   const shouldOverrideAnswer =
     shouldFetchFallback &&
@@ -488,7 +590,7 @@ const enhanceAssistantPayload = async (message, payload) => {
 
   return {
     answer: shouldOverrideAnswer
-      ? buildRecommendationAnswer(intent, finalProducts)
+      ? buildRecommendationAnswer(intent, finalProducts, budget)
       : String(payload?.answer || "").trim(),
     quickReplies: Array.isArray(payload?.quickReplies) ? payload.quickReplies : [],
     recommendedProducts: finalProducts,
@@ -498,12 +600,8 @@ const enhanceAssistantPayload = async (message, payload) => {
 const defaultAssistantMessage = {
   role: "assistant",
   content:
-    "Xin chào, mình là trợ lý AI của Kim Bảo. Mình có thể tư vấn sản phẩm, mix charm, khắc chữ, thanh toán và theo dõi đơn hàng cho bạn.",
-  quickReplies: [
-    "Vòng tay bạc",
-    "Gợi ý mix charm nhẹ nhàng",
-    "Hướng dẫn chọn size vòng",
-  ],
+    "Xin chào, mình là trợ lý AI của Kim Bảo. Bạn có thể hỏi mình bất cứ điều gì — tìm sản phẩm, so sánh mẫu, tư vấn size, gợi ý mix charm, tra cứu đơn hàng hay hướng dẫn thanh toán — dù đang ở trang nào trên website.",
+  quickReplies: [],
   recommendedProducts: [],
 };
 
@@ -533,20 +631,13 @@ const readStoredMessages = () => {
   }
 };
 
-const summarizePageContext = (routeContext, pageContext) => ({
-  pageType: routeContext?.pageType,
-  route: {
-    pathname: routeContext?.pathname || "",
-    search: routeContext?.search || "",
-  },
-  activePageContext: pageContext || {},
-  activePageType: pageContext?.pageType || routeContext?.pageType,
+const buildRequestContext = () => ({
+  scope: "global",
   ignorePageRestriction: true,
   catalogScope: "global",
 });
 
 export function ChatWidget() {
-  const { routeContext, pageContext } = useChatContext();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(() => readStoredMessages());
   const [input, setInput] = useState("");
@@ -572,15 +663,11 @@ export function ChatWidget() {
     getFullCatalogProducts().catch(() => {});
   }, []);
 
-  const baseRequestContext = useMemo(
-    () => summarizePageContext(routeContext, pageContext),
-    [routeContext, pageContext],
-  );
+  const baseRequestContext = useMemo(() => buildRequestContext(), []);
 
   const sendMessage = async (messageText) => {
     const content = String(messageText || "").trim();
     if (!content || submitting) return;
-    const requestMessage = expandQuickReplyMessage(content);
     const nextUserMessage = { role: "user", content };
     const history = messages.slice(-8).map((item) => ({
       role: item.role,
@@ -594,16 +681,16 @@ export function ChatWidget() {
     setInput("");
 
     try {
-      const catalogContext = await buildCatalogContext(requestMessage);
+      const catalogContext = await buildCatalogContext(content);
       const res = await api.chatbotMessage({
-        message: requestMessage,
+        message: content,
         history,
         context: {
           ...baseRequestContext,
           catalogContext,
         },
       });
-      const data = await enhanceAssistantPayload(requestMessage, res?.data || {});
+      const data = await enhanceAssistantPayload(content, res?.data || {});
       setMessages((prev) => [
         ...prev,
         {
@@ -637,8 +724,6 @@ export function ChatWidget() {
     }
   };
 
-  const latestAssistant = [...messages].reverse().find((item) => item.role === "assistant");
-
   return createPortal(
     <div className="chatbot-root" aria-live="polite">
       {open ? (
@@ -646,7 +731,7 @@ export function ChatWidget() {
           <header className="chatbot-header">
             <div>
               <div className="chatbot-title">Trợ lý AI Kim Bảo</div>
-              <div className="chatbot-subtitle">Tư vấn sản phẩm, mix charm và hỗ trợ mua hàng</div>
+              <div className="chatbot-subtitle">Gợi ý sản phẩm, so sánh, size, mix charm, đơn hàng & thanh toán</div>
             </div>
             <div className="chatbot-headerActions">
               <button type="button" className="chatbot-headerBtn" onClick={clearConversation}>
@@ -691,23 +776,13 @@ export function ChatWidget() {
 
           {error ? <div className="chatbot-error">{error}</div> : null}
 
-          {latestAssistant?.quickReplies?.length ? (
-            <div className="chatbot-quickReplies">
-              {latestAssistant.quickReplies.map((reply) => (
-                <button key={reply} type="button" onClick={() => sendMessage(reply)}>
-                  {reply}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
           <form className="chatbot-form" onSubmit={onSubmit}>
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
               rows={2}
               maxLength={2000}
-              placeholder="Hỏi về sản phẩm, size, mix charm, khắc chữ, đơn hàng..."
+              placeholder="Hỏi về sản phẩm, so sánh, size, mix charm, đơn hàng, thanh toán..."
             />
             <button type="submit" disabled={submitting || !String(input || "").trim()} aria-label="Gửi tin nhắn">
               <IoSend />
