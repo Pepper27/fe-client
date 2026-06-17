@@ -151,6 +151,28 @@
   color: #475569;
 }
 
+.chatbot-quickReplies {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chatbot-quickReply {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: #fff;
+  color: #111827;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.chatbot-quickReply:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .chatbot-recommendations {
   width: 100%;
   display: flex;

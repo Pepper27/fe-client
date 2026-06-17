@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 // import { Swiper, SwiperSlide } from 'swiper/react';
 import "swiper/css";
 import "swiper/css/free-mode";
@@ -247,26 +247,12 @@ export default function ProductDetailPage() {
     return variants.some((v) => Boolean(v?.size || v?.sizeCm || v?.sizeLabel));
   }, [variants, product?.sizes]);
 
-  // Whether admin explicitly configured sizes on the product (preferred source).
-  const productHasExplicitSizes = useMemo(() => {
-    if (!Array.isArray(product?.sizes)) return false;
-    const cleaned = product.sizes
-      .map((s) => String(s || "").trim())
-      .filter((s) => s !== "" && s !== "0");
-    return cleaned.length > 0;
-  }, [product?.sizes]);
-
-  // Only show size selector when admin explicitly provided sizes and product is not a charm.
-  const showSizeSection = productHasExplicitSizes && !isCharmCategory;
-
   // Charms don't use size on PDP
   const isCharmCategory = useMemo(() => {
     const catSlug = String(product?.category?.slug || "").toLowerCase();
     const catName = String(product?.category?.name || "").toLowerCase();
     return catSlug.includes("charm") || catName.includes("charm");
   }, [product?.category?.slug, product?.category?.name]);
-
-  const effectiveHasVariantSizes = hasVariantSizes && !isCharmCategory;
 
   // Whether this product supports engraving (available on product object)
   // Be defensive: backend/older endpoints may expose engraving in different shapes.
@@ -422,19 +408,7 @@ export default function ProductDetailPage() {
     return found.length ? found : [];
   }, [product, variants]);
 
-  // compute total available quantity per size (for disabling / strike-through)
-  const sizeQtyMap = useMemo(() => {
-    const map = {};
-    for (const v of variants) {
-      // Keep key derivation consistent with sizes: only use explicit size fields
-      const s = String(
-        v?.size || v?.sizeCm || v?.sizeLabel || "",
-      ).trim();
-      if (!s) continue;
-      map[s] = (map[s] || 0) + (Number(v?.quantity) || 0);
-    }
-    return map;
-  }, [variants]);
+  const showSizeSection = sizes.length > 0 && !isCharmCategory;
 
   // const colors = useMemo(() => {
   //   const found = [];
@@ -484,35 +458,39 @@ export default function ProductDetailPage() {
   // }, [product, variants, materials]);
 
   const colors = useMemo(() => {
-    if (!selectedMaterial) return [];
-
-    const found = [];
-    // 1. Chỉ lọc những variant có chất liệu trùng với selectedMaterial
     const relevantVariants = variants.filter((v) => {
+      if (!selectedMaterial) return true;
       const variantMat = String(
         v?.material ||
           v?.materialLabel ||
           (Array.isArray(v?.materials) ? v.materials[0] : "") ||
           "",
       );
-      const variantMatId = variantMat
-        .normalize("NFD")
-        .replace(/\p{Diacritic}/gu, "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
-
-      return variantMatId === String(selectedMaterial);
+      return normalizeId(variantMat) === String(selectedMaterial);
     });
 
-    // 2. Lấy danh sách màu từ các variant đã lọc
+    const found = [];
     for (const v of relevantVariants) {
-      const color = v?.color || null;
+      const color =
+        v?.color ||
+        v?.colorLabel ||
+        (Array.isArray(v?.colors) ? v.colors[0] : null) ||
+        null;
       if (color && !found.includes(color)) found.push(color);
     }
 
-    // 3. Mapping màu sắc với bảng màu đầy đủ hơn
-    return found.map((label) => {
+    const explicitProductColors = Array.isArray(product?.colors)
+      ? product.colors
+          .map((c) => {
+            if (typeof c === "string") return c.trim();
+            return String(c?.label || c?.name || c?.value || "").trim();
+          })
+          .filter(Boolean)
+      : [];
+
+    const sourceColors = found.length ? found : explicitProductColors;
+
+    return sourceColors.map((label) => {
       const id = normalizeId(label);
 
       const colorMap = {
@@ -563,59 +541,83 @@ export default function ProductDetailPage() {
 
       return { id, label, color: displayColor };
     });
-  }, [product, variants, selectedMaterial]); // Thêm selectedMaterial vào dependency
-  const disabledSizes = product?.disabledSizes || [];
-  // Track whether we've applied initial defaults for the currently loaded product.
-  const defaultsAppliedRef = useRef(false);
+  }, [product?.colors, variants, selectedMaterial]);
 
-  // Apply initial defaults once when a product loads (or product._id changes).
-  // Avoid depending on selectedSize/selectedColor so we don't create update loops.
+  const sizeQtyMap = useMemo(() => {
+    const map = {};
+    for (const v of variants) {
+      const variantMat = String(
+        v?.material ||
+          v?.materialLabel ||
+          (Array.isArray(v?.materials) ? v.materials[0] : "") ||
+          "",
+      );
+      const variantColor = String(
+        v?.color ||
+          v?.colorLabel ||
+          (Array.isArray(v?.colors) ? v.colors[0] : "") ||
+          "",
+      );
+      const matchesMat = selectedMaterial
+        ? normalizeId(variantMat) === String(selectedMaterial)
+        : true;
+      const matchesColor = selectedColor
+        ? normalizeId(variantColor) === String(selectedColor)
+        : true;
+      if (!matchesMat || !matchesColor) continue;
+
+      const s = String(v?.size || v?.sizeCm || v?.sizeLabel || "").trim();
+      if (!s) continue;
+      map[s] = (map[s] || 0) + (Number(v?.quantity) || 0);
+    }
+    return map;
+  }, [variants, selectedMaterial, selectedColor]);
+
+  const disabledSizes = useMemo(
+    () => (Array.isArray(product?.disabledSizes) ? product.disabledSizes : []),
+    [product?.disabledSizes],
+  );
+
   useEffect(() => {
-    if (!product) {
-      defaultsAppliedRef.current = false;
+    if (!materials.length) {
+      if (selectedMaterial !== null) setSelectedMaterial(null);
+      return;
+    }
+    if (!materials.some((m) => m.id === selectedMaterial)) {
+      setSelectedMaterial(materials[0].id);
+    }
+  }, [materials, selectedMaterial]);
+
+  useEffect(() => {
+    if (!colors.length) {
+      if (selectedColor !== null) setSelectedColor(null);
+      return;
+    }
+    if (!colors.some((c) => c.id === selectedColor)) {
+      setSelectedColor(colors[0].id);
+    }
+  }, [colors, selectedColor]);
+
+  useEffect(() => {
+    if (isCharmCategory || !showSizeSection) {
+      if (selectedSize !== null) setSelectedSize(null);
       return;
     }
 
-    // Only apply once per product load
-    if (defaultsAppliedRef.current) return;
+    const enabledSizes = sizes.filter((size) => {
+      const qty = sizeQtyMap[String(size)] || 0;
+      return qty > 0 && !disabledSizes.includes(String(size));
+    });
 
-    // default material
-    if (!selectedMaterial && materials.length) setSelectedMaterial(materials[0].id);
-
-    // Auto-select a size only when admin explicitly configured sizes for this product.
-    if (productHasExplicitSizes && sizes.length) setSelectedSize(String(sizes[0]));
-
-    // If the product is a charm category, ensure no size is selected
-    if (isCharmCategory) setSelectedSize(null);
-
-    // derive default color id from variants for the selected material (or first variant)
-    if (!selectedColor) {
-      const relevant = variants.filter((v) => {
-        if (!selectedMaterial) return true;
-        const vm = String(
-          v?.material ||
-            v?.materialLabel ||
-            (Array.isArray(v?.materials) ? v.materials[0] : "") ||
-            "",
-        );
-        return normalizeId(vm) === String(selectedMaterial);
-      });
-      const availableIds = relevant
-        .map((v) =>
-          normalizeId(
-            v?.color ||
-              v?.colorLabel ||
-              (Array.isArray(v?.colors) ? v.colors[0] : "") ||
-              "",
-          ),
-        )
-        .filter(Boolean);
-      if (availableIds.length) setSelectedColor(availableIds[0]);
+    if (enabledSizes.includes(String(selectedSize))) return;
+    if (enabledSizes.length) {
+      setSelectedSize(String(enabledSizes[0]));
+      return;
     }
-
-    // Mark defaults applied so we don't re-run this for the same product.
-    defaultsAppliedRef.current = true;
-  }, [product?._id, materials.length, variants.length, sizes.length, effectiveHasVariantSizes, isCharmCategory, canEngrave, selectedMaterial, selectedColor]);
+    if (!sizes.includes(String(selectedSize))) {
+      setSelectedSize(String(sizes[0]));
+    }
+  }, [isCharmCategory, showSizeSection, sizes, sizeQtyMap, disabledSizes, selectedSize]);
 
   // NOTE: Do not clear selectedSize when canEngrave changes — keep default selection
   // consistent across products so behavior matches non-engraving items.
@@ -719,7 +721,7 @@ export default function ProductDetailPage() {
     }
 
     return variants[0];
-  }, [variants, selectedMaterial, selectedSize, selectedColor, colors]);
+  }, [variants, selectedMaterial, selectedSize, selectedColor, colors, hasVariantSizes]);
 
   // remove debug logging after QA
 
@@ -1572,7 +1574,7 @@ export default function ProductDetailPage() {
           {/* MATERIALS */}
           <div className="option-section">
             <h3 className="option-label">
-              {!canEngrave && colors.length > 0
+              {colors.length > 0
                 ? `Chất liệu: ${materials.find((m) => m.id === selectedMaterial)?.label || (materials[0] && materials[0].label) || ""} - Màu: ${colors.find((c) => c.id === selectedColor)?.label || (colors[0] && colors[0].label) || ""}`
                 : `Chất liệu: ${materials.find((m) => m.id === selectedMaterial)?.label || (materials[0] && materials[0].label) || ""}`}
             </h3>
@@ -1590,7 +1592,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* COLORS - Only show if colors exist */}
-          {!canEngrave && colors.length > 0 && (
+          {colors.length > 0 && (
             <div className="option-section">
               <h3 className="option-label">Màu sắc</h3>
               <div className="color-list">
@@ -1607,7 +1609,7 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          {/* CHỌN SIZE - only show when admin provided explicit sizes */}
+          {/* CHỌN SIZE */}
           {showSizeSection && (
             <div className="option-section">
               <h2 className="option-label">Chọn kích thước</h2>
