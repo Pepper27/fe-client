@@ -1572,7 +1572,7 @@ export default function DesignBuilder() {
   return (
     <div className="container mixcharm-page">
       <div className="mixcharm-titleRow">
-        {/* <h1 className="mixcharm-title">Mix Charm</h1> */}
+        <h1 className="mixcharm-title">Mix Charm</h1>
         <button
           type="button"
           className="mixcharm-btn"
@@ -1582,13 +1582,13 @@ export default function DesignBuilder() {
         </button>
       </div>
       <div className="mixcharm-actions">
-        <button
+        {/* <button
           type="button"
           onClick={toggleTryOnMode}
           className="mixcharm-btn"
         >
           {isTryOn ? "Tắt Try-on" : "Bật Try-on"}
-        </button>
+        </button> */}
         {isTryOn ? (
           <>
             <input

@@ -71,40 +71,39 @@ export const ProductCard = ({ id, slug, name, price, images, isSquare, canEngrav
       }}
     >
       <div className={`product-item-container ${isSquare ? 'is-square' : ''}`}>
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            // Try server wishlist (cookie auth) and fallback to local.
-            toggleWishlistItemApi(productPayload)
-              .then((nextLiked) => setLiked(!!nextLiked))
-              .catch(() => {
-                const nextLiked = toggleWishlistItem(productPayload);
-                setLiked(nextLiked);
-              });
-          }}
-          className={`like-button ${liked ? "liked" : "unliked"}`}
-          aria-pressed={liked}
-          aria-label={liked ? "Bỏ thích sản phẩm" : "Thêm vào wishlist"}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="heart-icon"
-            role="img"
-            aria-hidden="true"
-            fill={liked ? "currentColor" : "none"}
-            stroke={liked ? "none" : "currentColor"}
-            strokeWidth="2"
-          >
-            <title>
-              {liked ? "Đã thêm vào wishlist" : "Thêm vào wishlist"}
-            </title>
-            <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
-          </svg>
-        </button>
-
         {/* IMAGE */}
         <div className="image-wrapper">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Try server wishlist (cookie auth) and fallback to local.
+              toggleWishlistItemApi(productPayload)
+                .then((nextLiked) => setLiked(!!nextLiked))
+                .catch(() => {
+                  const nextLiked = toggleWishlistItem(productPayload);
+                  setLiked(nextLiked);
+                });
+            }}
+            className={`like-button ${liked ? "liked" : "unliked"}`}
+            aria-pressed={liked}
+            aria-label={liked ? "Bỏ thích sản phẩm" : "Thêm vào wishlist"}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="heart-icon"
+              role="img"
+              aria-hidden="true"
+              fill={liked ? "currentColor" : "none"}
+              stroke={liked ? "none" : "currentColor"}
+              strokeWidth="2"
+            >
+              <title>
+                {liked ? "Đã thêm vào wishlist" : "Thêm vào wishlist"}
+              </title>
+              <path d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364 4.318 12.682a4.5 4.5 0 010-6.364z" />
+            </svg>
+          </button>
           {imageSrc ? <img src={imageSrc} alt={name} className="product-image" /> : null}
         </div>
 

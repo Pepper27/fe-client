@@ -3,10 +3,8 @@
   inset: 0;
   z-index: 100000; /* bring above header */
   display: grid;
-  /* place at top center with a gap so it won't be under header */
-  place-items: start center;
-  padding-top: 144px; /* clear sticky header stack */
-  padding-bottom: 24px;
+  place-items: center;
+  padding: 24px;
 }
 
 .engrave-backdrop {
@@ -18,12 +16,11 @@
 .engrave-sheet {
   position: relative;
   width: min(760px, 100%);
-  max-height: calc(100vh - 168px);
+  max-height: calc(100vh - 48px);
   background: #fff;
-  border-radius: 16px 16px 0 0;
+  border-radius: 16px;
   overflow: visible; /* allow vertical slider to render outside */
-  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.25);
-  margin-top: 4px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
 }
 
 .engrave-preview {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { RiSparkling2Line } from "react-icons/ri";
+import { RiCustomerService2Line } from "react-icons/ri";
 import { IoCloseOutline, IoSend } from "react-icons/io5";
 import { api, getApiBase, hasClientToken } from "../utils/api";
 import { useChatContext } from "./ChatContext";
@@ -326,8 +326,8 @@ export function ChatWidget() {
         className="chatbot-launcher"
         onClick={() => setOpen((prev) => !prev)}
       >
-        <RiSparkling2Line />
-        <span>Hỏi AI Kim Bảo</span>
+        <RiCustomerService2Line />
+        {/* <span>Hỏi AI Kim Bảo</span> */}
       </button>
     </div>,
     document.body,

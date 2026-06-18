@@ -127,8 +127,8 @@ export const Home = () => {
         >
           {products.map((item) => {
             const firstVariant = (item?.variants || [])[0] || null;
-            const image = (firstVariant?.images || [])[0] || "";
-            const price = firstVariant?.price ?? 0;
+            const image = item?.thumbnail || firstVariant?.images || "";
+            const price = item?.priceMin ?? firstVariant?.price ?? 0;
             return (
               <SwiperSlide key={item._id}>
                 <ProductCard

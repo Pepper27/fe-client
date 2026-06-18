@@ -382,14 +382,16 @@
   margin-bottom: 12px;
   font-size: 14px;
   color: $color-text-light;
-  display: flex;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 10px;
+  align-items: start;
 }
 
 .label {
   font-weight: 500;
   color: $color-text;
-  min-width: 120px;
+  min-width: 0;
 }
 
 .breadcrumb-wrapper {
