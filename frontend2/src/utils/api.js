@@ -268,7 +268,13 @@ export const api = {
       body: JSON.stringify({ bracelet, items }),
     }),
   // Add a non-bundle product to cart (legacy products[])
-  addProductToCart: ({ productId, variantId, quantity, buyNow, engraving } = {}) =>
+  addProductToCart: ({
+    productId,
+    variantId,
+    quantity,
+    buyNow,
+    engraving,
+  } = {}) =>
     request(`/api/public/cart/products`, {
       method: "POST",
       body: JSON.stringify({
@@ -348,11 +354,41 @@ export const api = {
     request(
       `/api/public/orders/${encodeURIComponent(String(orderCode || "").trim())}`,
     ),
+  requestOrderReturn: (orderCode, { reason, images = [], email, phone } = {}) =>
+    request(
+      `/api/public/orders/${encodeURIComponent(String(orderCode || "").trim())}/return-request`,
+      {
+        method: "POST",
+        body: JSON.stringify({ reason, images, email, phone }),
+      },
+    ),
   emailOrders: ({ email }) =>
     request(`/api/public/orders/email`, {
       method: "POST",
       body: JSON.stringify({ email }),
     }),
+  uploadImageDataUrl: async (dataUrl) => {
+    const res = await fetch(`${getApiBase()}/api/public/engraving/upload`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dataUrl }),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!res.ok) {
+      const err = new Error((data && data.message) || `HTTP ${res.status}`);
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  },
 
   // Client auth (cookie-based)
   authRegister: ({ fullName, email, password, phone }) =>
@@ -485,6 +521,17 @@ export const api = {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: JSON.stringify({ reason }),
+      },
+    );
+  },
+  v1ClientRequestOrderReturn: (orderCode, { reason, images = [] } = {}) => {
+    const token = readClientToken();
+    return request(
+      `${V1_CLIENT}/orders/${encodeURIComponent(String(orderCode || "").trim())}/return-request`,
+      {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: JSON.stringify({ reason, images }),
       },
     );
   },
