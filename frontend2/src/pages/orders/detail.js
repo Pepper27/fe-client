@@ -11,7 +11,8 @@ import { useChatPageContext } from "../../chatbot/ChatContext";
 const RETURN_STATUS_LABELS = {
   none: "Chưa có yêu cầu hoàn hàng",
   requested: "Yêu cầu hoàn hàng đang chờ duyệt",
-  approved: "Yêu cầu hoàn hàng đã được duyệt",
+  approved: "Yêu cầu hoàn hàng đã được duyệt, đang chờ shop nhận lại hàng",
+  completed: "Hoàn hàng đã hoàn tất thành công",
   rejected: "Yêu cầu hoàn hàng đã bị từ chối",
 };
 
